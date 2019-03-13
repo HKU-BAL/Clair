@@ -7,10 +7,12 @@ import logging
 import numpy as np
 from threading import Thread
 from math import log, e
-from enum import Enum
+from enum import IntEnum
+from collections import namedtuple
 
 import utils
 import clair as cv
+from utils import BaseChangeIndex, base_change_label_from, GenotypeIndex, genotype_string_from
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))
@@ -19,163 +21,246 @@ v1Type2Name = dict(zip((0, 1, 2, 3, 4), ('HET', 'HOM', 'INS', 'DEL', 'REF')))
 v2Zygosity2Name = dict(zip((0, 1), ('HET', 'HOM')))
 v2Type2Name = dict(zip((0, 1, 2, 3), ('REF', 'SNP', 'INS', 'DEL')))
 v2Length2Name = dict(zip((0, 1, 2, 3, 4, 5), ('0', '1', '2', '3', '4', '4+')))
-maximum_variant_length = 5
+maximum_variant_length = param.flankingBaseNum  # 5
 inferred_indel_length_minimum_allele_frequency = 0.125
 
+Predictions = namedtuple('Predictions', ['base_change_index', 'genotype_index', 'variant_lengths'])
 
-class CountIndex(Enum):
+
+class Channel(IntEnum):
     reference = 0
     insert = 1
     delete = 2
-    snp = 3
+    SNP = 3
 
 
-class GenoTypeIndex(Enum):
-    homo_reference = 0  # 0/0
-    homo_variant = 1    # 1/1
-    hetero_variant = 2  # 0/1 OR 1/2
-
-def geno_type_string_from(geno_type_index):
-    if geno_type_index == GenoTypeIndex.homo_reference:
-        return "0/0"
-    elif geno_type_index == GenoTypeIndex.homo_variant:
-        return "1/1"
-    elif geno_type_index == GenoTypeIndex.hetero_variant:
-        return "0/1"
-    return ""
+def is_reference_from(prediction):
+    is_genotype_match = prediction.genotype_index == GenotypeIndex.homo_reference
+    return is_genotype_match
 
 
-class BaseChangeIndex(Enum):
-    AA = 0
-    AC = 1
-    AG = 2
-    AT = 3
-    CC = 4
-    CG = 5
-    CT = 6
-    GG = 7
-    GT = 8
-    TT = 9
-    DelDel = 10
-    ADel = 11
-    CDel = 12
-    GDel = 13
-    TDel = 14
-    InsIns = 15
-    AIns = 16
-    CIns = 17
-    GIns = 18
-    TIns = 19
-    InsDel = 20
+def is_homo_SNP_from(prediction):
+    is_genotype_match = prediction.genotype_index == GenotypeIndex.homo_variant
+    is_base_change_match = (
+        prediction.base_change_index == BaseChangeIndex.AA or
+        prediction.base_change_index == BaseChangeIndex.CC or
+        prediction.base_change_index == BaseChangeIndex.GG or
+        prediction.base_change_index == BaseChangeIndex.TT
+    )
+    is_variant_length_match = prediction.variant_lengths[0] == 0 and prediction.variant_lengths[1] == 0
+    votes = (
+        (1 if is_base_change_match else 0) +
+        (1 if is_genotype_match else 0) +
+        (1 if is_variant_length_match else 0)
+    )
+    return votes >= 2
 
 
-def is_reference_from(base_change_index, geno_type_index):
-    return (
-        geno_type_index == GenoTypeIndex.homo_reference and
-        (
-            base_change_index == BaseChangeIndex.AA or
-            base_change_index == BaseChangeIndex.CC or
-            base_change_index == BaseChangeIndex.GG or
-            base_change_index == BaseChangeIndex.TT
-        )
+def is_hetero_SNP_from(prediction):
+    is_genotype_match = (
+        prediction.genotype_index == GenotypeIndex.hetero_variant or
+        prediction.genotype_index == GenotypeIndex.hetero_variant_multi
+    )
+    is_base_change_match = (
+        prediction.base_change_index == BaseChangeIndex.AC or
+        prediction.base_change_index == BaseChangeIndex.AG or
+        prediction.base_change_index == BaseChangeIndex.AT or
+        prediction.base_change_index == BaseChangeIndex.CG or
+        prediction.base_change_index == BaseChangeIndex.CT or
+        prediction.base_change_index == BaseChangeIndex.GT
+    )
+    is_variant_length_match = prediction.variant_lengths[0] == 0 and prediction.variant_lengths[1] == 0
+    votes = (
+        (1 if is_genotype_match else 0) +
+        (1 if is_base_change_match else 0) +
+        (1 if is_variant_length_match else 0)
+    )
+    return votes >= 2
+
+
+def is_homo_insertion_from(prediction):
+    is_genotype_match = prediction.genotype_index == GenotypeIndex.homo_variant
+    is_base_change_match = prediction.base_change_index == BaseChangeIndex.InsIns
+    is_variant_length_match = (
+        prediction.variant_lengths[0] > 0 and
+        prediction.variant_lengths[1] > 0 and
+        prediction.variant_lengths[0] == prediction.variant_lengths[1]
+    )
+    votes = (
+        (1 if is_genotype_match else 0) +
+        (1 if is_base_change_match else 0) +
+        (1 if is_variant_length_match else 0)
+    )
+    return votes >= 3
+
+
+def is_hetero_insertion_from(prediction):
+    is_genotype_match = (
+        prediction.genotype_index == GenotypeIndex.hetero_variant or
+        prediction.genotype_index == GenotypeIndex.hetero_variant_multi
+    )
+    is_base_change_match = (
+        prediction.base_change_index == BaseChangeIndex.InsIns or
+        prediction.base_change_index == BaseChangeIndex.AIns or
+        prediction.base_change_index == BaseChangeIndex.CIns or
+        prediction.base_change_index == BaseChangeIndex.GIns or
+        prediction.base_change_index == BaseChangeIndex.TIns
+    )
+    is_variant_length_match = prediction.variant_lengths[0] >= 0 and prediction.variant_lengths[1] > 0
+    votes = (
+        (1 if is_genotype_match else 0) +
+        (1 if is_base_change_match else 0) +
+        (1 if is_variant_length_match else 0)
+    )
+    return votes >= 3
+
+
+def is_homo_deletion_from(prediction):
+    is_genotype_match = prediction.genotype_index == GenotypeIndex.homo_variant
+    is_base_change_match = prediction.base_change_index == BaseChangeIndex.DelDel
+    is_variant_length_match = (
+        prediction.variant_lengths[0] < 0 and
+        prediction.variant_lengths[1] < 0 and
+        prediction.variant_lengths[0] == prediction.variant_lengths[1]
+    )
+    votes = (
+        (1 if is_genotype_match else 0) +
+        (1 if is_base_change_match else 0) +
+        (1 if is_variant_length_match else 0)
+    )
+    return votes >= 3
+
+
+def is_hetero_deletion_from(prediction):
+    is_genotype_match = (
+        prediction.genotype_index == GenotypeIndex.hetero_variant or
+        prediction.genotype_index == GenotypeIndex.hetero_variant_multi
+    )
+    is_base_change_match = (
+        prediction.base_change_index == BaseChangeIndex.DelDel or
+        prediction.base_change_index == BaseChangeIndex.ADel or
+        prediction.base_change_index == BaseChangeIndex.CDel or
+        prediction.base_change_index == BaseChangeIndex.GDel or
+        prediction.base_change_index == BaseChangeIndex.TDel
+    )
+    is_variant_length_match = prediction.variant_lengths[0] < 0 and prediction.variant_lengths[1] <= 0
+    votes = (
+        (1 if is_genotype_match else 0) +
+        (1 if is_base_change_match else 0) +
+        (1 if is_variant_length_match else 0)
+    )
+    return votes >= 3
+
+
+def is_insertion_and_deletion_from(prediction):
+    is_genotype_match = (
+        prediction.genotype_index == GenotypeIndex.hetero_variant or
+        prediction.genotype_index == GenotypeIndex.hetero_variant_multi
+    )
+    is_base_change_match = prediction.base_change_index == BaseChangeIndex.InsDel
+    is_variant_length_match = prediction.variant_lengths[0] < 0 and prediction.variant_lengths[1] > 0
+    votes = (
+        (1 if is_genotype_match else 0) +
+        (1 if is_base_change_match else 0) +
+        (1 if is_variant_length_match else 0)
+    )
+    return votes >= 3
+
+
+def homo_SNP_bases_from(base_change_probabilities):
+    output_bases_probabilities = np.array([
+        base_change_probabilities[BaseChangeIndex.AA],
+        base_change_probabilities[BaseChangeIndex.CC],
+        base_change_probabilities[BaseChangeIndex.GG],
+        base_change_probabilities[BaseChangeIndex.TT],
+    ])
+    output_bases = [
+        base_change_label_from(BaseChangeIndex.AA),
+        base_change_label_from(BaseChangeIndex.CC),
+        base_change_label_from(BaseChangeIndex.GG),
+        base_change_label_from(BaseChangeIndex.TT)
+    ][np.argmax(output_bases_probabilities)]
+    return output_bases[0], output_bases[1]
+
+
+def hetero_SNP_bases_from(base_change_probabilities):
+    output_bases_probabilities = np.array([
+        base_change_probabilities[BaseChangeIndex.AC],
+        base_change_probabilities[BaseChangeIndex.AG],
+        base_change_probabilities[BaseChangeIndex.AT],
+        base_change_probabilities[BaseChangeIndex.CG],
+        base_change_probabilities[BaseChangeIndex.CT],
+        base_change_probabilities[BaseChangeIndex.GT]
+    ])
+    output_bases = [
+        base_change_label_from(BaseChangeIndex.AC),
+        base_change_label_from(BaseChangeIndex.AG),
+        base_change_label_from(BaseChangeIndex.AT),
+        base_change_label_from(BaseChangeIndex.CG),
+        base_change_label_from(BaseChangeIndex.CT),
+        base_change_label_from(BaseChangeIndex.GT)
+    ][np.argmax(output_bases_probabilities)]
+    return output_bases[0], output_bases[1]
+
+
+def hetero_insert_base_from(base_change_probabilities):
+    output_bases_probabilities = np.array([
+        base_change_probabilities[BaseChangeIndex.AIns],
+        base_change_probabilities[BaseChangeIndex.CIns],
+        base_change_probabilities[BaseChangeIndex.GIns],
+        base_change_probabilities[BaseChangeIndex.TIns]
+    ])
+    output_bases = [
+        base_change_label_from(BaseChangeIndex.AIns),
+        base_change_label_from(BaseChangeIndex.CIns),
+        base_change_label_from(BaseChangeIndex.GIns),
+        base_change_label_from(BaseChangeIndex.TIns)
+    ][np.argmax(output_bases_probabilities)]
+    return output_bases[0]
+
+
+def hetero_delete_base_from(base_change_probabilities):
+    output_bases_probabilities = np.array([
+        base_change_probabilities[BaseChangeIndex.ADel],
+        base_change_probabilities[BaseChangeIndex.CDel],
+        base_change_probabilities[BaseChangeIndex.GDel],
+        base_change_probabilities[BaseChangeIndex.TDel]
+    ])
+    output_bases = [
+        base_change_label_from(BaseChangeIndex.ADel),
+        base_change_label_from(BaseChangeIndex.CDel),
+        base_change_label_from(BaseChangeIndex.GDel),
+        base_change_label_from(BaseChangeIndex.TDel)
+    ][np.argmax(output_bases_probabilities)]
+    return output_bases[0]
+
+
+def quality_score_from(base_change_probabilities, genotype_probabilities):
+    sorted_base_change_probabilities = np.sort(base_change_probabilities)[::-1]
+    sorted_genotype_probabilities = np.sort(genotype_probabilities)[::-1]
+    return min(
+        int(
+            (-10 * log(e, 10)) * log(
+                (
+                    sorted_base_change_probabilities[1] ** 1.0 *
+                    sorted_genotype_probabilities[1] ** 1.0 + 1e-300
+                ) /
+                (
+                    sorted_base_change_probabilities[0] *
+                    sorted_genotype_probabilities[0] + 1e-300
+                )
+            )
+        ),
+        999
     )
 
 
-def is_SNP_from(base_change_index, geno_type_index):
-    return (
-        (
-            geno_type_index == GenoTypeIndex.homo_variant and
-            (
-                base_change_index == BaseChangeIndex.AA or
-                base_change_index == BaseChangeIndex.CC or
-                base_change_index == BaseChangeIndex.GG or
-                base_change_index == BaseChangeIndex.TT
-            )
-        ) or
-        (
-            geno_type_index == GenoTypeIndex.hetero_variant and
-            (
-                base_change_index == BaseChangeIndex.AC or
-                base_change_index == BaseChangeIndex.AG or
-                base_change_index == BaseChangeIndex.AT or
-                base_change_index == BaseChangeIndex.CG or
-                base_change_index == BaseChangeIndex.CT or
-                base_change_index == BaseChangeIndex.GT
-            )
-        )
-    )
-
-
-def is_indel_insertion_from(base_change_index, geno_type_index):
-    return (
-        (
-            geno_type_index == GenoTypeIndex.homo_variant and
-            base_change_index == BaseChangeIndex.InsIns
-        ) or
-        (
-            geno_type_index == GenoTypeIndex.hetero_variant and
-            (
-                base_change_index == BaseChangeIndex.InsIns or
-                base_change_index == BaseChangeIndex.AIns or
-                base_change_index == BaseChangeIndex.CIns or
-                base_change_index == BaseChangeIndex.GIns or
-                base_change_index == BaseChangeIndex.TIns
-            )
-        )
-    )
-
-
-def is_indel_deletion_from(base_change_index, geno_type_index):
-    return (
-        (
-            geno_type_index == GenoTypeIndex.homo_variant and
-            base_change_index == BaseChangeIndex.DelDel
-        ) or
-        (
-            geno_type_index == GenoTypeIndex.hetero_variant and
-            (
-                base_change_index == BaseChangeIndex.DelDel or
-                base_change_index == BaseChangeIndex.ADel or
-                base_change_index == BaseChangeIndex.CDel or
-                base_change_index == BaseChangeIndex.GDel or
-                base_change_index == BaseChangeIndex.TDel
-            )
-        )
-    )
-
-
-def base_change_label_from(base_change_index):
-    return [
-        'AA',
-        'AC',
-        'AG',
-        'AT',
-        'CC',
-        'CG',
-        'CT',
-        'GG',
-        'GT',
-        'TT',
-        'DelDel',
-        'ADel',
-        'CDel',
-        'GDel',
-        'TDel',
-        'InsIns',
-        'AIns',
-        'CIns',
-        'GIns',
-        'TIns',
-        'InsDel'
-    ][base_change_index]
-
-def reference_or_snp_bases_from(base_change_index):
-    try :
-        base_change_label = base_change_label_from(base_change_index)
-        return base_change_label[0], base_change_label[1]
-    except:
-        return "", ""
-
+def filtration_value_from(quality_score_for_pass, quality_score):
+    if quality_score_for_pass is None:
+        return "."
+    if quality_score >= quality_score_for_pass:
+        return "PASS"
+    return "LowQual"
 
 
 def Run(args):
@@ -213,8 +298,8 @@ def Output(
     X,
     posBatch,
     base_change_probabilities,
-    geno_type_probabilities,
-    variant_length_float
+    genotype_probabilities,
+    variant_length_list,
 ):
     if len(base_change_probabilities) != batch_size:
         sys.exit(
@@ -228,181 +313,277 @@ def Output(
     no_of_rows = len(base_change_probabilities)
 
     for row_index in range(no_of_rows):
-        base_change_index = np.argmax(base_change_probabilities[row_index])
-        geno_type_index = np.argmax(geno_type_probabilities[row_index])
+        prediction = Predictions(
+            base_change_index=np.argmax(base_change_probabilities[row_index]),
+            genotype_index=np.argmax(genotype_probabilities[row_index]),
+            variant_lengths=[int(round(variant_length_list[0])), int(round(variant_length_list[1]))].sort()
+        )
 
-        is_reference = is_reference_from(base_change_index, geno_type_index)
-        is_SNP = is_SNP_from(base_change_index, geno_type_index)
-        is_indel_insertion = is_indel_insertion_from(base_change_index, geno_type_index)
-        is_indel_deletion = is_indel_deletion_from(base_change_index, geno_type_index)
-
-        # show reference / not show reference handling
+        is_reference = is_reference_from(prediction)
         if not is_show_reference and is_reference:
             continue
 
-        # Get Indel Length
-        variant_length = int(variant_length_float)
+        is_homo_SNP = is_homo_SNP_from(prediction)
+        is_hetero_SNP = is_hetero_SNP_from(prediction)
+        is_homo_insertion = is_homo_insertion_from(prediction)
+        is_hetero_insertion = is_hetero_insertion_from(prediction)
+        is_homo_deletion = is_homo_deletion_from(prediction)
+        is_hetero_deletion = is_hetero_deletion_from(prediction)
+        is_insertion_and_deletion = is_insertion_and_deletion_from(prediction)
 
-        # get chromosome, position and
-        # reference bases with flanking "flanking_base_number" flanking bases at position
+        is_SNP = is_homo_SNP or is_hetero_SNP
+        is_insertion = is_homo_insertion or is_hetero_insertion
+        is_deletion = is_homo_deletion or is_hetero_deletion
+
+        # get chromosome, position and reference bases
+        # with flanking "flanking_base_number" flanking bases at position
         chromosome, position, reference_sequence = posBatch[row_index].split(":")
         position = int(position)
 
-        # Get genotype quality
-        sorted_base_change_probabilities = np.sort(base_change_probabilities)[::-1]
-        sorted_geno_type_probabilities = np.sort(geno_type_probabilities)[::-1]
-        quality_score = int(
-            (-10 * log(e, 10)) * log(
-                (
-                    sorted_base_change_probabilities[1] ** 1.0 *
-                    sorted_geno_type_probabilities[1] ** 1.0 + 1e-300
-                ) /
-                (
-                    sorted_base_change_probabilities[0] *
-                    sorted_geno_type_probabilities[0] + 1e-300
-                )
-            )
-        )
-        if quality_score > 999:
-            quality_score = 999
+        # quality score
+        quality_score = quality_score_from(base_change_probabilities, genotype_probabilities)
 
         # filtration value
-        filtration_value = "."
-        if args.qual != None:
-            if quality_score >= args.qual:
-                filtration_value = "PASS"
-            else:
-                filtration_value = "LowQual"
+        filtration_value = filtration_value_from(quality_score_for_pass=args.qual, quality_score=quality_score)
 
         # Initialize other variables
-        reference_base = ""
-        alternate_base = ""
         inferred_indel_length = 0
-        read_depth = 0
-        allele_frequency = 0.
         info = []
 
+        # read depth
+        read_depth = 0
         if is_SNP or is_reference:
             read_depth = sum(
-                X[row_index, position_center, :, CountIndex.reference] +
-                X[row_index, position_center, :, CountIndex.snp]
+                X[row_index, position_center, :, Channel.reference] +
+                X[row_index, position_center, :, Channel.SNP]
             )
-        elif is_indel_insertion:
+        elif is_insertion:
             read_depth = sum(
-                X[row_index, position_center+1, :, CountIndex.reference] +
-                X[row_index, position_center+1, :, CountIndex.insert]
+                X[row_index, position_center+1, :, Channel.reference] +
+                X[row_index, position_center+1, :, Channel.insert]
             )
-        elif is_indel_deletion:
+        elif is_deletion:
             read_depth = sum(
-                X[row_index, position_center+1, :, CountIndex.reference] +
-                X[row_index, position_center+1, :, CountIndex.delete]
+                X[row_index, position_center+1, :, Channel.reference] +
+                X[row_index, position_center+1, :, Channel.delete]
             )
-        else:
-            # TODO:
-            # handle collision cases:
-            # - is homo-reference genotype but base_change doesn't reflect that or vice versa
-            # - is homo-variant (SNP) or hetero-variant (SNP) but base_change doesn't reflect that or vice versa
-            # - insertion only but base_change doesn't reflect that or vice versa
-            # - deletion only but base_change doesn't reflect that or vice versa
-            # - mixture of insertion and deletion
-            pass
-
         if read_depth == 0:
             continue
 
-        if is_SNP or is_reference:
-            base1, base2 = reference_or_snp_bases_from(base_change_index)
-            reference_base = reference_sequence[flanking_base_number]
+        # geno type string, would changed to 1/2 later if is multi
+        if is_reference:
+            genotype_string = genotype_string_from(GenotypeIndex.homo_reference)
+        elif is_homo_SNP or is_homo_insertion or is_homo_deletion:
+            genotype_string = genotype_string_from(GenotypeIndex.homo_variant)
+        elif is_hetero_SNP or is_hetero_deletion or is_hetero_insertion or is_insertion_and_deletion:
+            genotype_string = genotype_string_from(GenotypeIndex.hetero_variant)
+
+        # reference base and alternate base
+        reference_base = ""
+        alternate_base = ""
+        if is_reference:
+            reference_base = reference_sequence[position_center]
+            alternate_base = reference_base
+
+        elif is_homo_SNP:
+            base1, base2 = homo_SNP_bases_from(base_change_probabilities)
+            reference_base = reference_sequence[position_center]
             alternate_base = reference_base if is_reference else (base1 if base1 != reference_base else base2)
 
-            if read_depth != 0:
-                allele_frequency = (
-                    X[row_index, position_center, base2num[alternate_base], CountIndex.snp] +
-                    X[row_index, position_center, base2num[alternate_base]+4, CountIndex.snp]
-                ) / read_depth
+        elif is_hetero_SNP:
+            base1, base2 = hetero_SNP_bases_from(base_change_probabilities)
+            reference_base = reference_sequence[position_center]
+            is_multi = base1 != reference_base and base2 != reference_base
+            if is_multi:
+                alternate_base = "{},{}".format(base1, base2)
+                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+            else:
+                alternate_base = reference_base if is_reference else (base1 if base1 != reference_base else base2)
 
-        elif is_indel_insertion:
-            if variant_length == 0:
+        elif is_insertion:
+            if is_homo_insertion:
+                variant_length_1 = 1 if prediction.variant_lengths[0] <= 0 else prediction.variant_lengths[0]
+                variant_length_2 = 1 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1]
+                variant_length = min(variant_length_1, variant_length_2)
+            elif is_hetero_insertion:
+                variant_length_1 = 0 if prediction.variant_lengths[0] <= 0 else prediction.variant_lengths[0]
+                variant_length_2 = 0 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1]
+                variant_length = max(variant_length_1, variant_length_2)
+
+            if is_hetero_insertion and variant_length <= 0:
                 continue
 
-            if read_depth != 0:
-                allele_frequency = sum(X[row_index, position_center+1, :, CountIndex.insert]) / read_depth
+            if variant_length_2 < variant_length_1:
+                variant_length_1, variant_length_2 = variant_length_2, variant_length_1
 
-            if variant_length != maximum_variant_length:
-                for k in range(flanking_base_number + 1, flanking_base_number + variant_length + 1):
-                    alternate_base += num2base[np.argmax(X[row_index, k, :, CountIndex.insert]) % 4]
-            else:
-                for k in range(flanking_base_number + 1, 2*flanking_base_number + 1):
-                    referenceTensor = X[row_index, k, :, CountIndex.reference]
-                    insertionTensor = X[row_index, k, :, CountIndex.insert]
-                    if (
-                        k < (flanking_base_number + maximum_variant_length) or
-                        sum(insertionTensor) >= (inferred_indel_length_minimum_allele_frequency * sum(referenceTensor))
-                    ):
-                        inferred_indel_length += 1
-                        alternate_base += num2base[np.argmax(insertionTensor) % 4]
-                    else:
-                        break
             reference_base = reference_sequence[position_center]
 
-            # insertions longer than (flanking_base_number-1) are marked SV
-            if inferred_indel_length >= flanking_base_number:
+            is_inferred_variant_length = variant_length >= maximum_variant_length
+            if is_inferred_variant_length:
+                for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+                    reference_tensor = X[row_index, k, :, Channel.reference]
+                    insertion_tensor = X[row_index, k, :, Channel.insert]
+                    if (
+                        k < (flanking_base_number + maximum_variant_length) or
+                        sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
+                    ):
+                        inferred_indel_length += 1
+                        alternate_base += num2base[np.argmax(insertion_tensor) % 4]
+                    else:
+                        break
+            else:
+                for k in range(flanking_base_number + 1, flanking_base_number + variant_length + 1):
+                    alternate_base += num2base[np.argmax(X[row_index, k, :, Channel.insert]) % 4]
+
+            is_marked_as_SV = is_inferred_variant_length and inferred_indel_length >= flanking_base_number
+            hetero_insert_base = hetero_insert_base_from(base_change_probabilities)
+            is_SNP_Ins_multi = (
+                not is_marked_as_SV and
+                is_hetero_insertion and
+                (
+                    prediction.base_change_index == BaseChangeIndex.AIns or
+                    prediction.base_change_index == BaseChangeIndex.CIns or
+                    prediction.base_change_index == BaseChangeIndex.GIns or
+                    prediction.base_change_index == BaseChangeIndex.TIns
+                ) and
+                hetero_insert_base != reference_base
+            )
+            is_Ins_Ins_multi = (
+                not is_marked_as_SV and
+                is_hetero_insertion and
+                prediction.base_change_index == BaseChangeIndex.InsIns and
+                variant_length_1 > 0 and variant_length_2 > 0 and
+                variant_length_1 != variant_length_2
+            )
+
+            if is_Ins_Ins_multi or is_SNP_Ins_multi:
+                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+
+            if is_marked_as_SV:
                 alternate_base = "<INS>"
                 info.append("SVTYPE=INS")
+            elif is_SNP_Ins_multi:
+                alternate_base = "{},{}".format(hetero_insert_base, reference_base + alternate_base)
+            elif is_Ins_Ins_multi:
+                # TODO: need to handle variant length on alternate base is smaller than
+                #       variant_length_1 / variant_length_2 for inferred indel length
+                #       (do nothing at this moment because inferred indel length and variant length
+                #       is at most "flanking base number")
+                alternate_base = "{},{}".format(
+                    reference_base + alternate_base[0:variant_length_1],
+                    reference_base + alternate_base
+                )
             else:
                 alternate_base = reference_base + alternate_base
 
-        elif is_indel_deletion:
-            if variant_length == 0:
+        elif is_deletion:
+            if is_homo_deletion:
+                variant_length_1 = 1 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0]
+                variant_length_2 = 1 if prediction.variant_lengths[1] >= 0 else -prediction.variant_lengths[1]
+                variant_length = min(variant_length_1, variant_length_2)
+            elif is_hetero_deletion:
+                variant_length_1 = 0 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0]
+                variant_length_2 = 0 if prediction.variant_lengths[1] >= 0 else -prediction.variant_lengths[1]
+                variant_length = max(variant_length_1, variant_length_2)
+
+            if is_hetero_deletion and variant_length >= 0:
                 continue
 
-            if read_depth != 0:
-                allele_frequency = sum(X[row_index, position_center+1, :, CountIndex.delete]) / read_depth
+            if variant_length_2 < variant_length_1:
+                variant_length_1, variant_length_2 = variant_length_2, variant_length_1
 
-            # infer the deletion length
-            if variant_length == maximum_variant_length:
-                for k in range(flanking_base_number+1, 2*flanking_base_number + 1):
+            is_inferred_variant_length = variant_length >= maximum_variant_length
+            if is_inferred_variant_length:
+                for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+                    reference_tensor = X[row_index, k, :, Channel.reference]
+                    deletion_tensor = X[row_index, k, :, Channel.delete]
                     if (
                         k < (flanking_base_number + maximum_variant_length) or
-                        sum(X[row_index, k, :, CountIndex.delete]) >= (
-                            inferred_indel_length_minimum_allele_frequency * sum(X[row_index, k, :, CountIndex.reference]))
+                        sum(reference_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(deletion_tensor)
                     ):
                         inferred_indel_length += 1
                     else:
                         break
 
-            # deletions longer than (flanking_base_number-1) are marked SV
-            if inferred_indel_length >= flanking_base_number:
-                reference_base = reference_sequence[flanking_base_number]
+            is_marked_as_SV = inferred_indel_length >= flanking_base_number
+            hetero_delete_base = hetero_delete_base_from(base_change_probabilities)
+            is_SNP_Del_multi = (
+                not is_marked_as_SV and
+                is_hetero_deletion and
+                (
+                    prediction.base_change_index == BaseChangeIndex.ADel or
+                    prediction.base_change_index == BaseChangeIndex.CDel or
+                    prediction.base_change_index == BaseChangeIndex.GDel or
+                    prediction.base_change_index == BaseChangeIndex.TDel
+                ) and
+                hetero_delete_base != reference_base
+            )
+            is_Del_Del_multi = (
+                not is_marked_as_SV and
+                is_hetero_deletion and
+                prediction.base_change_index == BaseChangeIndex.DelDel and
+                variant_length_1 > 0 and variant_length_2 > 0 and
+                variant_length_1 != variant_length_2
+            )
+
+            if is_Del_Del_multi or is_SNP_Del_multi:
+                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+
+            if is_marked_as_SV:
+                reference_base = reference_sequence[position_center]
                 alternate_base = "<DEL>"
                 info.append("SVTYPE=DEL")
-            elif variant_length != maximum_variant_length:
-                reference_base = reference_sequence[flanking_base_number:flanking_base_number+variant_length + 1]
-                alternate_base = reference_sequence[flanking_base_number]
-            else:
-                reference_base = reference_sequence[flanking_base_number:flanking_base_number+inferred_indel_length + 1]
-                alternate_base = reference_sequence[flanking_base_number]
+            elif is_inferred_variant_length:
 
-        else:
-            # TODO:
-            # handle collision cases:
-            # - is homo-reference genotype but base_change doesn't reflect that or vice versa
-            # - is homo-variant (SNP) or hetero-variant (SNP) but base_change doesn't reflect that or vice versa
-            # - insertion only but base_change doesn't reflect that or vice versa
-            # - deletion only but base_change doesn't reflect that or vice versa
-            # - mixture of insertion and deletion
+                reference_base = reference_sequence[position_center:position_center + inferred_indel_length + 1]
+                alternate_base = reference_sequence[position_center]
+            else:
+                reference_base = reference_sequence[position_center:position_center + variant_length + 1]
+                alternate_base = reference_sequence[position_center]
+
+            if is_SNP_Del_multi:
+                alternate_base = "{},{}".format(hetero_delete_base, alternate_base)
+            elif is_Del_Del_multi:
+                alternate_base = "{},{}".format(
+                    alternate_base,
+                    reference_sequence[position_center:position_center + variant_length_2 - variant_length_1 + 1]
+                )
+
+        elif is_insertion_and_deletion:
+            # TODO
             pass
 
-        if inferred_indel_length > 0 and inferred_indel_length < flanking_base_number:
-            info.append("LENGUESS=%d" % inferred_indel_length)
+        # allele frequency / supported reads
+        supported_reads = 0
+        if is_reference:
+            supported_reads = (
+                X[row_index, position_center,   base2num[reference_base], Channel.reference] +
+                X[row_index, position_center, base2num[reference_base]+4, Channel.reference]
+            )
+        elif is_SNP:
+            for base in alternate_base:
+                if base == ',':
+                    continue
+                supported_reads += (
+                    X[row_index, position_center,   base2num[base], Channel.SNP] +
+                    X[row_index, position_center, base2num[base]+4, Channel.SNP]
+                )
+        elif is_insertion:
+            supported_reads = sum(X[row_index, position_center+1, :, Channel.insert])
+        elif is_deletion:
+            supported_reads = sum(X[row_index, position_center+1, :, Channel.delete])
+        allele_frequency = ((supported_reads + 0.0) / read_depth) if read_depth != 0 else 0.0
 
+        # if using inferred indel length, add info LENGUESS
+        if 0 < inferred_indel_length < flanking_base_number:
+            info.append("LENGUESS={}".format(inferred_indel_length))
+
+        # information string
         information_string = ""
         if len(info) == 0:
             information_string = "."
         else:
             information_string = ";".join(info)
-
-        genotype_string = geno_type_string_from(geno_type_index)
 
         print >> call_fh, "%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
             chromosome,
@@ -415,7 +596,7 @@ def Output(
             genotype_string,
             quality_score,
             read_depth,
-            allele_frequency if read_depth != 0 else 0.0
+            allele_frequency
         )
 
 
@@ -463,8 +644,15 @@ def log_activation(args, m, utils):
         print("Batch generation complete %d" % batch_size)
         # strip away the reference string, keeping the chr and coor only
         batch_positions = [s[:s.rfind(":")] for s in batch_positions]
-        summaries = m.get_activation_summary(batch_X, operations=m.layers, batch_item_suffixes=batch_positions,
-                                             max_plot_in_batch=args.max_plot - num_plotted if args.max_plot >= 0 else batch_size, parallel_level=args.parallel_level, num_workers=args.workers, fast_plotting=args.fast_plotting)
+        summaries = m.get_activation_summary(
+            batch_X,
+            operations=m.layers,
+            batch_item_suffixes=batch_positions,
+            max_plot_in_batch=args.max_plot - num_plotted if args.max_plot >= 0 else batch_size,
+            parallel_level=args.parallel_level,
+            num_workers=args.workers,
+            fast_plotting=args.fast_plotting
+        )
         for summary in summaries:
             summary_writer.add_summary(summary)
         num_plotted += min(batch_size, args.max_plot - num_plotted if args.max_plot >= 0 else batch_size)
@@ -487,7 +675,7 @@ def Test(args, m, utils):
     end2, num2, XBatch2, posBatch2 = next(tensorGenerator)
     m.predict(XBatch2, result_caching=True)
     base = m.predictBaseRTVal
-    gt = m.predictGenoTypeRTVal
+    gt = m.predictGenotypeRTVal
     l = m.predictIndelLengthRTVal
     if end2 == 0:
         end = end2
@@ -509,7 +697,7 @@ def Test(args, m, utils):
             for t in threadPool:
                 t.join()
             base = m.predictBaseRTVal
-            gt = m.predictGenoTypeRTVal
+            gt = m.predictGenotypeRTVal
             l = m.predictIndelLengthRTVal
             if end == 0:
                 end = end2

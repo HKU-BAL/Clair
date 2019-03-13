@@ -70,22 +70,16 @@ def OutputVariant(args):
         # 1000 Genome GetTruth (format problem)
         # p1, p2 = "1", "1"
 
-        p1 = int(p1)
-        p2 = int(p2)
-        p1, p2 = (p1, p2) if p1 < p2 else (p2, p1)
-        if p1 == 1 and p2 == 2 and row[4].find(",") != -1:
-            p1 = 0
-            p2 = 1
-            gts = row[4].split(",")
-            shortestLen = 99
-            shortestGT = ""
-            for i in gts:
-                if len(i) < shortestLen:
-                    shortestLen = len(i)
-                    shortestGT = i
-            row[4] = shortestGT
-        var_fp.stdin.write(" ".join([row[0], row[1], row[3], row[4], str(p1), str(p2)]))
+        chromosome = row[0]
+        position = row[1]
+        reference = row[3]
+        alternate = row[4]
+
+        genotype_1, genotype_2 = (p1, p2) if int(p1) < int(p2) else (p2, p1)
+
+        var_fp.stdin.write(" ".join([chromosome, position, reference, alternate, genotype_1, genotype_2]))
         var_fp.stdin.write("\n")
+
     vcf_fp.stdout.close()
     vcf_fp.wait()
 

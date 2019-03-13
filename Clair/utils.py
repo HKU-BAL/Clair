@@ -10,9 +10,141 @@ import numpy as np
 import intervaltree
 import blosc
 import param
+from enum import IntEnum
 
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+class BaseChangeIndex(IntEnum):
+    AA = 0
+    AC = 1
+    AG = 2
+    AT = 3
+    CC = 4
+    CG = 5
+    CT = 6
+    GG = 7
+    GT = 8
+    TT = 9
+    DelDel = 10
+    ADel = 11
+    CDel = 12
+    GDel = 13
+    TDel = 14
+    InsIns = 15
+    AIns = 16
+    CIns = 17
+    GIns = 18
+    TIns = 19
+    InsDel = 20
+
+
+def base_change_label_from(base_change_index):
+    return [
+        'AA',
+        'AC',
+        'AG',
+        'AT',
+        'CC',
+        'CG',
+        'CT',
+        'GG',
+        'GT',
+        'TT',
+        'DelDel',
+        'ADel',
+        'CDel',
+        'GDel',
+        'TDel',
+        'InsIns',
+        'AIns',
+        'CIns',
+        'GIns',
+        'TIns',
+        'InsDel'
+    ][base_change_index]
+
+
+def base_change_index_from(base_change_label):
+    return {
+        'AA': BaseChangeIndex.AA,
+        'AC': BaseChangeIndex.AC,
+        'AG': BaseChangeIndex.AG,
+        'AT': BaseChangeIndex.AT,
+        'CC': BaseChangeIndex.CC,
+        'CG': BaseChangeIndex.CG,
+        'CT': BaseChangeIndex.CT,
+        'GG': BaseChangeIndex.GG,
+        'GT': BaseChangeIndex.GT,
+        'TT': BaseChangeIndex.TT,
+        'DelDel': BaseChangeIndex.DelDel,
+        'ADel': BaseChangeIndex.ADel,
+        'CDel': BaseChangeIndex.CDel,
+        'GDel': BaseChangeIndex.GDel,
+        'TDel': BaseChangeIndex.TDel,
+        'InsIns': BaseChangeIndex.InsIns,
+        'AIns': BaseChangeIndex.AIns,
+        'CIns': BaseChangeIndex.CIns,
+        'GIns': BaseChangeIndex.GIns,
+        'TIns': BaseChangeIndex.TIns,
+        'InsDel': BaseChangeIndex.InsDel,
+    }[base_change_label]
+
+
+def partial_label_from(ref, alt):
+    if len(ref) > len(alt):
+        return "Del"
+    elif len(ref) < len(alt):
+        return "Ins"
+    return alt[0]
+
+
+def mix_two_partial_labels(label1, label2):
+    # AA, AC, AG, AT, CC, CG, CT, GG, GT, TT
+    if len(label1) == 1 and len(label2) == 1:
+        return label1 + label2 if label1 <= label2 else label2 + label1
+
+    # ADel, CDel, GDel, TDel, AIns, CIns, GIns, TIns
+    tmp_label1, tmp_label2 = label1, label2
+    if len(label1) > 1 and len(label2) == 1:
+        tmp_label1, tmp_label2 = label2, label1
+    if len(tmp_label2) > 1 and len(tmp_label1) == 1:
+        return tmp_label1 + tmp_label2
+
+    # InsIns, DelDel
+    if len(label1) > 0 and len(label2) > 0 and label1 == label2:
+        return label1 + label2
+
+    # InsDel
+    return base_change_label_from(BaseChangeIndex.InsDel)
+
+
+class GenotypeIndex(IntEnum):
+    homo_reference = 0          # 0/0
+    homo_variant = 1            # 1/1
+    hetero_variant = 2          # 0/1 OR 1/2
+    hetero_variant_multi = 2    # 1/2
+
+
+def genotype_string_from(genotype_index):
+    if genotype_index == GenotypeIndex.homo_reference:
+        return "0/0"
+    elif genotype_index == GenotypeIndex.homo_variant:
+        return "1/1"
+    elif genotype_index == GenotypeIndex.hetero_variant:
+        return "0/1"
+    elif genotype_index == GenotypeIndex.hetero_variant_multi:
+        return "1/2"
+    return ""
+
+
+def genotype_label_from(genotype_arr):
+    if genotype_arr[0] == '0' and genotype_arr[1] == '0':
+        return "0/0"
+    elif genotype_arr[0] == '1' and genotype_arr[1] == '1':
+        return "1/1"
+    return "0/1"
 
 
 def SetupEnv():
@@ -92,48 +224,53 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
         f = subprocess.Popen(shlex.split("gzip -fdc %s" % (var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         for row in f.stdout:
             row = row.split()
-            ctgName = row[0]
-            pos = int(row[1])
+            ctg_name = row[0]
+            position_str = row[1]
+
             if bed_fn != None:
-                if len(tree[ctgName].search(pos)) == 0:
+                if len(tree[ctg_name].search(int(position_str))) == 0:
                     continue
-            key = ctgName + ":" + str(pos)
+            key = ctg_name + ":" + position_str
 
-            baseVec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
-            #          --------------  ------  ------------    ------------------
-            #          Base chng       Zygo.   Var type        Var length
-            #          A   C   G   T   HET HOM REF SNP INS DEL 0   1   2   3   4   >=4
-            #          0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15
+            # base change
+            #                  AA  AC  AG  AT  CC  CG  CT  GG  GT  TT  DD  AD  CD  GD  TD  II  AI  CI  GI  TI  ID
+            base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
+            reference = row[2]
+            alternate_arr = row[3].split(',')
+            partial_labels = [partial_label_from(reference, alternate) for alternate in alternate_arr]
+            base_change_label = mix_two_partial_labels(partial_labels[0], partial_labels[1])
+            base_change_index = base_change_index_from(base_change_label)
+            base_change_vec[base_change_index] = 1
 
-            if row[4] == "0" and row[5] == "1":
-                if len(row[2]) == 1 and len(row[3]) == 1:
-                    baseVec[base2num[row[2][0]]] = 0.5
-                    baseVec[base2num[row[3][0]]] = 0.5
-                elif len(row[2]) > 1 or len(row[3]) > 1:
-                    baseVec[base2num[row[2][0]]] = 0.5
-                baseVec[4] = 1.
+            # geno type
+            #                0/0 1/1 0/1
+            genotype_vec = [0., 0., 0.]
+            genotype_1 = row[4]
+            genotype_2 = row[5]
+            is_homo = (
+                (genotype_1 == "0" and genotype_2 == "0") or
+                (genotype_1 == "1" and genotype_2 == "1")
+            )
+            is_hetero = not is_homo
+            is_multi = (
+                (genotype_1 == "1" and genotype_2 == "2") or
+                (genotype_1 == "2" and genotype_2 == "1")
+            )
+            if is_homo:
+                genotype_vec[GenotypeIndex.homo_variant] = 1.0
+            elif is_multi:
+                genotype_vec[GenotypeIndex.hetero_variant_multi] = 1.0
+            elif is_hetero:
+                genotype_vec[GenotypeIndex.hetero_variant] = 1.0
 
-            elif row[4] == "1" and row[5] == "1":
-                if len(row[2]) == 1 and len(row[3]) == 1:
-                    baseVec[base2num[row[3][0]]] = 1
-                elif len(row[2]) > 1 or len(row[3]) > 1:
-                    pass
-                baseVec[5] = 1.
+            # variant length
+            if len(alternate_arr) == 1:
+                alternate_arr = alternate_arr + alternate_arr
+            variant_length_vec = [len(alternate) - len(reference) for alternate in alternate_arr]
+            variant_length_vec = variant_length_vec.sort()
 
-            if len(row[2]) > 1 and len(row[3]) == 1:
-                baseVec[9] = 1.  # deletion
-            elif len(row[3]) > 1 and len(row[2]) == 1:
-                baseVec[8] = 1.  # insertion
-            else:
-                baseVec[7] = 1.  # SNP
+            Y[key] = base_change_vec + genotype_vec + variant_length_vec
 
-            varLen = abs(len(row[2])-len(row[3]))
-            if varLen > 4:
-                baseVec[15] = 1.
-            else:
-                baseVec[10+varLen] = 1.
-
-            Y[key] = baseVec
         f.stdout.close()
         f.wait()
 
@@ -169,15 +306,18 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             if len(new_key) > 0:
                 X[new_key] = np.copy(x)
 
-        if key not in Y:
-            baseVec = [0., 0., 0., 0., 0., 1., 1., 0., 0., 0., 1., 0., 0., 0., 0., 0.]
-            #          --------------  ------  ------------    ------------------
-            #          Base chng       Zygo.   Var type        Var length
-            #          A   C   G   T   HET HOM REF SNP INS DEL 0   1   2   3   4   >=4
-            #          0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15
+        is_reference = key not in Y
+        if is_reference:
+            #                  AA  AC  AG  AT  CC  CG  CT  GG  GT  TT  DD  AD  CD  GD  TD  II  AI  CI  GI  TI  ID
+            base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
+            #                0/0 1/1 0/1
+            genotype_vec = [1., 0., 0.]
+            #                     L1  L2
+            variant_length_vec = [0., 0.]
 
-            baseVec[base2num[seq[param.flankingBaseNum]]] = 1.
-            Y[key] = baseVec
+            base_change_vec[base_change_index_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
+
+            Y[key] = base_change_vec + genotype_vec + variant_length_vec
 
         total += 1
         if total % 100000 == 0:
