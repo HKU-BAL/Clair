@@ -124,7 +124,7 @@ class GenotypeIndex(IntEnum):
     homo_reference = 0          # 0/0
     homo_variant = 1            # 1/1
     hetero_variant = 2          # 0/1 OR 1/2
-    hetero_variant_multi = 2    # 1/2
+    hetero_variant_multi = 3    # 1/2
 
 
 def genotype_string_from(genotype_index):
@@ -232,42 +232,47 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
                     continue
             key = ctg_name + ":" + position_str
 
+            reference = row[2]
+            alternate_arr = row[3].split(',')
+            genotype_1, genotype_2 = row[4], row[5]
+            if len(alternate_arr) == 1:
+                alternate_arr = (
+                    [reference if genotype_1 == "0" or genotype_2 == "0" else alternate_arr[0]] +
+                    alternate_arr
+                )
+
             # base change
             #                  AA  AC  AG  AT  CC  CG  CT  GG  GT  TT  DD  AD  CD  GD  TD  II  AI  CI  GI  TI  ID
             base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
-            reference = row[2]
-            alternate_arr = row[3].split(',')
             partial_labels = [partial_label_from(reference, alternate) for alternate in alternate_arr]
             base_change_label = mix_two_partial_labels(partial_labels[0], partial_labels[1])
             base_change_index = base_change_index_from(base_change_label)
             base_change_vec[base_change_index] = 1
 
             # geno type
-            #                0/0 1/1 0/1
+            #               0/0 1/1 0/1
             genotype_vec = [0., 0., 0.]
-            genotype_1 = row[4]
-            genotype_2 = row[5]
-            is_homo = (
-                (genotype_1 == "0" and genotype_2 == "0") or
-                (genotype_1 == "1" and genotype_2 == "1")
-            )
-            is_hetero = not is_homo
-            is_multi = (
-                (genotype_1 == "1" and genotype_2 == "2") or
-                (genotype_1 == "2" and genotype_2 == "1")
-            )
-            if is_homo:
+            is_homo_reference = genotype_1 == "0" and genotype_2 == "0"
+            is_homo_variant = not is_homo_reference and genotype_1 == genotype_2
+            is_hetero_variant = not is_homo_reference and not is_homo_variant
+            is_multi = not is_homo_variant and genotype_1 != "0" and genotype_2 != "0"
+            if is_homo_reference:
+                genotype_vec[GenotypeIndex.homo_reference] = 1.0
+            elif is_homo_variant:
                 genotype_vec[GenotypeIndex.homo_variant] = 1.0
-            elif is_multi:
-                genotype_vec[GenotypeIndex.hetero_variant_multi] = 1.0
-            elif is_hetero:
+            elif is_hetero_variant and not is_multi:
                 genotype_vec[GenotypeIndex.hetero_variant] = 1.0
+            elif is_hetero_variant and is_multi:
+                genotype_vec[GenotypeIndex.hetero_variant] = 1.0
+                # genotype_vec[GenotypeIndex.hetero_variant_multi] = 1.0
 
             # variant length
-            if len(alternate_arr) == 1:
-                alternate_arr = alternate_arr + alternate_arr
-            variant_length_vec = [len(alternate) - len(reference) for alternate in alternate_arr]
-            variant_length_vec = variant_length_vec.sort()
+            variant_length_vec = [
+                max(
+                    min(len(alternate) - len(reference), param.flankingBaseNum),
+                    -param.flankingBaseNum
+                ) for alternate in alternate_arr
+            ].sort()
 
             Y[key] = base_change_vec + genotype_vec + variant_length_vec
 
@@ -310,7 +315,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
         if is_reference:
             #                  AA  AC  AG  AT  CC  CG  CT  GG  GT  TT  DD  AD  CD  GD  TD  II  AI  CI  GI  TI  ID
             base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
-            #                0/0 1/1 0/1
+            #               0/0 1/1 0/1
             genotype_vec = [1., 0., 0.]
             #                     L1  L2
             variant_length_vec = [0., 0.]

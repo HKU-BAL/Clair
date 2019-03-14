@@ -388,7 +388,7 @@ def Output(
         elif is_homo_SNP:
             base1, base2 = homo_SNP_bases_from(base_change_probabilities)
             reference_base = reference_sequence[position_center]
-            alternate_base = reference_base if is_reference else (base1 if base1 != reference_base else base2)
+            alternate_base = base1 if base1 != reference_base else base2
 
         elif is_hetero_SNP:
             base1, base2 = hetero_SNP_bases_from(base_change_probabilities)
@@ -398,7 +398,7 @@ def Output(
                 alternate_base = "{},{}".format(base1, base2)
                 genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
             else:
-                alternate_base = reference_base if is_reference else (base1 if base1 != reference_base else base2)
+                alternate_base = base1 if base1 != reference_base else base2
 
         elif is_insertion:
             if is_homo_insertion:
@@ -456,25 +456,21 @@ def Output(
                 variant_length_1 != variant_length_2
             )
 
-            if is_Ins_Ins_multi or is_SNP_Ins_multi:
-                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
-
             if is_marked_as_SV:
                 alternate_base = "<INS>"
                 info.append("SVTYPE=INS")
-            elif is_SNP_Ins_multi:
-                alternate_base = "{},{}".format(hetero_insert_base, reference_base + alternate_base)
-            elif is_Ins_Ins_multi:
-                # TODO: need to handle variant length on alternate base is smaller than
-                #       variant_length_1 / variant_length_2 for inferred indel length
-                #       (do nothing at this moment because inferred indel length and variant length
-                #       is at most "flanking base number")
-                alternate_base = "{},{}".format(
-                    reference_base + alternate_base[0:variant_length_1],
-                    reference_base + alternate_base
-                )
             else:
                 alternate_base = reference_base + alternate_base
+
+            if is_SNP_Ins_multi:
+                alternate_base = "{},{}".format(hetero_insert_base, alternate_base)
+                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+            elif is_Ins_Ins_multi:
+                alternate_base_1 = alternate_base[0:len(reference_base) + variant_length_1]
+                alternate_base_2 = alternate_base
+                if alternate_base_1 != alternate_base_2:
+                    alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
+                    genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
 
         elif is_deletion:
             if is_homo_deletion:
@@ -505,7 +501,7 @@ def Output(
                     else:
                         break
 
-            is_marked_as_SV = inferred_indel_length >= flanking_base_number
+            is_marked_as_SV = is_inferred_variant_length and inferred_indel_length >= flanking_base_number
             hetero_delete_base = hetero_delete_base_from(base_change_probabilities)
             is_SNP_Del_multi = (
                 not is_marked_as_SV and
@@ -526,15 +522,11 @@ def Output(
                 variant_length_1 != variant_length_2
             )
 
-            if is_Del_Del_multi or is_SNP_Del_multi:
-                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
-
             if is_marked_as_SV:
                 reference_base = reference_sequence[position_center]
                 alternate_base = "<DEL>"
                 info.append("SVTYPE=DEL")
             elif is_inferred_variant_length:
-
                 reference_base = reference_sequence[position_center:position_center + inferred_indel_length + 1]
                 alternate_base = reference_sequence[position_center]
             else:
@@ -542,21 +534,26 @@ def Output(
                 alternate_base = reference_sequence[position_center]
 
             if is_SNP_Del_multi:
-                alternate_base = "{},{}".format(hetero_delete_base, alternate_base)
+                alternate_base_1 = alternate_base
+                alternate_base_2 = hetero_delete_base + reference_base[1:]
+                alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
+                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
             elif is_Del_Del_multi:
-                alternate_base = "{},{}".format(
-                    alternate_base,
-                    reference_sequence[position_center:position_center + variant_length_2 - variant_length_1 + 1]
-                )
+                alternate_base_1 = alternate_base
+                alternate_base_2 = reference_sequence[position_center:position_center + variant_length_2 - variant_length_1 + 1]
+                if alternate_base_1 != alternate_base_2:
+                    alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
+                    genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+
 
         elif is_insertion_and_deletion:
             # TODO
-            pass
+            continue
 
         # allele frequency / supported reads
-        supported_reads = 0
+        supported_reads_count = 0
         if is_reference:
-            supported_reads = (
+            supported_reads_count = (
                 X[row_index, position_center,   base2num[reference_base], Channel.reference] +
                 X[row_index, position_center, base2num[reference_base]+4, Channel.reference]
             )
@@ -564,15 +561,15 @@ def Output(
             for base in alternate_base:
                 if base == ',':
                     continue
-                supported_reads += (
+                supported_reads_count += (
                     X[row_index, position_center,   base2num[base], Channel.SNP] +
                     X[row_index, position_center, base2num[base]+4, Channel.SNP]
                 )
         elif is_insertion:
-            supported_reads = sum(X[row_index, position_center+1, :, Channel.insert])
+            supported_reads_count = sum(X[row_index, position_center+1, :, Channel.insert])
         elif is_deletion:
-            supported_reads = sum(X[row_index, position_center+1, :, Channel.delete])
-        allele_frequency = ((supported_reads + 0.0) / read_depth) if read_depth != 0 else 0.0
+            supported_reads_count = sum(X[row_index, position_center+1, :, Channel.delete])
+        allele_frequency = ((supported_reads_count + 0.0) / read_depth) if read_depth != 0 else 0.0
 
         # if using inferred indel length, add info LENGUESS
         if 0 < inferred_indel_length < flanking_base_number:

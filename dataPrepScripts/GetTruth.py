@@ -64,18 +64,23 @@ def OutputVariant(args):
         last = row[-1]
 
         # normal GetTruth
-        varType = last.split(":")[0].replace("/", "|").replace(".", "0").split("|")
-        p1, p2 = varType
+        genotype = last.split(":")[0].replace("/", "|").replace(".", "0").split("|")
+        genotype_1, genotype_2 = genotype
 
-        # 1000 Genome GetTruth (format problem)
-        # p1, p2 = "1", "1"
+        # 1000 Genome GetTruth (format problem) (no genotype is given)
+        # genotype_1, genotype_2 = "1", "1"
 
         chromosome = row[0]
         position = row[1]
         reference = row[3]
         alternate = row[4]
 
-        genotype_1, genotype_2 = (p1, p2) if int(p1) < int(p2) else (p2, p1)
+        # 1000 Genome GetTruth (format problem) (no genotype is given)
+        # if alternate.find(',') >= 0:
+        #     genotype_1, genotype_2 = "1", "2"
+
+        if int(genotype_1) < int(genotype_2):
+            genotype_1, genotype_2 = genotype_1, genotype_2
 
         var_fp.stdin.write(" ".join([chromosome, position, reference, alternate, genotype_1, genotype_2]))
         var_fp.stdin.write("\n")
