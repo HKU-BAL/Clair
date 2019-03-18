@@ -41,8 +41,7 @@ def evaluate_model(m, dataset_info):
     # validation_data_start_index = no_of_training_examples + 1
 
     base_predictions = []
-    zygosity_predictions = []
-    variant_type_predictions = []
+    genotype_predictions = []
     indel_length_predictions = []
 
     dataset_index = 0
@@ -54,19 +53,17 @@ def evaluate_model(m, dataset_info):
 
         x_batch, _, end_flag = utils.decompress_array(
             x_array_compressed, dataset_index, prediction_batch_size, dataset_size)
-        minibatch_base_prediction, minibatch_zygosity_prediction, \
-            minibatch_variant_type_prediction, minibatch_indel_length_prediction = m.predict(x_batch)
+        minibatch_base_prediction, minibatch_genotype_prediction, \
+            minibatch_indel_length_prediction = m.predict(x_batch)
 
         base_predictions.append(minibatch_base_prediction)
-        zygosity_predictions.append(minibatch_zygosity_prediction)
-        variant_type_predictions.append(minibatch_variant_type_prediction)
+        genotype_predictions.append(minibatch_genotype_prediction)
         indel_length_predictions.append(minibatch_indel_length_prediction)
 
         dataset_index += prediction_batch_size
 
     base_predictions = np.concatenate(base_predictions[:])
-    zygosity_predictions = np.concatenate(zygosity_predictions[:])
-    variant_type_predictions = np.concatenate(variant_type_predictions[:])
+    genotype_predictions = np.concatenate(genotype_predictions[:])
     indel_length_predictions = np.concatenate(indel_length_predictions[:])
 
     logging.info("[INFO] Prediciton time elapsed: %.2f s" % (time.time() - prediction_start_time))
@@ -78,8 +75,8 @@ def evaluate_model(m, dataset_info):
 
     print("[INFO] Evaluation on base change:")
     all_base_count = top_1_count = top_2_count = 0
-    confusion_matrix = np.zeros((4, 4), dtype=np.int)
-    for base_change_prediction, base_change_label in zip(base_predictions, y_array[:, 0:4]):
+    confusion_matrix = np.zeros((21, 21), dtype=np.int)
+    for base_change_prediction, base_change_label in zip(base_predictions, y_array[:, 0:21]):
         confusion_matrix[np.argmax(base_change_label)][np.argmax(base_change_prediction)] += 1
 
         all_base_count += 1
@@ -98,46 +95,34 @@ def evaluate_model(m, dataset_info):
     base_change_f_measure = f1_score(confusion_matrix)
     print("[INFO] f-measure: ", base_change_f_measure)
 
-    # Zygosity
-    print("\n[INFO] Evaluation on Zygosity:")
-    confusion_matrix = np.zeros((2, 2), dtype=np.int)
-    for zygosity_prediction, true_zygosity_label in zip(zygosity_predictions, y_array[:, 4:6]):
-        confusion_matrix[np.argmax(true_zygosity_label)][np.argmax(zygosity_prediction)] += 1
+    # Genotype
+    print("\n[INFO] Evaluation on Genotype:")
+    confusion_matrix = np.zeros((3, 3), dtype=np.int)
+    for genotype_prediction, true_genotype_label in zip(genotype_predictions, y_array[:, 21:24]):
+        confusion_matrix[np.argmax(true_genotype_label)][np.argmax(genotype_prediction)] += 1
     for epoch_count in range(2):
         print("\t".join([str(confusion_matrix[epoch_count][j]) for j in range(2)]))
-    zygosity_f_measure = f1_score(confusion_matrix)
-    print("[INFO] f-measure: ", zygosity_f_measure)
-
-    # Variant type
-    print("\n[INFO] Evaluation on variant type:")
-    confusion_matrix = np.zeros((4, 4), dtype=np.int)
-    for variant_type_prediction, true_variant_type_label in zip(variant_type_predictions, y_array[:, 6:10]):
-        confusion_matrix[np.argmax(true_variant_type_label)][np.argmax(variant_type_prediction)] += 1
-    for i in range(4):
-        print("\t".join([str(confusion_matrix[i][j]) for j in range(4)]))
-    variant_type_f_measure = f1_score(confusion_matrix)
-    print("[INFO] f-measure: ", variant_type_f_measure)
+    genotype_f_measure = f1_score(confusion_matrix)
+    print("[INFO] f-measure: ", genotype_f_measure)
 
     # Indel length
-    print("\n[INFO] evaluation on indel length:")
-    confusion_matrix = np.zeros((6, 6), dtype=np.int)
-    for indel_length_prediction, true_indel_length_label in zip(indel_length_predictions, y_array[:, 10:16]):
-        confusion_matrix[np.argmax(true_indel_length_label)][np.argmax(indel_length_prediction)] += 1
-    for i in range(6):
-        print("\t".join([str(confusion_matrix[i][j]) for j in range(6)]))
-    indel_length_f_measure = f1_score(confusion_matrix)[:-1]
-    print("[INFO] f-measure: ", indel_length_f_measure)
+    # print("\n[INFO] evaluation on indel length:")
+    # confusion_matrix = np.zeros((2, 2), dtype=np.int)
+    # for indel_length_prediction, true_indel_length_label in zip(indel_length_predictions, y_array[:, 24:26]):
+    #     confusion_matrix[np.argmax(true_indel_length_label)][np.argmax(indel_length_prediction)] += 1
+    # for i in range(6):
+    #     print("\t".join([str(confusion_matrix[i][j]) for j in range(6)]))
+    # indel_length_f_measure = f1_score(confusion_matrix)[:-1]
+    # print("[INFO] f-measure: ", indel_length_f_measure)
 
-    print("[INFO] base change f-measure mean: %.6f" % np.mean(base_change_f_measure))
-    print("[INFO] zygosity f-measure mean: %.6f" % np.mean(zygosity_f_measure))
-    print("[INFO] variant type f-measure mean: %.6f" % np.mean(variant_type_f_measure))
-    print("[INFO] indel length f-measure mean: %.6f" % np.mean(indel_length_f_measure))
-    print("[INFO] f-measure mean: %.6f" % np.mean([
-        np.mean(base_change_f_measure),
-        np.mean(zygosity_f_measure),
-        np.mean(variant_type_f_measure),
-        np.mean(indel_length_f_measure)
-    ]))
+    # print("[INFO] base change f-measure mean: %.6f" % np.mean(base_change_f_measure))
+    # print("[INFO] genotype f-measure mean: %.6f" % np.mean(genotype_f_measure))
+    # print("[INFO] indel length f-measure mean: %.6f" % np.mean(indel_length_f_measure))
+    # print("[INFO] f-measure mean: %.6f" % np.mean([
+    #     np.mean(base_change_f_measure),
+    #     np.mean(genotype_f_measure),
+    #     np.mean(indel_length_f_measure)
+    # ]))
 
 
 if __name__ == "__main__":

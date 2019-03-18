@@ -12,6 +12,7 @@ import math
 from collections import defaultdict
 import multiprocessing
 
+
 class Clair(object):
     """
     Modification of Clairvoyante v3
@@ -23,21 +24,18 @@ class Clair(object):
 
     task_loss_weights:
         The weights of different tasks in the calculation of total loss, list of 5 integers in order
-        (base_change, zygosity, variant type, indel length, L2 regularization)
+        (base_change, genotype, indel length, L2 regularization)
     structure: The name of the structure, supporting "FC_L3_narrow_legacy_0.1, 2BiLST, CNN1D_L6, Res1D_L9M"
 
     output_base_change_shape: The number of classes in the ouput of base change (alternate base) prediction
-    output_zygosity_shape: The number of classes in the ouput of zygosity prediction
-    output_variant_type_shape:
-        The number of classes in the ouput of variant type (No variant, SNP, insertion, deletion, etc.) prediction
-    output_indel_length_shape: The number of classes in the ouput of indel length prediction
+    output_genotype_shape: The number of classes in the ouput of genotype prediction
+    output_indel_length_shape: The number of output values in the output of indel length prediction
 
     output_weight_enabled: True enables per class weights speficied in output_*_entropy_weights (Slower)
     output_base_change_entropy_weights:
         A list of (output_base_change_shape) integers specifying the weights of different classes in
         the calculation of entropy loss (Only used when output_weight_enabled is set to True)
-    output_zygosity_entropy_weights, output_variant_type_entropy_weights, output_indel_length_entropy_weights:
-        similar to output_base_change_entropy_weights
+    output_genotype_entropy_weights: similar to output_base_change_entropy_weights
 
     L1_num_units: Number of units in L1
 
@@ -65,39 +63,20 @@ class Clair(object):
             input_shape=(2 * param.flankingBaseNum + 1, param.matrixRow, param.matrixNum),
             task_loss_weights=[
                 1,                       # base change
-                1,                       # zygosity
-                1,                       # variant type
-                1,                       # indel length
+                1,                       # genotype
+                1,                       # variant/indel length 0
+                1,                       # variant/indel length 1
                 1                        # l2 loss
             ],
             structure="2BiLSTM",
-            output_base_change_shape=4,
-            output_zygosity_shape=2,
-            output_variant_type_shape=4,
-            output_indel_length_shape=6,
+            output_base_change_shape=21,
+            output_genotype_shape=3,
+            output_indel_length_shape=2,
             output_base_change_entropy_weights=[
-                1,
-                1,
-                1,
-                1
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             ],
-            output_zygosity_entropy_weights=[
-                1,
-                1
-            ],
-            output_variant_type_entropy_weights=[
-                1,
-                1,
-                1,
-                1
-            ],
-            output_indel_length_entropy_weights=[
-                1,
-                1,
-                1,
-                1,
-                1,
-                1
+            output_genotype_entropy_weights=[
+                1, 1, 1
             ],
             L1_num_units=30,
             L2_num_units=30,
@@ -130,16 +109,14 @@ class Clair(object):
         self.input_shape = params['input_shape']
         self.tensor_transform_function = params['tensor_transform_function']
         self.output_base_change_shape = params['output_base_change_shape']
-        self.output_zygosity_shape = params['output_zygosity_shape']
-        self.output_variant_type_shape = params['output_variant_type_shape']
+        self.output_genotype_shape = params['output_genotype_shape']
         self.output_indel_length_shape = params['output_indel_length_shape']
 
         self.task_loss_weights = np.array(params['task_loss_weights'], dtype=float)
 
         self.output_base_change_entropy_weights = np.array(params['output_base_change_entropy_weights'], dtype=float)
-        self.output_zygosity_entropy_weights = np.array(params['output_zygosity_entropy_weights'], dtype=float)
-        self.output_variant_type_entropy_weights = np.array(params['output_variant_type_entropy_weights'], dtype=float)
-        self.output_indel_length_entropy_weights = np.array(params['output_indel_length_entropy_weights'], dtype=float)
+        self.output_genotype_entropy_weights = np.array(params['output_genotype_entropy_weights'], dtype=float)
+        # self.output_indel_length_entropy_weights = np.array(params['output_indel_length_entropy_weights'], dtype=float)
 
         self.L1_num_units = params['L1_num_units']
         self.L2_num_units = params['L2_num_units']
@@ -159,7 +136,8 @@ class Clair(object):
         self.l2_regularization_lambda_decay_rate = params['l2_regularization_lambda_decay_rate']
         self.structure = params['structure']
 
-        # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks, which does not support tf.float64
+        # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks,
+        # which does not support tf.float64
         if 'CNN' in self.structure or 'Res' in self.structure or 'LSTM' in self.structure or 'GRU' in self.structure:
             self.float_type = tf.float32
         else:
@@ -168,8 +146,11 @@ class Clair(object):
         self.output_cache = {}
 
         # Specify the way to split the output ground truth label
-        self.output_label_split = [self.output_base_change_shape, self.output_zygosity_shape,
-                                   self.output_variant_type_shape, self.output_indel_length_shape]
+        self.output_label_split = [
+            self.output_base_change_shape,
+            self.output_genotype_shape,
+            self.output_indel_length_shape
+        ]
 
         # print(self.input_shape)
 
@@ -326,32 +307,46 @@ class Clair(object):
 
             # Conversion to tensors for some values
             self.epsilon = tf.constant(value=1e-10, dtype=self.float_type)
+
+            # dimensions: batch size, # of bases (33), ACGTacgt (8), # of Channels (4) (reference, insertion, deletion, SNP)
             self.input_shape_tf = (None, self.input_shape[0], self.input_shape[1], self.input_shape[2])
+            self.output_shape_tf = (
+                None, self.output_base_change_shape + self.output_genotype_shape + self.output_indel_length_shape
+            )
 
             # Place holders
-            self.X_placeholder = tf.placeholder(self.float_type, self.input_shape_tf, name='X_placeholder')
-            self.Y_placeholder = tf.placeholder(
-                self.float_type,
-                [None, self.output_base_change_shape + self.output_zygosity_shape +
-                    self.output_variant_type_shape + self.output_indel_length_shape],
-                name='Y_placeholder'
+            self.X_placeholder = tf.placeholder(
+                dtype=self.float_type, shape=self.input_shape_tf, name='X_placeholder'
             )
+            self.Y_placeholder = tf.placeholder(
+                dtype=self.float_type, shape=self.output_shape_tf, name='Y_placeholder'
+            )
+
+            # first layer, X_placeholder
             self.layers.append(self.X_placeholder)
 
-            self.learning_rate_placeholder = tf.placeholder(self.float_type, shape=[], name='learning_rate_placeholder')
-            self.phase_placeholder = tf.placeholder(tf.bool, shape=[], name='phase_placeholder')
+            self.learning_rate_placeholder = tf.placeholder(
+                dtype=self.float_type, shape=[], name='learning_rate_placeholder'
+            )
+            self.phase_placeholder = tf.placeholder(
+                dtype=tf.bool, shape=[], name='phase_placeholder'
+            )
             self.regularization_L2_lambda_placeholder = tf.placeholder(
-                self.float_type, shape=[], name='regularization_L2_lambda_placeholder')
+                dtype=self.float_type, shape=[], name='regularization_L2_lambda_placeholder'
+            )
             self.task_loss_weights_placeholder = tf.placeholder(
-                self.float_type, shape=self.task_loss_weights.shape, name='task_loss_weights_placeholder')
+                dtype=self.float_type, shape=self.task_loss_weights.shape, name='task_loss_weights_placeholder'
+            )
             self.output_base_change_entropy_weights_placeholder = tf.placeholder(
-                self.float_type, shape=self.output_base_change_entropy_weights.shape, name='output_base_change_entropy_weights_placeholder')
-            self.output_zygosity_entropy_weights_placeholder = tf.placeholder(
-                self.float_type, shape=self.output_zygosity_entropy_weights.shape, name='output_zygosity_entropy_weights_placeholder')
-            self.output_variant_type_entropy_weights_placeholder = tf.placeholder(
-                self.float_type, shape=self.output_variant_type_entropy_weights.shape, name='output_variant_type_entropy_weights_placeholder')
-            self.output_indel_length_entropy_weights_placeholder = tf.placeholder(
-                self.float_type, shape=self.output_indel_length_entropy_weights.shape, name='output_indel_length_entropy_weights_placeholder')
+                dtype=self.float_type,
+                shape=self.output_base_change_entropy_weights.shape,
+                name='output_base_change_entropy_weights_placeholder'
+            )
+            self.output_genotype_entropy_weights_placeholder = tf.placeholder(
+                dtype=self.float_type,
+                shape=self.output_genotype_entropy_weights.shape,
+                name='output_genotype_entropy_weights_placeholder'
+            )
 
             he_initializer = tf.contrib.layers.variance_scaling_initializer(
                 factor=1.0,
@@ -360,12 +355,10 @@ class Clair(object):
             )
 
             if self.structure == "2BiLSTM":
-                self.L3_dropout_rate_placeholder = tf.placeholder(
-                    self.float_type, shape=[], name='L3_dropout_rate_placeholder')
-
-                # Flatten the 2nd (ACGT) and 3rd (Ref Ins Del SNP) dimension
+                # Flatten 2nd layer ACGTacgt (8),
+                # and 3rd layer # of Channels (4) (reference, insertion, deletion, SNP)
                 self.X_flattened_2D = tf.reshape(
-                    self.X_placeholder,
+                    tensor=self.X_placeholder,
                     shape=(
                         tf.shape(self.X_placeholder)[0],
                         self.input_shape_tf[1],
@@ -375,11 +368,14 @@ class Clair(object):
                 )
                 self.layers.append(self.X_flattened_2D)
 
+                # the input shape in adaptive LSTM layer should be in shape (time-steps, batch_size, sequence)
+                # that is: (# of bases, batch_size, (# of ACGTacgt) * (# of channels))
                 self.X_flattened_2D_transposed = tf.transpose(
-                    self.X_flattened_2D, [1, 0, 2], name="X_flattened_2D_transposed")
+                    x=self.X_flattened_2D, perm=[1, 0, 2], name="X_flattened_2D_transposed"
+                )
 
                 is_gpu_available = len(Clair.get_available_gpus()) > 0
-                # print("is_gpu_available:", is_gpu_available)
+
                 self.LSTM1, self.LSTM1_state = Clair.adaptive_LSTM_layer(
                     inputs=self.X_flattened_2D_transposed,
                     num_units=self.LSTM1_num_units,
@@ -389,6 +385,7 @@ class Clair(object):
                     cudnn_gpu_available=is_gpu_available
                 )
                 self.layers.append(self.LSTM1)
+
                 # print(self.LSTM1, self.LSTM1_state)
                 self.LSTM1_dropout = tf.layers.dropout(
                     inputs=self.LSTM1,
@@ -406,6 +403,7 @@ class Clair(object):
                     cudnn_gpu_available=is_gpu_available
                 )
                 self.layers.append(self.LSTM2)
+
                 self.LSTM2_dropout = tf.layers.dropout(
                     inputs=self.LSTM2,
                     rate=self.LSTM2_dropout_rate,
@@ -413,8 +411,8 @@ class Clair(object):
                     name="LSTM2_dropout",
                     seed=param.OPERATION_SEED
                 )
+                # revert the shape to (batch_size, # of bases, (# of ACGTacgt) * (# of channels))
                 self.LSTM2_transposed = tf.transpose(self.LSTM2_dropout, [1, 0, 2], name="LSTM2_transposed")
-
                 # Slice dense layer 2
                 self.L2 = Clair.slice_dense_layer(
                     inputs=self.LSTM2_transposed,
@@ -428,7 +426,8 @@ class Clair(object):
 
                 self.L2_flattened = tf.reshape(
                     self.L2,
-                    shape=(tf.shape(self.L2)[0], self.L2_num_units * self.LSTM2_num_units * 2),
+                    # shape=(tf.shape(self.L2)[0], self.L2_num_units * self.LSTM2_num_units * 2),
+                    shape=(tf.shape(self.L2)[0], -1),
                     name="L2_flattened"
                 )
                 self.layers.append(self.L2_flattened)
@@ -443,9 +442,12 @@ class Clair(object):
                 )
                 self.layers.append(self.L3)
 
+                self.L3_dropout_rate_placeholder = tf.placeholder(
+                    self.float_type, shape=[], name='L3_dropout_rate_placeholder')
+
                 self.L3_dropout = selu.dropout_selu(
-                    self.L3,
-                    self.L3_dropout_rate_placeholder,
+                    x=self.L3,
+                    rate=self.L3_dropout_rate_placeholder,
                     training=self.phase_placeholder,
                     name='L3_dropout',
                     seed=param.OPERATION_SEED
@@ -466,35 +468,15 @@ class Clair(object):
                 self.Y_base_change = tf.nn.softmax(self.Y_base_change_logits, name='Y_base_change')
                 self.layers.append(self.Y_base_change)
 
-                self.Y_zygosity_logits = tf.layers.dense(
+                self.Y_genotype_logits = tf.layers.dense(
                     inputs=self.core_final_layer,
-                    units=self.output_zygosity_shape,
+                    units=self.output_genotype_shape,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
-                    name='Y_zygosity_logits'
+                    name='Y_genotype_logits'
                 )
-                self.Y_zygosity = tf.nn.softmax(self.Y_zygosity_logits, name='Y_zygosity')
-                self.layers.append(self.Y_zygosity)
-
-                if "legacy_0.1" in self.structure:
-                    self.Y_variant_type_logits = tf.layers.dense(
-                        inputs=self.core_final_layer,
-                        units=self.output_variant_type_shape,
-                        kernel_initializer=he_initializer,
-                        activation=selu.selu,
-                        name='Y_variant_logits'
-                    )
-                    self.Y_variant_type = tf.nn.softmax(self.Y_variant_type_logits, name='Y_variant')
-                else:
-                    self.Y_variant_type_logits = tf.layers.dense(
-                        inputs=self.core_final_layer,
-                        units=self.output_variant_type_shape,
-                        kernel_initializer=he_initializer,
-                        activation=selu.selu,
-                        name='Y_variant_type_logits'
-                    )
-                    self.Y_variant_type = tf.nn.softmax(self.Y_variant_type_logits, name='Y_variant_type')
-                self.layers.append(self.Y_variant_type)
+                self.Y_genotype = tf.nn.softmax(self.Y_genotype_logits, name='Y_genotype')
+                self.layers.append(self.Y_genotype)
 
                 self.Y_indel_length_logits = tf.layers.dense(
                     inputs=self.core_final_layer,
@@ -503,18 +485,16 @@ class Clair(object):
                     activation=selu.selu,
                     name='Y_indel_length_logits'
                 )
-                self.Y_indel_length = tf.nn.softmax(self.Y_indel_length_logits, name='Y_indel_length')
+                self.Y_indel_length = self.Y_indel_length_logits
+                # self.Y_indel_length = tf.nn.softmax(self.Y_indel_length_logits, name='Y_indel_length')
                 self.layers.append(self.Y_indel_length)
 
-                self.Y = [self.Y_base_change, self.Y_zygosity, self.Y_variant_type, self.Y_indel_length]
+                self.Y = [self.Y_base_change, self.Y_genotype, self.Y_indel_length]
 
             # Extract the truth labels by output ratios
             with tf.variable_scope("Loss"):
-                Y_base_change_label, Y_zygosity_label, Y_variant_type_label, Y_indel_length_label = tf.split(
+                Y_base_change_label, Y_genotype_label, Y_indel_length_label = tf.split(
                     self.Y_placeholder, self.output_label_split, axis=1, name="label_split")
-
-                # Cross Entropy loss
-                Y_variant_type_str = "Y_variant_type"
 
                 self.Y_base_change_cross_entropy = Clair.weighted_cross_entropy(
                     softmax_prediction=self.Y_base_change,
@@ -523,33 +503,31 @@ class Clair(object):
                     epsilon=self.epsilon,
                     name="Y_base_change_cross_entropy"
                 )
-                self.Y_zygosity_cross_entropy = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_zygosity,
-                    labels=Y_zygosity_label,
-                    weights=self.output_zygosity_entropy_weights_placeholder,
+                self.Y_genotype_cross_entropy = Clair.weighted_cross_entropy(
+                    softmax_prediction=self.Y_genotype,
+                    labels=Y_genotype_label,
+                    weights=self.output_genotype_entropy_weights_placeholder,
                     epsilon=self.epsilon,
-                    name="Y_zygosity_cross_entropy"
+                    name="Y_genotype_cross_entropy"
                 )
-                self.Y_variant_type_cross_entropy = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_variant_type,
-                    labels=Y_variant_type_label,
-                    weights=self.output_variant_type_entropy_weights_placeholder,
-                    epsilon=self.epsilon,
-                    name=Y_variant_type_str + "_cross_entropy"
+                # set reduction to NONE (made output shape is the same as labels)
+                self.Y_indel_length_0_mean_square_error = tf.losses.mean_squared_error(
+                    labels=Y_indel_length_label[:, 0],
+                    predictions=self.Y_indel_length[:, 0],
+                    reduction=tf.losses.Reduction.NONE
                 )
-                self.Y_indel_length_entropy = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_indel_length,
-                    labels=Y_indel_length_label,
-                    weights=self.output_indel_length_entropy_weights_placeholder,
-                    epsilon=self.epsilon,
-                    name="Y_indel_length_entropy"
+                self.Y_indel_length_1_mean_square_error = tf.losses.mean_squared_error(
+                    labels=Y_indel_length_label[:, 1],
+                    predictions=self.Y_indel_length[:, 1],
+                    reduction=tf.losses.Reduction.NONE
                 )
 
                 self.Y_base_change_loss = tf.reduce_sum(self.Y_base_change_cross_entropy, name="Y_base_change_loss")
-                self.Y_zygosity_loss = tf.reduce_sum(self.Y_zygosity_cross_entropy, name="Y_zygosity_loss")
-                self.Y_variant_type_loss = tf.reduce_sum(
-                    self.Y_variant_type_cross_entropy, name=Y_variant_type_str + "_loss")
-                self.Y_indel_length_loss = tf.reduce_sum(self.Y_indel_length_entropy, name="Y_indel_length_loss")
+                self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
+                self.Y_indel_length_0_loss = tf.reduce_sum(
+                    self.Y_indel_length_0_mean_square_error, name="Y_indel_length_0_loss")
+                self.Y_indel_length_1_loss = tf.reduce_sum(
+                    self.Y_indel_length_1_mean_square_error, name="Y_indel_length_1_loss")
 
                 self.regularization_L2_loss_without_lambda = tf.add_n([
                     tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name
@@ -558,15 +536,15 @@ class Clair(object):
                     self.regularization_L2_loss_without_lambda * self.regularization_L2_lambda_placeholder
                 )
 
-                # Weighted average of losses, speicified by loss_ratio
+                # Weighted average of losses
                 self.total_loss = tf.reduce_sum(
                     tf.multiply(
                         self.task_loss_weights_placeholder,
                         tf.stack([
                             self.Y_base_change_loss,
-                            self.Y_zygosity_loss,
-                            self.Y_variant_type_loss,
-                            self.Y_indel_length_loss,
+                            self.Y_genotype_loss,
+                            self.Y_indel_length_0_loss,
+                            self.Y_indel_length_1_loss,
                             self.regularization_L2_loss
                         ])
                     ),
@@ -597,9 +575,9 @@ class Clair(object):
                 tf.summary.scalar('learning_rate', self.learning_rate_placeholder),
                 tf.summary.scalar('l2_Lambda', self.regularization_L2_lambda_placeholder),
                 tf.summary.scalar("Y_base_change_loss", self.Y_base_change_loss),
-                tf.summary.scalar("Y_zygosity_loss", self.Y_zygosity_loss),
-                tf.summary.scalar("Y_variant_type_loss", self.Y_variant_type_loss),
-                tf.summary.scalar("Y_indel_length_loss", self.Y_indel_length_loss),
+                tf.summary.scalar("Y_genotype_loss", self.Y_genotype_loss),
+                tf.summary.scalar("Y_indel_length_0_loss", self.Y_indel_length_0_loss),
+                tf.summary.scalar("Y_indel_length_1_loss", self.Y_indel_length_1_loss),
                 tf.summary.scalar("Regularization_loss", self.regularization_L2_loss),
                 tf.summary.scalar("Total_loss", self.total_loss)
             ])
@@ -613,25 +591,25 @@ class Clair(object):
             self.loss = self.total_loss
 
             # Getting the total number of traininable parameters
-            #total_parameters = 0
-            #for variable in tf.trainable_variables():
-                # shape is an array of tf.Dimension
-                #shape = variable.get_shape()
-                # print(variable.name, shape)
-                # print(len(shape))
-                #variable_parameters = 1
-                #try:
-                    #for dim in shape:
-                        # print(dim)
-                        #variable_parameters *= dim.value
-                    #total_parameters += variable_parameters
-                #except ValueError as ve:
-                    # if the shape cannot be obtained, (e.g. opaque operators)
-                    #print("Variable {:s} has unknown shape.".format(variable.name))
-                    #print(ve.message)
-                # print(variable_parameters)
-
-            #print("Total Trainable Parameters: " + str(total_parameters))
+            # total_parameters = 0
+            # for variable in tf.trainable_variables():
+            #     shape is an array of tf.Dimension
+            #     shape = variable.get_shape()
+            #     print(variable.name, shape)
+            #     print(len(shape))
+            #     variable_parameters = 1
+            #     try:
+            #         for dim in shape:
+            #             print(dim)
+            #             variable_parameters *= dim.value
+            #         total_parameters += variable_parameters
+            #     except ValueError as ve:
+            #         if the shape cannot be obtained, (e.g. opaque operators)
+            #         print("Variable {:s} has unknown shape.".format(variable.name))
+            #         print(ve.message)
+            #     print(variable_parameters)
+            #
+            # print("Total Trainable Parameters: " + str(total_parameters))
 
     def init(self):
         """
@@ -727,9 +705,8 @@ class Clair(object):
             self.regularization_L2_lambda_placeholder: self.l2_regularization_lambda_value,
             self.task_loss_weights_placeholder: self.task_loss_weights,
             self.output_base_change_entropy_weights_placeholder: self.output_base_change_entropy_weights,
-            self.output_zygosity_entropy_weights_placeholder: self.output_zygosity_entropy_weights,
-            self.output_variant_type_entropy_weights_placeholder: self.output_variant_type_entropy_weights,
-            self.output_indel_length_entropy_weights_placeholder: self.output_indel_length_entropy_weights
+            self.output_genotype_entropy_weights_placeholder: self.output_genotype_entropy_weights,
+            # self.output_indel_length_entropy_weights_placeholder: self.output_indel_length_entropy_weights
         }
         input_dictionary.update(self.get_structure_dict(phase='train'))
 
@@ -745,19 +722,21 @@ class Clair(object):
         # self.trainLossRTVal = self.output_cache['training_loss']
         # self.trainSummaryRTVal = self.output_cache['training_summary']
         self.trainLossRTVal = loss
-        self.trainSummaryRTVal= summary
+        self.trainSummaryRTVal = summary
 
         return loss, summary
 
     def predict(self, batchX, result_caching=False):
         """
         Predict using model in batch with input tensor batchX, caching the results in
-        self.output_cache['prediction_base'], self.output_cache['prediction_zygosity'], self.output_cache['prediction_variant_type'], self.output_cache['prediction_indel_length']
+        self.output_cache['prediction_base'],
+        self.output_cache['prediction_genotype'],
+        self.output_cache['prediction_indel_length']
         if result_caching is True
         The tensor transform function is applied prior to prediction
 
         Returns:
-            base, zygosity, variant_type, indel_length: The four softmaxed prediction from the model in batch
+            base, genotype, indel_length: The three predictions from the model in batch
         """
         # for i in range(len(batchX)):
         #    tf.image.per_image_standardization(XArray[i])
@@ -771,21 +750,19 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='predict'))
 
-        base, zygosity, variant_type, indel_length = self.session.run(self.Y, feed_dict=input_dictionary)
+        base, genotype, indel_length = self.session.run(self.Y, feed_dict=input_dictionary)
 
         if result_caching:
             self.output_cache['prediction_base'] = base
-            self.output_cache['prediction_zygosity'] = zygosity
-            self.output_cache['prediction_variant_type'] = variant_type
+            self.output_cache['prediction_genotype'] = genotype
             self.output_cache['prediction_indel_length'] = indel_length
 
             # Aliasing
             self.predictBaseRTVal = self.output_cache['prediction_base']
-            self.predictZygosityRTVal = self.output_cache['prediction_zygosity']
-            self.predictVarTypeRTVal = self.output_cache['prediction_variant_type']
+            self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
             self.predictIndelLengthRTVal = self.output_cache['prediction_indel_length']
 
-        return base, zygosity, variant_type, indel_length
+        return base, genotype, indel_length
 
     def get_loss(self, batchX, batchY, result_caching=False):
         """
@@ -805,18 +782,17 @@ class Clair(object):
             self.regularization_L2_lambda_placeholder: 0.0,
             self.task_loss_weights_placeholder: self.task_loss_weights,
             self.output_base_change_entropy_weights_placeholder: self.output_base_change_entropy_weights,
-            self.output_zygosity_entropy_weights_placeholder: self.output_zygosity_entropy_weights,
-            self.output_variant_type_entropy_weights_placeholder: self.output_variant_type_entropy_weights,
-            self.output_indel_length_entropy_weights_placeholder: self.output_indel_length_entropy_weights
+            self.output_genotype_entropy_weights_placeholder: self.output_genotype_entropy_weights,
+            # self.output_indel_length_entropy_weights_placeholder: self.output_indel_length_entropy_weights
         }
         input_dictionary.update(self.get_structure_dict(phase='predict'))
 
-        loss, base_change_loss, zygosity_loss, variant_type_loss, indel_length_loss, l2_loss = self.session.run([
+        loss, base_change_loss, genotype_loss, indel_length_0_loss, indel_length_1_loss, l2_loss = self.session.run([
             self.loss,
             self.Y_base_change_loss,
-            self.Y_zygosity_loss,
-            self.Y_variant_type_loss,
-            self.Y_indel_length_loss,
+            self.Y_genotype_loss,
+            self.Y_indel_length_0_loss,
+            self.Y_indel_length_1_loss,
             self.regularization_L2_loss_without_lambda
         ], feed_dict=input_dictionary)
 
@@ -827,9 +803,8 @@ class Clair(object):
             self.getLossLossRTVal = self.output_cache['prediction_loss']
 
             self.base_change_loss = base_change_loss
-            self.zygosity_loss = zygosity_loss
-            self.variant_type_loss = variant_type_loss
-            self.indel_length_loss = indel_length_loss
+            self.genotype_loss = genotype_loss
+            self.indel_length_loss = indel_length_0_loss + indel_length_1_loss
             self.l2_loss = l2_loss * param.l2RegularizationLambda
         return loss
 
@@ -955,7 +930,7 @@ class Clair(object):
             return_list = []
             for sub_tensor in tensor:
                 return_list.append('[\n' + Clair.pretty_print_np_tensor(sub_tensor,
-                                                                            element_separator=element_separator) + '\n]')
+                                                                        element_separator=element_separator) + '\n]')
             return '\n'.join(return_list)
 
     def __del__(self):

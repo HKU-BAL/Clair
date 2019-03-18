@@ -53,7 +53,7 @@ def is_homo_SNP_from(prediction):
         (1 if is_genotype_match else 0) +
         (1 if is_variant_length_match else 0)
     )
-    return votes >= 2
+    return votes >= 3
 
 
 def is_hetero_SNP_from(prediction):
@@ -75,7 +75,7 @@ def is_hetero_SNP_from(prediction):
         (1 if is_base_change_match else 0) +
         (1 if is_variant_length_match else 0)
     )
-    return votes >= 2
+    return votes >= 3
 
 
 def is_homo_insertion_from(prediction):
@@ -446,6 +446,7 @@ def Output(
                     prediction.base_change_index == BaseChangeIndex.GIns or
                     prediction.base_change_index == BaseChangeIndex.TIns
                 ) and
+                variant_length_1 == 0 and variant_length_2 > 0 and
                 hetero_insert_base != reference_base
             )
             is_Ins_Ins_multi = (
@@ -512,6 +513,7 @@ def Output(
                     prediction.base_change_index == BaseChangeIndex.GDel or
                     prediction.base_change_index == BaseChangeIndex.TDel
                 ) and
+                variant_length_1 == 0 and variant_length_2 > 0 and
                 hetero_delete_base != reference_base
             )
             is_Del_Del_multi = (
@@ -547,8 +549,61 @@ def Output(
 
 
         elif is_insertion_and_deletion:
-            # TODO
-            continue
+            variant_length_delete = 1 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0]
+            variant_length_insert = 1 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1]
+
+            alternate_base_delete = ""
+            alternate_base_insert = ""
+            inferred_insert_length = 0
+            inferred_delete_length = 0
+
+            is_inferred_insertion_length = variant_length_insert >= maximum_variant_length
+            is_inferred_deletion_length = variant_length_delete >= maximum_variant_length
+
+            if is_inferred_insertion_length:
+                for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+                    reference_tensor = X[row_index, k, :, Channel.reference]
+                    insertion_tensor = X[row_index, k, :, Channel.insert]
+                    if (
+                        k < (flanking_base_number + maximum_variant_length) or
+                        sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
+                    ):
+                        inferred_insert_length += 1
+                        alternate_base_insert += num2base[np.argmax(insertion_tensor) % 4]
+                    else:
+                        break
+            else:
+                for k in range(flanking_base_number + 1, flanking_base_number + variant_length_insert + 1):
+                    alternate_base_insert += num2base[np.argmax(X[row_index, k, :, Channel.insert]) % 4]
+
+            if is_inferred_deletion_length:
+                for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+                    reference_tensor = X[row_index, k, :, Channel.reference]
+                    deletion_tensor = X[row_index, k, :, Channel.delete]
+                    if (
+                        k < (flanking_base_number + maximum_variant_length) or
+                        sum(reference_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(deletion_tensor)
+                    ):
+                        inferred_delete_length += 1
+                    else:
+                        break
+
+            is_marked_as_SV = (
+                (is_inferred_insertion_length and inferred_insert_length >= flanking_base_number) or
+                (is_inferred_deletion_length and inferred_delete_length >= flanking_base_number)
+            )
+
+            if is_marked_as_SV:
+                # TODO: don't know what to do for this condition, yet
+                continue
+            elif is_inferred_deletion_length:
+                reference_base = reference_sequence[position_center:position_center + inferred_delete_length + 1]
+                alternate_base_delete = reference_sequence[position_center]
+            else:
+                reference_base = reference_sequence[position_center:position_center + variant_length_delete + 1]
+                alternate_base_delete = reference_sequence[position_center]
+
+            alternate_base = "{},{}".format(alternate_base_delete, reference_base + alternate_base_insert)
 
         # allele frequency / supported reads
         supported_reads_count = 0
