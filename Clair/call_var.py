@@ -313,10 +313,13 @@ def Output(
     no_of_rows = len(base_change_probabilities)
 
     for row_index in range(no_of_rows):
+        variant_lengths = [int(round(variant_length_list[0])), int(round(variant_length_list[1]))]
+        variant_lengths.sort()
+
         prediction = Predictions(
             base_change_index=np.argmax(base_change_probabilities[row_index]),
             genotype_index=np.argmax(genotype_probabilities[row_index]),
-            variant_lengths=[int(round(variant_length_list[0])), int(round(variant_length_list[1]))].sort()
+            variant_lengths=variant_lengths
         )
 
         is_reference = is_reference_from(prediction)

@@ -272,7 +272,8 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
                     min(len(alternate) - len(reference), param.flankingBaseNum),
                     -param.flankingBaseNum
                 ) for alternate in alternate_arr
-            ].sort()
+            ]
+            variant_length_vec.sort()
 
             Y[key] = base_change_vec + genotype_vec + variant_length_vec
 
