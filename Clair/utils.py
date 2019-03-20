@@ -16,7 +16,7 @@ base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
-class BaseChangeIndex(IntEnum):
+class BaseChange(IntEnum):
     AA = 0
     AC = 1
     AG = 2
@@ -40,7 +40,7 @@ class BaseChangeIndex(IntEnum):
     InsDel = 20
 
 
-def base_change_label_from(base_change_index):
+def base_change_label_from(base_change_enum):
     return [
         'AA',
         'AC',
@@ -63,32 +63,32 @@ def base_change_label_from(base_change_index):
         'GIns',
         'TIns',
         'InsDel'
-    ][base_change_index]
+    ][base_change_enum]
 
 
-def base_change_index_from(base_change_label):
+def base_change_enum_from(base_change_label):
     return {
-        'AA': BaseChangeIndex.AA,
-        'AC': BaseChangeIndex.AC,
-        'AG': BaseChangeIndex.AG,
-        'AT': BaseChangeIndex.AT,
-        'CC': BaseChangeIndex.CC,
-        'CG': BaseChangeIndex.CG,
-        'CT': BaseChangeIndex.CT,
-        'GG': BaseChangeIndex.GG,
-        'GT': BaseChangeIndex.GT,
-        'TT': BaseChangeIndex.TT,
-        'DelDel': BaseChangeIndex.DelDel,
-        'ADel': BaseChangeIndex.ADel,
-        'CDel': BaseChangeIndex.CDel,
-        'GDel': BaseChangeIndex.GDel,
-        'TDel': BaseChangeIndex.TDel,
-        'InsIns': BaseChangeIndex.InsIns,
-        'AIns': BaseChangeIndex.AIns,
-        'CIns': BaseChangeIndex.CIns,
-        'GIns': BaseChangeIndex.GIns,
-        'TIns': BaseChangeIndex.TIns,
-        'InsDel': BaseChangeIndex.InsDel,
+        'AA': BaseChange.AA,
+        'AC': BaseChange.AC,
+        'AG': BaseChange.AG,
+        'AT': BaseChange.AT,
+        'CC': BaseChange.CC,
+        'CG': BaseChange.CG,
+        'CT': BaseChange.CT,
+        'GG': BaseChange.GG,
+        'GT': BaseChange.GT,
+        'TT': BaseChange.TT,
+        'DelDel': BaseChange.DelDel,
+        'ADel': BaseChange.ADel,
+        'CDel': BaseChange.CDel,
+        'GDel': BaseChange.GDel,
+        'TDel': BaseChange.TDel,
+        'InsIns': BaseChange.InsIns,
+        'AIns': BaseChange.AIns,
+        'CIns': BaseChange.CIns,
+        'GIns': BaseChange.GIns,
+        'TIns': BaseChange.TIns,
+        'InsDel': BaseChange.InsDel,
     }[base_change_label]
 
 
@@ -117,34 +117,26 @@ def mix_two_partial_labels(label1, label2):
         return label1 + label2
 
     # InsDel
-    return base_change_label_from(BaseChangeIndex.InsDel)
+    return base_change_label_from(BaseChange.InsDel)
 
 
-class GenotypeIndex(IntEnum):
+class Genotype(IntEnum):
     homo_reference = 0          # 0/0
     homo_variant = 1            # 1/1
     hetero_variant = 2          # 0/1 OR 1/2
     hetero_variant_multi = 3    # 1/2
 
 
-def genotype_string_from(genotype_index):
-    if genotype_index == GenotypeIndex.homo_reference:
+def genotype_string_from(genotype):
+    if genotype == Genotype.homo_reference:
         return "0/0"
-    elif genotype_index == GenotypeIndex.homo_variant:
+    elif genotype == Genotype.homo_variant:
         return "1/1"
-    elif genotype_index == GenotypeIndex.hetero_variant:
+    elif genotype == Genotype.hetero_variant:
         return "0/1"
-    elif genotype_index == GenotypeIndex.hetero_variant_multi:
+    elif genotype == Genotype.hetero_variant_multi:
         return "1/2"
     return ""
-
-
-def genotype_label_from(genotype_arr):
-    if genotype_arr[0] == '0' and genotype_arr[1] == '0':
-        return "0/0"
-    elif genotype_arr[0] == '1' and genotype_arr[1] == '1':
-        return "1/1"
-    return "0/1"
 
 
 def SetupEnv():
@@ -246,8 +238,8 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
             partial_labels = [partial_label_from(reference, alternate) for alternate in alternate_arr]
             base_change_label = mix_two_partial_labels(partial_labels[0], partial_labels[1])
-            base_change_index = base_change_index_from(base_change_label)
-            base_change_vec[base_change_index] = 1
+            base_change = base_change_enum_from(base_change_label)
+            base_change_vec[base_change] = 1
 
             # geno type
             #               0/0 1/1 0/1
@@ -257,14 +249,14 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             is_hetero_variant = not is_homo_reference and not is_homo_variant
             is_multi = not is_homo_variant and genotype_1 != "0" and genotype_2 != "0"
             if is_homo_reference:
-                genotype_vec[GenotypeIndex.homo_reference] = 1.0
+                genotype_vec[Genotype.homo_reference] = 1.0
             elif is_homo_variant:
-                genotype_vec[GenotypeIndex.homo_variant] = 1.0
+                genotype_vec[Genotype.homo_variant] = 1.0
             elif is_hetero_variant and not is_multi:
-                genotype_vec[GenotypeIndex.hetero_variant] = 1.0
+                genotype_vec[Genotype.hetero_variant] = 1.0
             elif is_hetero_variant and is_multi:
-                genotype_vec[GenotypeIndex.hetero_variant] = 1.0
-                # genotype_vec[GenotypeIndex.hetero_variant_multi] = 1.0
+                genotype_vec[Genotype.hetero_variant] = 1.0
+                # genotype_vec[Genotype.hetero_variant_multi] = 1.0
 
             # variant length
             variant_length_vec = [
@@ -321,7 +313,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             #                     L1  L2
             variant_length_vec = [0., 0.]
 
-            base_change_vec[base_change_index_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
+            base_change_vec[base_change_enum_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
 
             Y[key] = base_change_vec + genotype_vec + variant_length_vec
 

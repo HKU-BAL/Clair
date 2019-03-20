@@ -1,4 +1,4 @@
-import clair as cv
+import clair_model as cv
 import utils
 import matplotlib.pyplot as plt
 import sys

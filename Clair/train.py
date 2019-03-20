@@ -10,7 +10,7 @@ from threading import Thread
 
 import param
 import utils
-import clair as cv
+import clair_model as cv
 import evaluate
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)

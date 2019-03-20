@@ -8,7 +8,7 @@ import numpy as np
 
 import param
 import utils
-import clair as cv
+import clair_model as cv
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))

@@ -11,8 +11,8 @@ from enum import IntEnum
 from collections import namedtuple
 
 import utils
-import clair as cv
-from utils import BaseChangeIndex, base_change_label_from, GenotypeIndex, genotype_string_from
+import clair_model as cv
+from utils import BaseChange, base_change_label_from, Genotype, genotype_string_from
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))
@@ -24,7 +24,7 @@ v2Length2Name = dict(zip((0, 1, 2, 3, 4, 5), ('0', '1', '2', '3', '4', '4+')))
 maximum_variant_length = param.flankingBaseNum  # 5
 inferred_indel_length_minimum_allele_frequency = 0.125
 
-Predictions = namedtuple('Predictions', ['base_change_index', 'genotype_index', 'variant_lengths'])
+Predictions = namedtuple('Predictions', ['base_change', 'genotype', 'variant_lengths'])
 
 
 class Channel(IntEnum):
@@ -35,17 +35,17 @@ class Channel(IntEnum):
 
 
 def is_reference_from(prediction):
-    is_genotype_match = prediction.genotype_index == GenotypeIndex.homo_reference
+    is_genotype_match = prediction.genotype == Genotype.homo_reference
     return is_genotype_match
 
 
 def is_homo_SNP_from(prediction):
-    is_genotype_match = prediction.genotype_index == GenotypeIndex.homo_variant
+    is_genotype_match = prediction.genotype == Genotype.homo_variant
     is_base_change_match = (
-        prediction.base_change_index == BaseChangeIndex.AA or
-        prediction.base_change_index == BaseChangeIndex.CC or
-        prediction.base_change_index == BaseChangeIndex.GG or
-        prediction.base_change_index == BaseChangeIndex.TT
+        prediction.base_change == BaseChange.AA or
+        prediction.base_change == BaseChange.CC or
+        prediction.base_change == BaseChange.GG or
+        prediction.base_change == BaseChange.TT
     )
     is_variant_length_match = prediction.variant_lengths[0] == 0 and prediction.variant_lengths[1] == 0
     votes = (
@@ -58,16 +58,16 @@ def is_homo_SNP_from(prediction):
 
 def is_hetero_SNP_from(prediction):
     is_genotype_match = (
-        prediction.genotype_index == GenotypeIndex.hetero_variant or
-        prediction.genotype_index == GenotypeIndex.hetero_variant_multi
+        prediction.genotype == Genotype.hetero_variant or
+        prediction.genotype == Genotype.hetero_variant_multi
     )
     is_base_change_match = (
-        prediction.base_change_index == BaseChangeIndex.AC or
-        prediction.base_change_index == BaseChangeIndex.AG or
-        prediction.base_change_index == BaseChangeIndex.AT or
-        prediction.base_change_index == BaseChangeIndex.CG or
-        prediction.base_change_index == BaseChangeIndex.CT or
-        prediction.base_change_index == BaseChangeIndex.GT
+        prediction.base_change == BaseChange.AC or
+        prediction.base_change == BaseChange.AG or
+        prediction.base_change == BaseChange.AT or
+        prediction.base_change == BaseChange.CG or
+        prediction.base_change == BaseChange.CT or
+        prediction.base_change == BaseChange.GT
     )
     is_variant_length_match = prediction.variant_lengths[0] == 0 and prediction.variant_lengths[1] == 0
     votes = (
@@ -79,8 +79,8 @@ def is_hetero_SNP_from(prediction):
 
 
 def is_homo_insertion_from(prediction):
-    is_genotype_match = prediction.genotype_index == GenotypeIndex.homo_variant
-    is_base_change_match = prediction.base_change_index == BaseChangeIndex.InsIns
+    is_genotype_match = prediction.genotype == Genotype.homo_variant
+    is_base_change_match = prediction.base_change == BaseChange.InsIns
     is_variant_length_match = (
         prediction.variant_lengths[0] > 0 and
         prediction.variant_lengths[1] > 0 and
@@ -96,15 +96,15 @@ def is_homo_insertion_from(prediction):
 
 def is_hetero_insertion_from(prediction):
     is_genotype_match = (
-        prediction.genotype_index == GenotypeIndex.hetero_variant or
-        prediction.genotype_index == GenotypeIndex.hetero_variant_multi
+        prediction.genotype == Genotype.hetero_variant or
+        prediction.genotype == Genotype.hetero_variant_multi
     )
     is_base_change_match = (
-        prediction.base_change_index == BaseChangeIndex.InsIns or
-        prediction.base_change_index == BaseChangeIndex.AIns or
-        prediction.base_change_index == BaseChangeIndex.CIns or
-        prediction.base_change_index == BaseChangeIndex.GIns or
-        prediction.base_change_index == BaseChangeIndex.TIns
+        prediction.base_change == BaseChange.InsIns or
+        prediction.base_change == BaseChange.AIns or
+        prediction.base_change == BaseChange.CIns or
+        prediction.base_change == BaseChange.GIns or
+        prediction.base_change == BaseChange.TIns
     )
     is_variant_length_match = prediction.variant_lengths[0] >= 0 and prediction.variant_lengths[1] > 0
     votes = (
@@ -116,8 +116,8 @@ def is_hetero_insertion_from(prediction):
 
 
 def is_homo_deletion_from(prediction):
-    is_genotype_match = prediction.genotype_index == GenotypeIndex.homo_variant
-    is_base_change_match = prediction.base_change_index == BaseChangeIndex.DelDel
+    is_genotype_match = prediction.genotype == Genotype.homo_variant
+    is_base_change_match = prediction.base_change == BaseChange.DelDel
     is_variant_length_match = (
         prediction.variant_lengths[0] < 0 and
         prediction.variant_lengths[1] < 0 and
@@ -133,15 +133,15 @@ def is_homo_deletion_from(prediction):
 
 def is_hetero_deletion_from(prediction):
     is_genotype_match = (
-        prediction.genotype_index == GenotypeIndex.hetero_variant or
-        prediction.genotype_index == GenotypeIndex.hetero_variant_multi
+        prediction.genotype == Genotype.hetero_variant or
+        prediction.genotype == Genotype.hetero_variant_multi
     )
     is_base_change_match = (
-        prediction.base_change_index == BaseChangeIndex.DelDel or
-        prediction.base_change_index == BaseChangeIndex.ADel or
-        prediction.base_change_index == BaseChangeIndex.CDel or
-        prediction.base_change_index == BaseChangeIndex.GDel or
-        prediction.base_change_index == BaseChangeIndex.TDel
+        prediction.base_change == BaseChange.DelDel or
+        prediction.base_change == BaseChange.ADel or
+        prediction.base_change == BaseChange.CDel or
+        prediction.base_change == BaseChange.GDel or
+        prediction.base_change == BaseChange.TDel
     )
     is_variant_length_match = prediction.variant_lengths[0] < 0 and prediction.variant_lengths[1] <= 0
     votes = (
@@ -154,10 +154,10 @@ def is_hetero_deletion_from(prediction):
 
 def is_insertion_and_deletion_from(prediction):
     is_genotype_match = (
-        prediction.genotype_index == GenotypeIndex.hetero_variant or
-        prediction.genotype_index == GenotypeIndex.hetero_variant_multi
+        prediction.genotype == Genotype.hetero_variant or
+        prediction.genotype == Genotype.hetero_variant_multi
     )
-    is_base_change_match = prediction.base_change_index == BaseChangeIndex.InsDel
+    is_base_change_match = prediction.base_change == BaseChange.InsDel
     is_variant_length_match = prediction.variant_lengths[0] < 0 and prediction.variant_lengths[1] > 0
     votes = (
         (1 if is_genotype_match else 0) +
@@ -169,68 +169,68 @@ def is_insertion_and_deletion_from(prediction):
 
 def homo_SNP_bases_from(base_change_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[BaseChangeIndex.AA],
-        base_change_probabilities[BaseChangeIndex.CC],
-        base_change_probabilities[BaseChangeIndex.GG],
-        base_change_probabilities[BaseChangeIndex.TT],
+        base_change_probabilities[BaseChange.AA],
+        base_change_probabilities[BaseChange.CC],
+        base_change_probabilities[BaseChange.GG],
+        base_change_probabilities[BaseChange.TT],
     ])
     output_bases = [
-        base_change_label_from(BaseChangeIndex.AA),
-        base_change_label_from(BaseChangeIndex.CC),
-        base_change_label_from(BaseChangeIndex.GG),
-        base_change_label_from(BaseChangeIndex.TT)
+        base_change_label_from(BaseChange.AA),
+        base_change_label_from(BaseChange.CC),
+        base_change_label_from(BaseChange.GG),
+        base_change_label_from(BaseChange.TT)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0], output_bases[1]
 
 
 def hetero_SNP_bases_from(base_change_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[BaseChangeIndex.AC],
-        base_change_probabilities[BaseChangeIndex.AG],
-        base_change_probabilities[BaseChangeIndex.AT],
-        base_change_probabilities[BaseChangeIndex.CG],
-        base_change_probabilities[BaseChangeIndex.CT],
-        base_change_probabilities[BaseChangeIndex.GT]
+        base_change_probabilities[BaseChange.AC],
+        base_change_probabilities[BaseChange.AG],
+        base_change_probabilities[BaseChange.AT],
+        base_change_probabilities[BaseChange.CG],
+        base_change_probabilities[BaseChange.CT],
+        base_change_probabilities[BaseChange.GT]
     ])
     output_bases = [
-        base_change_label_from(BaseChangeIndex.AC),
-        base_change_label_from(BaseChangeIndex.AG),
-        base_change_label_from(BaseChangeIndex.AT),
-        base_change_label_from(BaseChangeIndex.CG),
-        base_change_label_from(BaseChangeIndex.CT),
-        base_change_label_from(BaseChangeIndex.GT)
+        base_change_label_from(BaseChange.AC),
+        base_change_label_from(BaseChange.AG),
+        base_change_label_from(BaseChange.AT),
+        base_change_label_from(BaseChange.CG),
+        base_change_label_from(BaseChange.CT),
+        base_change_label_from(BaseChange.GT)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0], output_bases[1]
 
 
 def hetero_insert_base_from(base_change_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[BaseChangeIndex.AIns],
-        base_change_probabilities[BaseChangeIndex.CIns],
-        base_change_probabilities[BaseChangeIndex.GIns],
-        base_change_probabilities[BaseChangeIndex.TIns]
+        base_change_probabilities[BaseChange.AIns],
+        base_change_probabilities[BaseChange.CIns],
+        base_change_probabilities[BaseChange.GIns],
+        base_change_probabilities[BaseChange.TIns]
     ])
     output_bases = [
-        base_change_label_from(BaseChangeIndex.AIns),
-        base_change_label_from(BaseChangeIndex.CIns),
-        base_change_label_from(BaseChangeIndex.GIns),
-        base_change_label_from(BaseChangeIndex.TIns)
+        base_change_label_from(BaseChange.AIns),
+        base_change_label_from(BaseChange.CIns),
+        base_change_label_from(BaseChange.GIns),
+        base_change_label_from(BaseChange.TIns)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0]
 
 
 def hetero_delete_base_from(base_change_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[BaseChangeIndex.ADel],
-        base_change_probabilities[BaseChangeIndex.CDel],
-        base_change_probabilities[BaseChangeIndex.GDel],
-        base_change_probabilities[BaseChangeIndex.TDel]
+        base_change_probabilities[BaseChange.ADel],
+        base_change_probabilities[BaseChange.CDel],
+        base_change_probabilities[BaseChange.GDel],
+        base_change_probabilities[BaseChange.TDel]
     ])
     output_bases = [
-        base_change_label_from(BaseChangeIndex.ADel),
-        base_change_label_from(BaseChangeIndex.CDel),
-        base_change_label_from(BaseChangeIndex.GDel),
-        base_change_label_from(BaseChangeIndex.TDel)
+        base_change_label_from(BaseChange.ADel),
+        base_change_label_from(BaseChange.CDel),
+        base_change_label_from(BaseChange.GDel),
+        base_change_label_from(BaseChange.TDel)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0]
 
@@ -317,8 +317,8 @@ def Output(
         variant_lengths.sort()
 
         prediction = Predictions(
-            base_change_index=np.argmax(base_change_probabilities[row_index]),
-            genotype_index=np.argmax(genotype_probabilities[row_index]),
+            base_change=np.argmax(base_change_probabilities[row_index]),
+            genotype=np.argmax(genotype_probabilities[row_index]),
             variant_lengths=variant_lengths
         )
 
@@ -375,11 +375,11 @@ def Output(
 
         # geno type string, would changed to 1/2 later if is multi
         if is_reference:
-            genotype_string = genotype_string_from(GenotypeIndex.homo_reference)
+            genotype_string = genotype_string_from(Genotype.homo_reference)
         elif is_homo_SNP or is_homo_insertion or is_homo_deletion:
-            genotype_string = genotype_string_from(GenotypeIndex.homo_variant)
+            genotype_string = genotype_string_from(Genotype.homo_variant)
         elif is_hetero_SNP or is_hetero_deletion or is_hetero_insertion or is_insertion_and_deletion:
-            genotype_string = genotype_string_from(GenotypeIndex.hetero_variant)
+            genotype_string = genotype_string_from(Genotype.hetero_variant)
 
         # reference base and alternate base
         reference_base = ""
@@ -399,7 +399,7 @@ def Output(
             is_multi = base1 != reference_base and base2 != reference_base
             if is_multi:
                 alternate_base = "{},{}".format(base1, base2)
-                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+                genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
             else:
                 alternate_base = base1 if base1 != reference_base else base2
 
@@ -444,10 +444,10 @@ def Output(
                 not is_marked_as_SV and
                 is_hetero_insertion and
                 (
-                    prediction.base_change_index == BaseChangeIndex.AIns or
-                    prediction.base_change_index == BaseChangeIndex.CIns or
-                    prediction.base_change_index == BaseChangeIndex.GIns or
-                    prediction.base_change_index == BaseChangeIndex.TIns
+                    prediction.base_change == BaseChange.AIns or
+                    prediction.base_change == BaseChange.CIns or
+                    prediction.base_change == BaseChange.GIns or
+                    prediction.base_change == BaseChange.TIns
                 ) and
                 variant_length_1 == 0 and variant_length_2 > 0 and
                 hetero_insert_base != reference_base
@@ -455,7 +455,7 @@ def Output(
             is_Ins_Ins_multi = (
                 not is_marked_as_SV and
                 is_hetero_insertion and
-                prediction.base_change_index == BaseChangeIndex.InsIns and
+                prediction.base_change == BaseChange.InsIns and
                 variant_length_1 > 0 and variant_length_2 > 0 and
                 variant_length_1 != variant_length_2
             )
@@ -468,13 +468,13 @@ def Output(
 
             if is_SNP_Ins_multi:
                 alternate_base = "{},{}".format(hetero_insert_base, alternate_base)
-                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+                genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
             elif is_Ins_Ins_multi:
                 alternate_base_1 = alternate_base[0:len(reference_base) + variant_length_1]
                 alternate_base_2 = alternate_base
                 if alternate_base_1 != alternate_base_2:
                     alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
-                    genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+                    genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
         elif is_deletion:
             if is_homo_deletion:
@@ -511,10 +511,10 @@ def Output(
                 not is_marked_as_SV and
                 is_hetero_deletion and
                 (
-                    prediction.base_change_index == BaseChangeIndex.ADel or
-                    prediction.base_change_index == BaseChangeIndex.CDel or
-                    prediction.base_change_index == BaseChangeIndex.GDel or
-                    prediction.base_change_index == BaseChangeIndex.TDel
+                    prediction.base_change == BaseChange.ADel or
+                    prediction.base_change == BaseChange.CDel or
+                    prediction.base_change == BaseChange.GDel or
+                    prediction.base_change == BaseChange.TDel
                 ) and
                 variant_length_1 == 0 and variant_length_2 > 0 and
                 hetero_delete_base != reference_base
@@ -522,7 +522,7 @@ def Output(
             is_Del_Del_multi = (
                 not is_marked_as_SV and
                 is_hetero_deletion and
-                prediction.base_change_index == BaseChangeIndex.DelDel and
+                prediction.base_change == BaseChange.DelDel and
                 variant_length_1 > 0 and variant_length_2 > 0 and
                 variant_length_1 != variant_length_2
             )
@@ -542,13 +542,13 @@ def Output(
                 alternate_base_1 = alternate_base
                 alternate_base_2 = hetero_delete_base + reference_base[1:]
                 alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
-                genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+                genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
             elif is_Del_Del_multi:
                 alternate_base_1 = alternate_base
                 alternate_base_2 = reference_sequence[position_center:position_center + variant_length_2 - variant_length_1 + 1]
                 if alternate_base_1 != alternate_base_2:
                     alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
-                    genotype_string = genotype_string_from(GenotypeIndex.hetero_variant_multi)
+                    genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
 
         elif is_insertion_and_deletion:

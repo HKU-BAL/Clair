@@ -371,7 +371,7 @@ class Clair(object):
                 # the input shape in adaptive LSTM layer should be in shape (time-steps, batch_size, sequence)
                 # that is: (# of bases, batch_size, (# of ACGTacgt) * (# of channels))
                 self.X_flattened_2D_transposed = tf.transpose(
-                    x=self.X_flattened_2D, perm=[1, 0, 2], name="X_flattened_2D_transposed"
+                    self.X_flattened_2D, perm=[1, 0, 2], name="X_flattened_2D_transposed"
                 )
 
                 is_gpu_available = len(Clair.get_available_gpus()) > 0
@@ -426,8 +426,8 @@ class Clair(object):
 
                 self.L2_flattened = tf.reshape(
                     self.L2,
-                    # shape=(tf.shape(self.L2)[0], self.L2_num_units * self.LSTM2_num_units * 2),
-                    shape=(tf.shape(self.L2)[0], -1),
+                    shape=(tf.shape(self.L2)[0], self.L2_num_units * self.LSTM2_num_units * 2),
+                    # shape=(tf.shape(self.L2)[0], -1),
                     name="L2_flattened"
                 )
                 self.layers.append(self.L2_flattened)
@@ -478,15 +478,13 @@ class Clair(object):
                 self.Y_genotype = tf.nn.softmax(self.Y_genotype_logits, name='Y_genotype')
                 self.layers.append(self.Y_genotype)
 
-                self.Y_indel_length_logits = tf.layers.dense(
+                self.Y_indel_length = tf.layers.dense(
                     inputs=self.core_final_layer,
                     units=self.output_indel_length_shape,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
                     name='Y_indel_length_logits'
                 )
-                self.Y_indel_length = self.Y_indel_length_logits
-                # self.Y_indel_length = tf.nn.softmax(self.Y_indel_length_logits, name='Y_indel_length')
                 self.layers.append(self.Y_indel_length)
 
                 self.Y = [self.Y_base_change, self.Y_genotype, self.Y_indel_length]
@@ -503,6 +501,8 @@ class Clair(object):
                     epsilon=self.epsilon,
                     name="Y_base_change_cross_entropy"
                 )
+                self.Y_base_change_loss = tf.reduce_sum(self.Y_base_change_cross_entropy, name="Y_base_change_loss")
+
                 self.Y_genotype_cross_entropy = Clair.weighted_cross_entropy(
                     softmax_prediction=self.Y_genotype,
                     labels=Y_genotype_label,
@@ -510,24 +510,18 @@ class Clair(object):
                     epsilon=self.epsilon,
                     name="Y_genotype_cross_entropy"
                 )
+                self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
+
                 # set reduction to NONE (made output shape is the same as labels)
-                self.Y_indel_length_0_mean_square_error = tf.losses.mean_squared_error(
+                self.Y_indel_length_0_loss = tf.losses.absolute_difference(
                     labels=Y_indel_length_label[:, 0],
-                    predictions=self.Y_indel_length[:, 0],
-                    reduction=tf.losses.Reduction.NONE
-                )
-                self.Y_indel_length_1_mean_square_error = tf.losses.mean_squared_error(
-                    labels=Y_indel_length_label[:, 1],
-                    predictions=self.Y_indel_length[:, 1],
-                    reduction=tf.losses.Reduction.NONE
+                    predictions=self.Y_indel_length[:, 0]
                 )
 
-                self.Y_base_change_loss = tf.reduce_sum(self.Y_base_change_cross_entropy, name="Y_base_change_loss")
-                self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
-                self.Y_indel_length_0_loss = tf.reduce_sum(
-                    self.Y_indel_length_0_mean_square_error, name="Y_indel_length_0_loss")
-                self.Y_indel_length_1_loss = tf.reduce_sum(
-                    self.Y_indel_length_1_mean_square_error, name="Y_indel_length_1_loss")
+                self.Y_indel_length_1_loss = tf.losses.absolute_difference(
+                    labels=Y_indel_length_label[:, 1],
+                    predictions=self.Y_indel_length[:, 1]
+                )
 
                 self.regularization_L2_loss_without_lambda = tf.add_n([
                     tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name
@@ -805,6 +799,8 @@ class Clair(object):
             self.base_change_loss = base_change_loss
             self.genotype_loss = genotype_loss
             self.indel_length_loss = indel_length_0_loss + indel_length_1_loss
+            self.indel_length_0_loss = indel_length_0_loss
+            self.indel_length_1_loss = indel_length_1_loss
             self.l2_loss = l2_loss * param.l2RegularizationLambda
         return loss
 
