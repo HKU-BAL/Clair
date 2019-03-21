@@ -80,8 +80,14 @@ class Clair(object):
             ],
             L1_num_units=30,
             L2_num_units=30,
-            L3_num_units=192,
-            L3_dropout_rate=0.5,
+            L4_num_units=192,
+            L4_dropout_rate=0.5,
+            L5_1_num_units=96,
+            L5_1_dropout_rate=0.8,
+            L5_2_num_units=96,
+            L5_2_dropout_rate=0.8,
+            L5_3_num_units=96,
+            L5_3_dropout_rate=0.8,
             LSTM1_num_units=128,
             LSTM2_num_units=128,
             LSTM3_num_units=128,
@@ -120,8 +126,14 @@ class Clair(object):
 
         self.L1_num_units = params['L1_num_units']
         self.L2_num_units = params['L2_num_units']
-        self.L3_num_units = params['L3_num_units']
-        self.L3_dropout_rate = params['L3_dropout_rate']
+        self.L4_num_units = params['L4_num_units']
+        self.L4_dropout_rate = params['L4_dropout_rate']
+        self.L5_1_num_units = params['L5_1_num_units']
+        self.L5_1_dropout_rate = params['L5_1_dropout_rate']
+        self.L5_2_num_units = params['L5_2_num_units']
+        self.L5_2_dropout_rate = params['L5_2_dropout_rate']
+        self.L5_3_num_units = params['L5_3_num_units']
+        self.L5_3_dropout_rate = params['L5_3_dropout_rate']
 
         self.LSTM1_num_units = params['LSTM1_num_units']
         self.LSTM2_num_units = params['LSTM2_num_units']
@@ -184,9 +196,19 @@ class Clair(object):
             A dictionary containing values for the placeholders
         """
         if phase == 'train':
-            return {self.L3_dropout_rate_placeholder: self.L3_dropout_rate}
+            return {
+                self.L4_dropout_rate_placeholder: self.L4_dropout_rate,
+                self.L5_1_dropout_rate_placeholder: self.L5_1_dropout_rate,
+                self.L5_2_dropout_rate_placeholder: self.L5_2_dropout_rate,
+                self.L5_3_dropout_rate_placeholder: self.L5_3_dropout_rate
+            }
         else:
-            return {self.L3_dropout_rate_placeholder: 0.0}
+            return {
+                self.L4_dropout_rate_placeholder: 0.0,
+                self.L5_1_dropout_rate_placeholder: 0.0,
+                self.L5_1_dropout_rate_placeholder: 0.0,
+                self.L5_1_dropout_rate_placeholder: 0.0
+            }
 
     @staticmethod
     def slice_dense_layer(inputs, units, slice_dimension, name="slice_dense", **kwargs):
@@ -376,6 +398,7 @@ class Clair(object):
 
                 is_gpu_available = len(Clair.get_available_gpus()) > 0
 
+                # LSTM Layer (Layer 1)
                 self.LSTM1, self.LSTM1_state = Clair.adaptive_LSTM_layer(
                     inputs=self.X_flattened_2D_transposed,
                     num_units=self.LSTM1_num_units,
@@ -394,6 +417,8 @@ class Clair(object):
                     name="LSTM1_dropout",
                     seed=param.OPERATION_SEED
                 )
+
+                # LSTM Layer (Layer 2)
                 self.LSTM2, _ = Clair.adaptive_LSTM_layer(
                     inputs=self.LSTM1_dropout,
                     num_units=self.LSTM2_num_units,
@@ -413,53 +438,109 @@ class Clair(object):
                 )
                 # revert the shape to (batch_size, # of bases, (# of ACGTacgt) * (# of channels))
                 self.LSTM2_transposed = tf.transpose(self.LSTM2_dropout, [1, 0, 2], name="LSTM2_transposed")
-                # Slice dense layer 2
-                self.L2 = Clair.slice_dense_layer(
+
+                # Slice dense layer (Layer 3)
+                self.L3 = Clair.slice_dense_layer(
                     inputs=self.LSTM2_transposed,
                     units=self.L2_num_units,
                     slice_dimension=2,
-                    name="L2",
-                    activation=selu.selu,
-                    kernel_initializer=he_initializer
-                )
-                self.layers.append(self.L2)
-
-                self.L2_flattened = tf.reshape(
-                    self.L2,
-                    shape=(tf.shape(self.L2)[0], self.L2_num_units * self.LSTM2_num_units * 2),
-                    # shape=(tf.shape(self.L2)[0], -1),
-                    name="L2_flattened"
-                )
-                self.layers.append(self.L2_flattened)
-
-                # Dense layer 3
-                self.L3 = tf.layers.dense(
-                    inputs=self.L2_flattened,
-                    units=self.L3_num_units,
                     name="L3",
                     activation=selu.selu,
                     kernel_initializer=he_initializer
                 )
                 self.layers.append(self.L3)
 
-                self.L3_dropout_rate_placeholder = tf.placeholder(
-                    self.float_type, shape=[], name='L3_dropout_rate_placeholder')
+                self.L3_flattened = tf.reshape(
+                    self.L3,
+                    shape=(tf.shape(self.L3)[0], self.L2_num_units * self.LSTM2_num_units * 2),
+                    name="L2_flattened"
+                )
+                self.layers.append(self.L3_flattened)
 
-                self.L3_dropout = selu.dropout_selu(
-                    x=self.L3,
-                    rate=self.L3_dropout_rate_placeholder,
+                # Dense layer (Layer 4)
+                self.L4 = tf.layers.dense(
+                    inputs=self.L3_flattened,
+                    units=self.L4_num_units,
+                    name="L4",
+                    activation=selu.selu,
+                    kernel_initializer=he_initializer
+                )
+                self.layers.append(self.L4)
+
+                self.L4_dropout_rate_placeholder = tf.placeholder(
+                    self.float_type, shape=[], name='L4_dropout_rate_placeholder'
+                )
+
+                self.L4_dropout = selu.dropout_selu(
+                    x=self.L4,
+                    rate=self.L4_dropout_rate_placeholder,
                     training=self.phase_placeholder,
-                    name='L3_dropout',
+                    name="L4_dropout",
                     seed=param.OPERATION_SEED
                 )
-                self.layers.append(self.L3_dropout)
+                self.layers.append(self.L4_dropout)
 
-                self.core_final_layer = self.L3_dropout
+                self.L5_1_dropout_rate_placeholder = tf.placeholder(
+                    self.float_type, shape=[], name='L5_1_dropout_rate_placeholder'
+                )
+                self.L5_1 = tf.layers.dense(
+                    inputs=self.L4_dropout,
+                    units=self.L5_1_num_units,
+                    name="L5_1",
+                    activation=selu.selu,
+                    kernel_initializer=he_initializer
+                )
+                self.L5_1_dropout = selu.dropout_selu(
+                    x=self.L5_1,
+                    rate=self.L5_1_dropout_rate_placeholder,
+                    training=self.phase_placeholder,
+                    name="L5_1_dropout",
+                    seed=param.OPERATION_SEED
+                )
+                self.layers.append(self.L5_1_dropout)
+
+                self.L5_2_dropout_rate_placeholder = tf.placeholder(
+                    self.float_type, shape=[], name='L5_2_dropout_rate_placeholder'
+                )
+                self.L5_2 = tf.layers.dense(
+                    inputs=self.L4_dropout,
+                    units=self.L5_2_num_units,
+                    name="L5_2",
+                    activation=selu.selu,
+                    kernel_initializer=he_initializer
+                )
+                self.L5_2_dropout = selu.dropout_selu(
+                    x=self.L5_2,
+                    rate=self.L5_2_dropout_rate_placeholder,
+                    training=self.phase_placeholder,
+                    name="L5_2_dropout",
+                    seed=param.OPERATION_SEED
+                )
+                self.layers.append(self.L5_2_dropout)
+
+                self.L5_3_dropout_rate_placeholder = tf.placeholder(
+                    self.float_type, shape=[], name='L5_3_dropout_rate_placeholder'
+                )
+                self.L5_3 = tf.layers.dense(
+                    inputs=self.L4_dropout,
+                    units=self.L5_3_num_units,
+                    name="L5_3",
+                    activation=selu.selu,
+                    kernel_initializer=he_initializer
+                )
+                self.L5_3_dropout = selu.dropout_selu(
+                    x=self.L5_3,
+                    rate=self.L5_3_dropout_rate_placeholder,
+                    training=self.phase_placeholder,
+                    name="L5_2_dropout",
+                    seed=param.OPERATION_SEED
+                )
+                self.layers.append(self.L5_3_dropout)
 
             # Output layer
             with tf.variable_scope("Prediction"):
                 self.Y_base_change_logits = tf.layers.dense(
-                    inputs=self.core_final_layer,
+                    inputs=self.L5_1_dropout,
                     units=self.output_base_change_shape,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
@@ -469,7 +550,7 @@ class Clair(object):
                 self.layers.append(self.Y_base_change)
 
                 self.Y_genotype_logits = tf.layers.dense(
-                    inputs=self.core_final_layer,
+                    inputs=self.L5_2_dropout,
                     units=self.output_genotype_shape,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
@@ -479,7 +560,7 @@ class Clair(object):
                 self.layers.append(self.Y_genotype)
 
                 self.Y_indel_length = tf.layers.dense(
-                    inputs=self.core_final_layer,
+                    inputs=self.L5_3_dropout,
                     units=self.output_indel_length_shape,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
