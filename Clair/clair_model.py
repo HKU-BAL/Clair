@@ -206,8 +206,8 @@ class Clair(object):
             return {
                 self.L4_dropout_rate_placeholder: 0.0,
                 self.L5_1_dropout_rate_placeholder: 0.0,
-                self.L5_1_dropout_rate_placeholder: 0.0,
-                self.L5_1_dropout_rate_placeholder: 0.0
+                self.L5_2_dropout_rate_placeholder: 0.0,
+                self.L5_3_dropout_rate_placeholder: 0.0
             }
 
     @staticmethod
