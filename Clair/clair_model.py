@@ -614,7 +614,7 @@ class Clair(object):
                     units=self.output_indel_length_shape_1,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
-                    name='Y_indel_length_logits'
+                    name='Y_indel_length_logits_1'
                 )
                 self.Y_indel_length_1 = tf.nn.softmax(self.Y_indel_length_logits_1, name='Y_indel_length_1')
                 self.layers.append(self.Y_indel_length_logits_1)
@@ -624,7 +624,7 @@ class Clair(object):
                     units=self.output_indel_length_shape_2,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
-                    name='Y_indel_length_logits'
+                    name='Y_indel_length_logits_2'
                 )
                 self.Y_indel_length_2 = tf.nn.softmax(self.Y_indel_length_logits_2, name='Y_indel_length_2')
                 self.layers.append(self.Y_indel_length_logits_2)
@@ -634,7 +634,8 @@ class Clair(object):
             # Extract the truth labels by output ratios
             with tf.variable_scope("Loss"):
                 Y_base_change_label, Y_genotype_label, Y_indel_length_label_1, Y_indel_length_label_2 = tf.split(
-                    self.Y_placeholder, self.output_label_split, axis=1, name="label_split")
+                    self.Y_placeholder, self.output_label_split, axis=1, name="label_split"
+                )
 
                 self.Y_base_change_cross_entropy = Clair.weighted_cross_entropy(
                     softmax_prediction=self.Y_base_change,
