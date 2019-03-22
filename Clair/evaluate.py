@@ -42,7 +42,8 @@ def evaluate_model(m, dataset_info):
 
     base_predictions = []
     genotype_predictions = []
-    indel_length_predictions = []
+    indel_length_predictions_1 = []
+    indel_length_predictions_2 = []
 
     dataset_index = 0
     end_flag = 0
@@ -54,17 +55,19 @@ def evaluate_model(m, dataset_info):
         x_batch, _, end_flag = utils.decompress_array(
             x_array_compressed, dataset_index, prediction_batch_size, dataset_size)
         minibatch_base_prediction, minibatch_genotype_prediction, \
-            minibatch_indel_length_prediction = m.predict(x_batch)
+            minibatch_indel_length_prediction_1, minibatch_indel_length_prediction_2 = m.predict(x_batch)
 
         base_predictions.append(minibatch_base_prediction)
         genotype_predictions.append(minibatch_genotype_prediction)
-        indel_length_predictions.append(minibatch_indel_length_prediction)
+        indel_length_predictions_1.append(minibatch_indel_length_prediction_1)
+        indel_length_predictions_2.append(minibatch_indel_length_prediction_2)
 
         dataset_index += prediction_batch_size
 
     base_predictions = np.concatenate(base_predictions[:])
     genotype_predictions = np.concatenate(genotype_predictions[:])
-    indel_length_predictions = np.concatenate(indel_length_predictions[:])
+    indel_length_predictions_1 = np.concatenate(indel_length_predictions_1[:])
+    indel_length_predictions_2 = np.concatenate(indel_length_predictions_2[:])
 
     logging.info("[INFO] Prediciton time elapsed: %.2f s" % (time.time() - prediction_start_time))
 
@@ -105,25 +108,25 @@ def evaluate_model(m, dataset_info):
     genotype_f_measure = f1_score(confusion_matrix)
     print("[INFO] f-measure: ", genotype_f_measure)
 
-    # Indel length
-    print("\n[INFO] evaluation on indel length:")
-    confusion_matrix = np.zeros((33, 33), dtype=np.int)
-    for indel_length_prediction, true_indel_length_label in zip(indel_length_predictions, y_array[:, 24:26]):
-        true_indel_length_label_0, true_indel_length_label_1 = true_indel_length_label
-        true_indel_length_label_0 = int(true_indel_length_label_0)
-        true_indel_length_label_1 = int(true_indel_length_label_1)
+    # Indel length 1
+    print("\n[INFO] evaluation on indel length 1:")
+    confusion_matrix = np.zeros((11, 11), dtype=np.int)
+    for indel_length_prediction_1, true_indel_length_label_1 in zip(indel_length_predictions_1, y_array[:, 24:35]):
+        confusion_matrix[np.argmax(true_indel_length_label_1)][np.argmax(indel_length_prediction_1)] += 1
+    for i in range(11):
+        print("\t".join([str(confusion_matrix[i][j]) for j in range(11)]))
+    indel_length_f_measure_1 = f1_score(confusion_matrix)[:-1]
+    print("[INFO] f-measure: ", indel_length_f_measure_1)
 
-        indel_length_prediction_0, indel_length_prediction_1 = indel_length_prediction
-        indel_length_prediction_0 = min(max(int(round(indel_length_prediction_0)), -16), 16)
-        indel_length_prediction_1 = min(max(int(round(indel_length_prediction_1)), -16), 16)
-
-        confusion_matrix[true_indel_length_label_0 + 16][indel_length_prediction_0 + 16] += 1
-        confusion_matrix[true_indel_length_label_1 + 16][indel_length_prediction_1 + 16] += 1
-        # confusion_matrix[np.argmax(true_indel_length_label)][np.argmax(indel_length_prediction)] += 1
-    for i in range(33):
-        print("\t".join([str(confusion_matrix[i][j]) for j in range(33)]))
-    indel_length_f_measure = f1_score(confusion_matrix)[:-1]
-    print("[INFO] f-measure: ", indel_length_f_measure)
+    # Indel length 2
+    print("\n[INFO] evaluation on indel length 2:")
+    confusion_matrix = np.zeros((11, 11), dtype=np.int)
+    for indel_length_prediction_2, true_indel_length_label_2 in zip(indel_length_predictions_2, y_array[:, 35:46]):
+        confusion_matrix[np.argmax(true_indel_length_label_2)][np.argmax(indel_length_prediction_2)] += 1
+    for i in range(11):
+        print("\t".join([str(confusion_matrix[i][j]) for j in range(11)]))
+    indel_length_f_measure_2 = f1_score(confusion_matrix)[:-1]
+    print("[INFO] f-measure: ", indel_length_f_measure_2)
 
     # print("[INFO] base change f-measure mean: %.6f" % np.mean(base_change_f_measure))
     # print("[INFO] genotype f-measure mean: %.6f" % np.mean(genotype_f_measure))

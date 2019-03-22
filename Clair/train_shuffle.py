@@ -153,7 +153,8 @@ def train_model(m, training_config):
 
     base_change_loss_sum = 0
     genotype_loss_sum = 0
-    indel_length_loss_sum = 0
+    indel_length_loss_sum_1 = 0
+    indel_length_loss_sum_2 = 0
     l2_loss_sum = 0
 
     while epoch_count < param.maxEpoch:
@@ -192,7 +193,8 @@ def train_model(m, training_config):
 
             base_change_loss_sum += m.base_change_loss
             genotype_loss_sum += m.genotype_loss
-            indel_length_loss_sum += m.indel_length_loss
+            indel_length_loss_sum_1 += m.indel_length_loss_1
+            indel_length_loss_sum_2 += m.indel_length_loss_2
             l2_loss_sum += m.l2_loss
 
         data_index += batch_size
@@ -208,11 +210,12 @@ def train_model(m, training_config):
         )
         logging.info(
             "\t".join([
-                "{} Validation loss (Total / Base change / Genotype / Indel length):".format(epoch_count),
+                "{} Validation loss (Total/Base/Genotype/Indel_1_2):".format(epoch_count),
                 str(validation_loss_sum/no_of_validation_examples),
                 str(base_change_loss_sum/no_of_validation_examples),
                 str(genotype_loss_sum/no_of_validation_examples),
-                str(indel_length_loss_sum/no_of_validation_examples),
+                str(indel_length_loss_sum_1/no_of_validation_examples),
+                str(indel_length_loss_sum_2/no_of_validation_examples)
             ])
         )
 
@@ -260,7 +263,8 @@ def train_model(m, training_config):
 
         base_change_loss_sum = 0
         genotype_loss_sum = 0
-        indel_length_loss_sum = 0
+        indel_length_loss_sum_1 = 0
+        indel_length_loss_sum_2 = 0
         l2_loss_sum = 0
 
         # shuffle data on each epoch

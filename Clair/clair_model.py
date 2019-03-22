@@ -29,7 +29,8 @@ class Clair(object):
 
     output_base_change_shape: The number of classes in the ouput of base change (alternate base) prediction
     output_genotype_shape: The number of classes in the ouput of genotype prediction
-    output_indel_length_shape: The number of output values in the output of indel length prediction
+    output_indel_length_shape_1: The number of output values in the output of indel length prediction 1
+    output_indel_length_shape_2: The number of output values in the output of indel length prediction 2
 
     output_weight_enabled: True enables per class weights speficied in output_*_entropy_weights (Slower)
     output_base_change_entropy_weights:
@@ -71,12 +72,19 @@ class Clair(object):
             structure="2BiLSTM",
             output_base_change_shape=21,
             output_genotype_shape=3,
-            output_indel_length_shape=2,
+            output_indel_length_shape_1=11,
+            output_indel_length_shape_2=11,
             output_base_change_entropy_weights=[
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             ],
             output_genotype_entropy_weights=[
                 1, 1, 1
+            ],
+            output_indel_length_entropy_weights_1=[
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+            ],
+            output_indel_length_entropy_weights_2=[
+                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             ],
             L1_num_units=30,
             L2_num_units=30,
@@ -88,6 +96,8 @@ class Clair(object):
             L5_2_dropout_rate=0.8,
             L5_3_num_units=96,
             L5_3_dropout_rate=0.8,
+            L5_4_num_units=96,
+            L5_4_dropout_rate=0.8,
             LSTM1_num_units=128,
             LSTM2_num_units=128,
             LSTM3_num_units=128,
@@ -116,13 +126,15 @@ class Clair(object):
         self.tensor_transform_function = params['tensor_transform_function']
         self.output_base_change_shape = params['output_base_change_shape']
         self.output_genotype_shape = params['output_genotype_shape']
-        self.output_indel_length_shape = params['output_indel_length_shape']
+        self.output_indel_length_shape_1 = params['output_indel_length_shape_1']
+        self.output_indel_length_shape_2 = params['output_indel_length_shape_2']
 
         self.task_loss_weights = np.array(params['task_loss_weights'], dtype=float)
 
         self.output_base_change_entropy_weights = np.array(params['output_base_change_entropy_weights'], dtype=float)
         self.output_genotype_entropy_weights = np.array(params['output_genotype_entropy_weights'], dtype=float)
-        # self.output_indel_length_entropy_weights = np.array(params['output_indel_length_entropy_weights'], dtype=float)
+        self.output_indel_length_entropy_weights_1 = np.array(params['output_indel_length_entropy_weights_1'], dtype=float)
+        self.output_indel_length_entropy_weights_2 = np.array(params['output_indel_length_entropy_weights_2'], dtype=float)
 
         self.L1_num_units = params['L1_num_units']
         self.L2_num_units = params['L2_num_units']
@@ -134,6 +146,8 @@ class Clair(object):
         self.L5_2_dropout_rate = params['L5_2_dropout_rate']
         self.L5_3_num_units = params['L5_3_num_units']
         self.L5_3_dropout_rate = params['L5_3_dropout_rate']
+        self.L5_4_num_units = params['L5_4_num_units']
+        self.L5_4_dropout_rate = params['L5_4_dropout_rate']
 
         self.LSTM1_num_units = params['LSTM1_num_units']
         self.LSTM2_num_units = params['LSTM2_num_units']
@@ -161,7 +175,8 @@ class Clair(object):
         self.output_label_split = [
             self.output_base_change_shape,
             self.output_genotype_shape,
-            self.output_indel_length_shape
+            self.output_indel_length_shape_1,
+            self.output_indel_length_shape_2
         ]
 
         # print(self.input_shape)
@@ -200,14 +215,16 @@ class Clair(object):
                 self.L4_dropout_rate_placeholder: self.L4_dropout_rate,
                 self.L5_1_dropout_rate_placeholder: self.L5_1_dropout_rate,
                 self.L5_2_dropout_rate_placeholder: self.L5_2_dropout_rate,
-                self.L5_3_dropout_rate_placeholder: self.L5_3_dropout_rate
+                self.L5_3_dropout_rate_placeholder: self.L5_3_dropout_rate,
+                self.L5_4_dropout_rate_placeholder: self.L5_4_dropout_rate
             }
         else:
             return {
                 self.L4_dropout_rate_placeholder: 0.0,
                 self.L5_1_dropout_rate_placeholder: 0.0,
                 self.L5_2_dropout_rate_placeholder: 0.0,
-                self.L5_3_dropout_rate_placeholder: 0.0
+                self.L5_3_dropout_rate_placeholder: 0.0,
+                self.L5_4_dropout_rate_placeholder: 0.0
             }
 
     @staticmethod
@@ -333,7 +350,11 @@ class Clair(object):
             # dimensions: batch size, # of bases (33), ACGTacgt (8), # of Channels (4) (reference, insertion, deletion, SNP)
             self.input_shape_tf = (None, self.input_shape[0], self.input_shape[1], self.input_shape[2])
             self.output_shape_tf = (
-                None, self.output_base_change_shape + self.output_genotype_shape + self.output_indel_length_shape
+                None,
+                self.output_base_change_shape +
+                self.output_genotype_shape +
+                self.output_indel_length_shape_1 +
+                self.output_indel_length_shape_2
             )
 
             # Place holders
@@ -368,6 +389,16 @@ class Clair(object):
                 dtype=self.float_type,
                 shape=self.output_genotype_entropy_weights.shape,
                 name='output_genotype_entropy_weights_placeholder'
+            )
+            self.output_indel_length_entropy_weights_placeholder_1 = tf.placeholder(
+                dtype=self.float_type,
+                shape=self.output_indel_length_entropy_weights_1.shape,
+                name='output_indel_length_entropy_weights_placeholder_1'
+            )
+            self.output_indel_length_entropy_weights_placeholder_2 = tf.placeholder(
+                dtype=self.float_type,
+                shape=self.output_indel_length_entropy_weights_2.shape,
+                name='output_indel_length_entropy_weights_placeholder_2'
             )
 
             he_initializer = tf.contrib.layers.variance_scaling_initializer(
@@ -436,7 +467,7 @@ class Clair(object):
                     name="LSTM2_dropout",
                     seed=param.OPERATION_SEED
                 )
-                # revert the shape to (batch_size, # of bases, (# of ACGTacgt) * (# of channels))
+                # revert the shape to (batch_size, # of bases, self.LSTM2_num_units * 2)
                 self.LSTM2_transposed = tf.transpose(self.LSTM2_dropout, [1, 0, 2], name="LSTM2_transposed")
 
                 # Slice dense layer (Layer 3)
@@ -532,10 +563,29 @@ class Clair(object):
                     x=self.L5_3,
                     rate=self.L5_3_dropout_rate_placeholder,
                     training=self.phase_placeholder,
-                    name="L5_2_dropout",
+                    name="L5_3_dropout",
                     seed=param.OPERATION_SEED
                 )
                 self.layers.append(self.L5_3_dropout)
+
+                self.L5_4_dropout_rate_placeholder = tf.placeholder(
+                    self.float_type, shape=[], name='L5_4_dropout_rate_placeholder'
+                )
+                self.L5_4 = tf.layers.dense(
+                    inputs=self.L4_dropout,
+                    units=self.L5_4_num_units,
+                    name="L5_4",
+                    activation=selu.selu,
+                    kernel_initializer=he_initializer
+                )
+                self.L5_4_dropout = selu.dropout_selu(
+                    x=self.L5_4,
+                    rate=self.L5_4_dropout_rate_placeholder,
+                    training=self.phase_placeholder,
+                    name="L5_4_dropout",
+                    seed=param.OPERATION_SEED
+                )
+                self.layers.append(self.L5_4_dropout)
 
             # Output layer
             with tf.variable_scope("Prediction"):
@@ -559,21 +609,31 @@ class Clair(object):
                 self.Y_genotype = tf.nn.softmax(self.Y_genotype_logits, name='Y_genotype')
                 self.layers.append(self.Y_genotype)
 
-                self.Y_indel_length = tf.layers.dense(
+                self.Y_indel_length_logits_1 = tf.layers.dense(
                     inputs=self.L5_3_dropout,
-                    units=self.output_indel_length_shape,
+                    units=self.output_indel_length_shape_1,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
                     name='Y_indel_length_logits'
                 )
-                self.Y_clipped_indel_length = tf.clip_by_value(self.Y_indel_length, -16.0, 16.0, name='Y_clipped_indel_length')
-                self.layers.append(self.Y_clipped_indel_length)
+                self.Y_indel_length_1 = tf.nn.softmax(self.Y_indel_length_logits_1, name='Y_indel_length_1')
+                self.layers.append(self.Y_indel_length_logits_1)
 
-                self.Y = [self.Y_base_change, self.Y_genotype, self.Y_clipped_indel_length]
+                self.Y_indel_length_logits_2 = tf.layers.dense(
+                    inputs=self.L5_4_dropout,
+                    units=self.output_indel_length_shape_2,
+                    kernel_initializer=he_initializer,
+                    activation=selu.selu,
+                    name='Y_indel_length_logits'
+                )
+                self.Y_indel_length_2 = tf.nn.softmax(self.Y_indel_length_logits_2, name='Y_indel_length_2')
+                self.layers.append(self.Y_indel_length_logits_2)
+
+                self.Y = [self.Y_base_change, self.Y_genotype, self.Y_indel_length_1, self.Y_indel_length_2]
 
             # Extract the truth labels by output ratios
             with tf.variable_scope("Loss"):
-                Y_base_change_label, Y_genotype_label, Y_indel_length_label = tf.split(
+                Y_base_change_label, Y_genotype_label, Y_indel_length_label_1, Y_indel_length_label_2 = tf.split(
                     self.Y_placeholder, self.output_label_split, axis=1, name="label_split")
 
                 self.Y_base_change_cross_entropy = Clair.weighted_cross_entropy(
@@ -594,17 +654,23 @@ class Clair(object):
                 )
                 self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
 
-                self.Y_indel_length_0_loss = tf.losses.huber_loss(
-                    labels=Y_indel_length_label[:, 0],
-                    predictions=self.Y_clipped_indel_length[:, 0],
-                    reduction=tf.losses.Reduction.SUM
+                self.Y_indel_length_cross_entropy_1 = Clair.weighted_cross_entropy(
+                    softmax_prediction=self.Y_indel_length_1,
+                    labels=Y_indel_length_label_1,
+                    weights=self.output_indel_length_entropy_weights_placeholder_1,
+                    epsilon=self.epsilon,
+                    name="Y_indel_length_cross_entropy_1"
                 )
+                self.Y_indel_length_loss_1 = tf.reduce_sum(self.Y_indel_length_cross_entropy_1, name="Y_indel_length_loss_1")
 
-                self.Y_indel_length_1_loss = tf.losses.huber_loss(
-                    labels=Y_indel_length_label[:, 1],
-                    predictions=self.Y_clipped_indel_length[:, 1],
-                    reduction=tf.losses.Reduction.SUM
+                self.Y_indel_length_cross_entropy_2 = Clair.weighted_cross_entropy(
+                    softmax_prediction=self.Y_indel_length_2,
+                    labels=Y_indel_length_label_2,
+                    weights=self.output_indel_length_entropy_weights_placeholder_2,
+                    epsilon=self.epsilon,
+                    name="Y_indel_length_cross_entropy_2"
                 )
+                self.Y_indel_length_loss_2 = tf.reduce_sum(self.Y_indel_length_cross_entropy_2, name="Y_indel_length_loss_2")
 
                 self.regularization_L2_loss_without_lambda = tf.add_n([
                     tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name
@@ -620,8 +686,8 @@ class Clair(object):
                         tf.stack([
                             self.Y_base_change_loss,
                             self.Y_genotype_loss,
-                            self.Y_indel_length_0_loss,
-                            self.Y_indel_length_1_loss,
+                            self.Y_indel_length_loss_1,
+                            self.Y_indel_length_loss_2,
                             self.regularization_L2_loss
                         ])
                     ),
@@ -653,8 +719,8 @@ class Clair(object):
                 tf.summary.scalar('l2_Lambda', self.regularization_L2_lambda_placeholder),
                 tf.summary.scalar("Y_base_change_loss", self.Y_base_change_loss),
                 tf.summary.scalar("Y_genotype_loss", self.Y_genotype_loss),
-                tf.summary.scalar("Y_indel_length_0_loss", self.Y_indel_length_0_loss),
-                tf.summary.scalar("Y_indel_length_1_loss", self.Y_indel_length_1_loss),
+                tf.summary.scalar("Y_indel_length_loss_1", self.Y_indel_length_loss_1),
+                tf.summary.scalar("Y_indel_length_loss_2", self.Y_indel_length_loss_2),
                 tf.summary.scalar("Regularization_loss", self.regularization_L2_loss),
                 tf.summary.scalar("Total_loss", self.total_loss)
             ])
@@ -783,7 +849,8 @@ class Clair(object):
             self.task_loss_weights_placeholder: self.task_loss_weights,
             self.output_base_change_entropy_weights_placeholder: self.output_base_change_entropy_weights,
             self.output_genotype_entropy_weights_placeholder: self.output_genotype_entropy_weights,
-            # self.output_indel_length_entropy_weights_placeholder: self.output_indel_length_entropy_weights
+            self.output_indel_length_entropy_weights_placeholder_1: self.output_indel_length_entropy_weights_1,
+            self.output_indel_length_entropy_weights_placeholder_2: self.output_indel_length_entropy_weights_2,
         }
         input_dictionary.update(self.get_structure_dict(phase='train'))
 
@@ -796,8 +863,6 @@ class Clair(object):
         self.output_cache['training_summary'] = summary
 
         # Aliasing
-        # self.trainLossRTVal = self.output_cache['training_loss']
-        # self.trainSummaryRTVal = self.output_cache['training_summary']
         self.trainLossRTVal = loss
         self.trainSummaryRTVal = summary
 
@@ -860,16 +925,17 @@ class Clair(object):
             self.task_loss_weights_placeholder: self.task_loss_weights,
             self.output_base_change_entropy_weights_placeholder: self.output_base_change_entropy_weights,
             self.output_genotype_entropy_weights_placeholder: self.output_genotype_entropy_weights,
-            # self.output_indel_length_entropy_weights_placeholder: self.output_indel_length_entropy_weights
+            self.output_indel_length_entropy_weights_placeholder_1: self.output_indel_length_entropy_weights_1,
+            self.output_indel_length_entropy_weights_placeholder_2: self.output_indel_length_entropy_weights_2,
         }
         input_dictionary.update(self.get_structure_dict(phase='predict'))
 
-        loss, base_change_loss, genotype_loss, indel_length_0_loss, indel_length_1_loss, l2_loss = self.session.run([
+        loss, base_change_loss, genotype_loss, indel_length_loss_1, indel_length_loss_2, l2_loss = self.session.run([
             self.loss,
             self.Y_base_change_loss,
             self.Y_genotype_loss,
-            self.Y_indel_length_0_loss,
-            self.Y_indel_length_1_loss,
+            self.Y_indel_length_loss_1,
+            self.Y_indel_length_loss_2,
             self.regularization_L2_loss_without_lambda
         ], feed_dict=input_dictionary)
 
@@ -881,9 +947,9 @@ class Clair(object):
 
             self.base_change_loss = base_change_loss
             self.genotype_loss = genotype_loss
-            self.indel_length_loss = indel_length_0_loss + indel_length_1_loss
-            self.indel_length_0_loss = indel_length_0_loss
-            self.indel_length_1_loss = indel_length_1_loss
+            self.indel_length_loss = indel_length_loss_1 + indel_length_loss_2
+            self.indel_length_loss_1 = indel_length_loss_1
+            self.indel_length_loss_2 = indel_length_loss_2
             self.l2_loss = l2_loss * param.l2RegularizationLambda
         return loss
 

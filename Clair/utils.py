@@ -261,15 +261,14 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
                 # genotype_vec[Genotype.hetero_variant_multi] = 1.0
 
             # variant length
-            variant_length_vec = [
-                max(
-                    min(len(alternate) - len(reference), param.flankingBaseNum),
-                    -param.flankingBaseNum
-                ) for alternate in alternate_arr
-            ]
-            variant_length_vec.sort()
+            variant_lengths = [max(min(len(alternate) - len(reference), 5), -5) for alternate in alternate_arr]
+            variant_lengths.sort()
+            variant_length_vec_1 = [0] * 11
+            variant_length_vec_2 = [0] * 11
+            variant_length_vec_1[variant_lengths[0] + 5] = 1.0
+            variant_length_vec_2[variant_lengths[1] + 5] = 1.0
 
-            Y[key] = base_change_vec + genotype_vec + variant_length_vec
+            Y[key] = base_change_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
 
         f.stdout.close()
         f.wait()
@@ -312,12 +311,15 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
             #               0/0 1/1 0/1
             genotype_vec = [1., 0., 0.]
-            #                     L1  L2
-            variant_length_vec = [0., 0.]
+            #                       L
+            variant_length_vec_1 = [0] * 11
+            variant_length_vec_2 = [0] * 11
+            variant_length_vec_1[0+5] = 1
+            variant_length_vec_2[0+5] = 1
 
             base_change_vec[base_change_enum_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
 
-            Y[key] = base_change_vec + genotype_vec + variant_length_vec
+            Y[key] = base_change_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
 
         total += 1
         if total % 100000 == 0:
