@@ -566,9 +566,10 @@ class Clair(object):
                     activation=selu.selu,
                     name='Y_indel_length_logits'
                 )
-                self.layers.append(self.Y_indel_length)
+                self.Y_clipped_indel_length = tf.clip_by_value(self.Y_indel_length, -16.0, 16.0, name='Y_clipped_indel_length')
+                self.layers.append(self.Y_clipped_indel_length)
 
-                self.Y = [self.Y_base_change, self.Y_genotype, self.Y_indel_length]
+                self.Y = [self.Y_base_change, self.Y_genotype, self.Y_clipped_indel_length]
 
             # Extract the truth labels by output ratios
             with tf.variable_scope("Loss"):
@@ -596,13 +597,13 @@ class Clair(object):
                 # set reduction to NONE (made output shape is the same as labels)
                 self.Y_indel_length_0_loss = tf.losses.huber_loss(
                     labels=Y_indel_length_label[:, 0],
-                    predictions=self.Y_indel_length[:, 0],
+                    predictions=self.Y_clipped_indel_length[:, 0],
                     reduction=tf.losses.Reduction.SUM
                 )
 
                 self.Y_indel_length_1_loss = tf.losses.huber_loss(
                     labels=Y_indel_length_label[:, 1],
-                    predictions=self.Y_indel_length[:, 1],
+                    predictions=self.Y_clipped_indel_length[:, 1],
                     reduction=tf.losses.Reduction.SUM
                 )
 

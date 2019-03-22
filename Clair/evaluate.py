@@ -90,8 +90,8 @@ def evaluate_model(m, dataset_info):
     print("[INFO] all/top1/top2/top1p/top2p: %d/%d/%d/%.2f/%.2f" %
                  (all_base_count, top_1_count, top_2_count,
                   float(top_1_count)/all_base_count*100, float(top_2_count)/all_base_count*100))
-    for i in range(4):
-        print("\t".join([str(confusion_matrix[i][j]) for j in range(4)]))
+    for i in range(21):
+        print("\t".join([str(confusion_matrix[i][j]) for j in range(21)]))
     base_change_f_measure = f1_score(confusion_matrix)
     print("[INFO] f-measure: ", base_change_f_measure)
 
@@ -100,20 +100,30 @@ def evaluate_model(m, dataset_info):
     confusion_matrix = np.zeros((3, 3), dtype=np.int)
     for genotype_prediction, true_genotype_label in zip(genotype_predictions, y_array[:, 21:24]):
         confusion_matrix[np.argmax(true_genotype_label)][np.argmax(genotype_prediction)] += 1
-    for epoch_count in range(2):
-        print("\t".join([str(confusion_matrix[epoch_count][j]) for j in range(2)]))
+    for epoch_count in range(3):
+        print("\t".join([str(confusion_matrix[epoch_count][j]) for j in range(3)]))
     genotype_f_measure = f1_score(confusion_matrix)
     print("[INFO] f-measure: ", genotype_f_measure)
 
     # Indel length
-    # print("\n[INFO] evaluation on indel length:")
-    # confusion_matrix = np.zeros((2, 2), dtype=np.int)
-    # for indel_length_prediction, true_indel_length_label in zip(indel_length_predictions, y_array[:, 24:26]):
-    #     confusion_matrix[np.argmax(true_indel_length_label)][np.argmax(indel_length_prediction)] += 1
-    # for i in range(6):
-    #     print("\t".join([str(confusion_matrix[i][j]) for j in range(6)]))
-    # indel_length_f_measure = f1_score(confusion_matrix)[:-1]
-    # print("[INFO] f-measure: ", indel_length_f_measure)
+    print("\n[INFO] evaluation on indel length:")
+    confusion_matrix = np.zeros((33, 33), dtype=np.int)
+    for indel_length_prediction, true_indel_length_label in zip(indel_length_predictions, y_array[:, 24:26]):
+        true_indel_length_label_0, true_indel_length_label_1 = true_indel_length_label
+        true_indel_length_label_0 = int(true_indel_length_label_0)
+        true_indel_length_label_1 = int(true_indel_length_label_1)
+
+        indel_length_prediction_0, indel_length_prediction_1 = indel_length_prediction
+        indel_length_prediction_0 = min(max(int(round(indel_length_prediction_0)), -16), 16)
+        indel_length_prediction_1 = min(max(int(round(indel_length_prediction_1)), -16), 16)
+
+        confusion_matrix[true_indel_length_label_0 + 16][indel_length_prediction_0 + 16] += 1
+        confusion_matrix[true_indel_length_label_1 + 16][indel_length_prediction_1 + 16] += 1
+        # confusion_matrix[np.argmax(true_indel_length_label)][np.argmax(indel_length_prediction)] += 1
+    for i in range(33):
+        print("\t".join([str(confusion_matrix[i][j]) for j in range(33)]))
+    indel_length_f_measure = f1_score(confusion_matrix)[:-1]
+    print("[INFO] f-measure: ", indel_length_f_measure)
 
     # print("[INFO] base change f-measure mean: %.6f" % np.mean(base_change_f_measure))
     # print("[INFO] genotype f-measure mean: %.6f" % np.mean(genotype_f_measure))
