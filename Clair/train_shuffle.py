@@ -207,16 +207,13 @@ def train_model(m, training_config):
             " ".join([str(epoch_count), "Training loss:", str(training_loss_sum/no_of_training_examples)])
         )
         logging.info(
-            " ".join([str(epoch_count), "Validation loss:", str(validation_loss_sum/no_of_validation_examples)])
-        )
-        logging.info(
-            " ".join([str(epoch_count), "Base change loss:", str(base_change_loss_sum/no_of_validation_examples)])
-        )
-        logging.info(
-            " ".join([str(epoch_count), "Genotype loss:", str(genotype_loss_sum/no_of_validation_examples)])
-        )
-        logging.info(
-            " ".join([str(epoch_count), "Indel length loss:", str(indel_length_loss_sum/no_of_validation_examples)])
+            "\t".join([
+                "{} Validation loss (Total / Base change / Genotype / Indel length):".format(epoch_count),
+                str(validation_loss_sum/no_of_validation_examples),
+                str(base_change_loss_sum/no_of_validation_examples),
+                str(genotype_loss_sum/no_of_validation_examples),
+                str(indel_length_loss_sum/no_of_validation_examples),
+            ])
         )
 
         logging.info("[INFO] Epoch time elapsed: %.2f s" % (time.time() - epoch_start_time))

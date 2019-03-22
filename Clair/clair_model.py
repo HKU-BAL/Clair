@@ -594,7 +594,6 @@ class Clair(object):
                 )
                 self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
 
-                # set reduction to NONE (made output shape is the same as labels)
                 self.Y_indel_length_0_loss = tf.losses.huber_loss(
                     labels=Y_indel_length_label[:, 0],
                     predictions=self.Y_clipped_indel_length[:, 0],
