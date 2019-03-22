@@ -227,6 +227,8 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             reference = row[2]
             alternate_arr = row[3].split(',')
             genotype_1, genotype_2 = row[4], row[5]
+            if int(genotype_1) > int(genotype_2):
+                genotype_1, genotype_2 = genotype_2, genotype_1
             if len(alternate_arr) == 1:
                 alternate_arr = (
                     [reference if genotype_1 == "0" or genotype_2 == "0" else alternate_arr[0]] +

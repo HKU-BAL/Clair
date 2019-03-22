@@ -79,8 +79,8 @@ def OutputVariant(args):
         # if alternate.find(',') >= 0:
         #     genotype_1, genotype_2 = "1", "2"
 
-        if int(genotype_1) < int(genotype_2):
-            genotype_1, genotype_2 = genotype_1, genotype_2
+        if int(genotype_1) > int(genotype_2):
+            genotype_1, genotype_2 = genotype_2, genotype_1
 
         var_fp.stdin.write(" ".join([chromosome, position, reference, alternate, genotype_1, genotype_2]))
         var_fp.stdin.write("\n")
