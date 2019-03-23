@@ -348,7 +348,7 @@ def Output(
         position = int(position)
 
         # quality score
-        quality_score = quality_score_from(base_change_probabilities, genotype_probabilities)
+        quality_score = quality_score_from(base_change_probabilities[row_index], genotype_probabilities[row_index])
 
         # filtration value
         filtration_value = filtration_value_from(quality_score_for_pass=args.qual, quality_score=quality_score)
