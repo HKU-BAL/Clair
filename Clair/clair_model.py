@@ -874,12 +874,13 @@ class Clair(object):
         Predict using model in batch with input tensor batchX, caching the results in
         self.output_cache['prediction_base'],
         self.output_cache['prediction_genotype'],
-        self.output_cache['prediction_indel_length']
+        self.output_cache['prediction_indel_length_1']
+        self.output_cache['prediction_indel_length_2']
         if result_caching is True
         The tensor transform function is applied prior to prediction
 
         Returns:
-            base, genotype, indel_length: The three predictions from the model in batch
+            base, genotype, indel_length_1, indel_length_2: The four predictions from the model in batch
         """
         # for i in range(len(batchX)):
         #    tf.image.per_image_standardization(XArray[i])
@@ -893,19 +894,21 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='predict'))
 
-        base, genotype, indel_length = self.session.run(self.Y, feed_dict=input_dictionary)
+        base, genotype, indel_length_1, indel_length_2 = self.session.run(self.Y, feed_dict=input_dictionary)
 
         if result_caching:
             self.output_cache['prediction_base'] = base
             self.output_cache['prediction_genotype'] = genotype
-            self.output_cache['prediction_indel_length'] = indel_length
+            self.output_cache['prediction_indel_length_1'] = indel_length_1
+            self.output_cache['prediction_indel_length_2'] = indel_length_2
 
             # Aliasing
             self.predictBaseRTVal = self.output_cache['prediction_base']
             self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
-            self.predictIndelLengthRTVal = self.output_cache['prediction_indel_length']
+            self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
+            self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
 
-        return base, genotype, indel_length
+        return base, genotype, indel_length_1, indel_length_2
 
     def get_loss(self, batchX, batchY, result_caching=False):
         """

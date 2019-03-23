@@ -212,6 +212,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
         f.wait()
 
     Y = {}
+    distance_dict = {}
     if var_fn != None:
         f = subprocess.Popen(shlex.split("gzip -fdc %s" % (var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         for row in f.stdout:
@@ -267,6 +268,17 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             variant_length_vec_2 = [0] * 11
             variant_length_vec_1[variant_lengths[0] + 5] = 1.0
             variant_length_vec_2[variant_lengths[1] + 5] = 1.0
+
+            distance_dict_key = str(variant_lengths[0] + ':' + variant_lengths[1])
+            if distance_dict_key not in distance_dict:
+                distance_dict[distance_dict_key] = 1
+                print("")
+                print(distance_dict_key)
+                print(base_change_vec)
+                print(genotype_vec)
+                print(variant_length_vec_1)
+                print(variant_length_vec_2)
+                print("")
 
             Y[key] = base_change_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
 
