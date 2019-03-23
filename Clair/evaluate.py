@@ -115,7 +115,7 @@ def evaluate_model(m, dataset_info):
         confusion_matrix[np.argmax(true_indel_length_label_1)][np.argmax(indel_length_prediction_1)] += 1
     for i in range(11):
         print("\t".join([str(confusion_matrix[i][j]) for j in range(11)]))
-    indel_length_f_measure_1 = f1_score(confusion_matrix)[:-1]
+    indel_length_f_measure_1 = f1_score(confusion_matrix)
     print("[INFO] f-measure: ", indel_length_f_measure_1)
 
     # Indel length 2
@@ -125,7 +125,7 @@ def evaluate_model(m, dataset_info):
         confusion_matrix[np.argmax(true_indel_length_label_2)][np.argmax(indel_length_prediction_2)] += 1
     for i in range(11):
         print("\t".join([str(confusion_matrix[i][j]) for j in range(11)]))
-    indel_length_f_measure_2 = f1_score(confusion_matrix)[:-1]
+    indel_length_f_measure_2 = f1_score(confusion_matrix)
     print("[INFO] f-measure: ", indel_length_f_measure_2)
 
     # print("[INFO] base change f-measure mean: %.6f" % np.mean(base_change_f_measure))
