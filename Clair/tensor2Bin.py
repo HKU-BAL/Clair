@@ -15,10 +15,12 @@ def Run(args):
 def Convert(args, utils):
     logging.info("Loading the dataset ...")
     total, XArrayCompressed, YArrayCompressed, posArrayCompressed = \
-        utils.GetTrainingArray(tensor_fn=args.tensor_fn,
-                               var_fn=args.var_fn,
-                               bed_fn=args.bed_fn,
-                               is_allow_duplicate_chr_pos=args.allow_duplicate_chr_pos)
+        utils.get_training_array(
+            tensor_fn=args.tensor_fn,
+            var_fn=args.var_fn,
+            bed_fn=args.bed_fn,
+            is_allow_duplicate_chr_pos=args.allow_duplicate_chr_pos
+        )
 
     logging.info("Writing to binary ...")
     fh = open(args.bin_fn, "wb")

@@ -299,7 +299,8 @@ def Output(
     posBatch,
     base_change_probabilities,
     genotype_probabilities,
-    variant_length_list,
+    variant_length_probabilities_1,
+    variant_length_probabilities_2
 ):
     if len(base_change_probabilities) != batch_size:
         sys.exit(
@@ -313,7 +314,10 @@ def Output(
     no_of_rows = len(base_change_probabilities)
 
     for row_index in range(no_of_rows):
-        variant_lengths = [int(round(variant_length_list[0])), int(round(variant_length_list[1]))]
+        variant_lengths = [
+            np.argmax(variant_length_probabilities_1[row_index]) - 5,
+            np.argmax(variant_length_probabilities_2[row_index]) - 5,
+        ]
         variant_lengths.sort()
 
         prediction = Predictions(
@@ -731,7 +735,8 @@ def Test(args, m, utils):
     m.predict(XBatch2, result_caching=True)
     base = m.predictBaseRTVal
     gt = m.predictGenotypeRTVal
-    l = m.predictIndelLengthRTVal
+    l1 = m.predictIndelLengthRTVal1
+    l2 = m.predictIndelLengthRTVal2
     if end2 == 0:
         end = end2
         num = num2
@@ -744,7 +749,7 @@ def Test(args, m, utils):
             threadPool = []
             if end == 0:
                 threadPool.append(Thread(target=m.predict, args=(XBatch2, True)))
-            threadPool.append(Thread(target=Output, args=(args, call_fh, num, XBatch, posBatch, base, gt, l, )))
+            threadPool.append(Thread(target=Output, args=(args, call_fh, num, XBatch, posBatch, base, gt, l1, l2, )))
             for t in threadPool:
                 t.start()
             if end2 == 0:
@@ -753,7 +758,8 @@ def Test(args, m, utils):
                 t.join()
             base = m.predictBaseRTVal
             gt = m.predictGenotypeRTVal
-            l = m.predictIndelLengthRTVal
+            l1 = m.predictIndelLengthRTVal1
+            l2 = m.predictIndelLengthRTVal2
             if end == 0:
                 end = end2
                 num = num2
@@ -768,7 +774,7 @@ def Test(args, m, utils):
             if terminate == 1:
                 break
     elif end2 == 1:
-        Output(args, call_fh, num2, XBatch2, posBatch2, base, gt, l)
+        Output(args, call_fh, num2, XBatch2, posBatch2, base, gt, l1, l2)
 
     logging.info("Total time elapsed: %.2f s" % (time.time() - predictStart))
 
