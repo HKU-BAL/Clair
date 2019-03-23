@@ -393,12 +393,12 @@ def Output(
             alternate_base = reference_base
 
         elif is_homo_SNP:
-            base1, base2 = homo_SNP_bases_from(base_change_probabilities)
+            base1, base2 = homo_SNP_bases_from(base_change_probabilities[row_index])
             reference_base = reference_sequence[position_center]
             alternate_base = base1 if base1 != reference_base else base2
 
         elif is_hetero_SNP:
-            base1, base2 = hetero_SNP_bases_from(base_change_probabilities)
+            base1, base2 = hetero_SNP_bases_from(base_change_probabilities[row_index])
             reference_base = reference_sequence[position_center]
             is_multi = base1 != reference_base and base2 != reference_base
             if is_multi:
@@ -443,7 +443,7 @@ def Output(
                     alternate_base += num2base[np.argmax(X[row_index, k, :, Channel.insert]) % 4]
 
             is_marked_as_SV = is_inferred_variant_length and inferred_indel_length >= flanking_base_number
-            hetero_insert_base = hetero_insert_base_from(base_change_probabilities)
+            hetero_insert_base = hetero_insert_base_from(base_change_probabilities[row_index])
             is_SNP_Ins_multi = (
                 not is_marked_as_SV and
                 is_hetero_insertion and
@@ -510,7 +510,7 @@ def Output(
                         break
 
             is_marked_as_SV = is_inferred_variant_length and inferred_indel_length >= flanking_base_number
-            hetero_delete_base = hetero_delete_base_from(base_change_probabilities)
+            hetero_delete_base = hetero_delete_base_from(base_change_probabilities[row_index])
             is_SNP_Del_multi = (
                 not is_marked_as_SV and
                 is_hetero_deletion and
