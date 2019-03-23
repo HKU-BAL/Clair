@@ -21,7 +21,7 @@ v1Type2Name = dict(zip((0, 1, 2, 3, 4), ('HET', 'HOM', 'INS', 'DEL', 'REF')))
 v2Zygosity2Name = dict(zip((0, 1), ('HET', 'HOM')))
 v2Type2Name = dict(zip((0, 1, 2, 3), ('REF', 'SNP', 'INS', 'DEL')))
 v2Length2Name = dict(zip((0, 1, 2, 3, 4, 5), ('0', '1', '2', '3', '4', '4+')))
-maximum_variant_length = param.flankingBaseNum  # 5
+maximum_variant_length = 5
 inferred_indel_length_minimum_allele_frequency = 0.125
 
 Predictions = namedtuple('Predictions', ['base_change', 'genotype', 'variant_lengths'])
