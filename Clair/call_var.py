@@ -235,19 +235,31 @@ def hetero_delete_base_from(base_change_probabilities):
     return output_bases[0]
 
 
-def quality_score_from(base_change_probabilities, genotype_probabilities):
+def quality_score_from(
+    base_change_probabilities,
+    genotype_probabilities,
+    variant_length_probabilities_1,
+    variant_length_probabilities_2
+):
     sorted_base_change_probabilities = np.sort(base_change_probabilities)[::-1]
     sorted_genotype_probabilities = np.sort(genotype_probabilities)[::-1]
+    sorted_variant_length_probabilities_1 = np.sort(variant_length_probabilities_1)[::-1]
+    sorted_variant_length_probabilities_2 = np.sort(variant_length_probabilities_2)[::-1]
+
     return min(
         int(
             (-10 * log(e, 10)) * log(
                 (
-                    sorted_base_change_probabilities[1] ** 1.0 *
-                    sorted_genotype_probabilities[1] ** 1.0 + 1e-300
+                    np.sum(sorted_base_change_probabilities[1:]) *
+                    np.sum(sorted_genotype_probabilities[1:]) *
+                    np.sum(sorted_variant_length_probabilities_1[1:]) *
+                    np.sum(sorted_variant_length_probabilities_2[1:]) + 1e-300
                 ) /
                 (
                     sorted_base_change_probabilities[0] *
-                    sorted_genotype_probabilities[0] + 1e-300
+                    sorted_genotype_probabilities[0] *
+                    sorted_variant_length_probabilities_1[0] *
+                    sorted_variant_length_probabilities_2[0] + 1e-300
                 )
             )
         ),
@@ -348,7 +360,12 @@ def Output(
         position = int(position)
 
         # quality score
-        quality_score = quality_score_from(base_change_probabilities[row_index], genotype_probabilities[row_index])
+        quality_score = quality_score_from(
+            base_change_probabilities[row_index],
+            genotype_probabilities[row_index],
+            variant_length_probabilities_1[row_index],
+            variant_length_probabilities_2[row_index]
+        )
 
         # filtration value
         filtration_value = filtration_value_from(quality_score_for_pass=args.qual, quality_score=quality_score)
