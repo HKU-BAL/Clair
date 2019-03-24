@@ -250,16 +250,20 @@ def quality_score_from(
         int(
             (-10 * log(e, 10)) * log(
                 (
-                    np.sum(sorted_base_change_probabilities[1:]) *
-                    np.sum(sorted_genotype_probabilities[1:]) *
-                    np.sum(sorted_variant_length_probabilities_1[1:]) *
-                    np.sum(sorted_variant_length_probabilities_2[1:]) + 1e-300
+                    # np.sum(sorted_base_change_probabilities[1]) *
+                    # np.sum(sorted_genotype_probabilities[1]) *
+                    # np.sum(sorted_variant_length_probabilities_1[1]) *
+                    # np.sum(sorted_variant_length_probabilities_2[1]) + 1e-300
+                    np.sum(sorted_base_change_probabilities[1]) *
+                    np.sum(sorted_genotype_probabilities[1]) + 1e-300
                 ) /
                 (
+                    # sorted_base_change_probabilities[0] *
+                    # sorted_genotype_probabilities[0] *
+                    # sorted_variant_length_probabilities_1[0] *
+                    # sorted_variant_length_probabilities_2[0] + 1e-300
                     sorted_base_change_probabilities[0] *
-                    sorted_genotype_probabilities[0] *
-                    sorted_variant_length_probabilities_1[0] *
-                    sorted_variant_length_probabilities_2[0] + 1e-300
+                    sorted_genotype_probabilities[0] + 1e-300
                 )
             )
         ),
