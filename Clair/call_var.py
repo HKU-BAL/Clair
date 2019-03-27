@@ -529,6 +529,8 @@ def Output(
             if variant_length_2 < variant_length_1:
                 variant_length_1, variant_length_2 = variant_length_2, variant_length_1
 
+            reference_base = reference_sequence[position_center]
+
             is_inferred_variant_length = variant_length >= maximum_variant_length
             if is_inferred_variant_length:
                 for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
@@ -536,7 +538,7 @@ def Output(
                     deletion_tensor = X[row_index, k, :, Channel.delete]
                     if (
                         k < (flanking_base_number + maximum_variant_length) or
-                        sum(reference_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(deletion_tensor)
+                        sum(deletion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
                     ):
                         inferred_indel_length += 1
                     else:
@@ -583,7 +585,7 @@ def Output(
             elif is_Del_Del_multi:
                 alternate_base_1 = alternate_base
                 alternate_base_2 = reference_sequence[position_center:position_center + variant_length_2 - variant_length_1 + 1]
-                if alternate_base_1 != alternate_base_2:
+                if alternate_base_1 != alternate_base_2 and reference_base != alternate_base_1 and reference_base != alternate_base_2:
                     alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
                     genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
@@ -622,7 +624,7 @@ def Output(
                     deletion_tensor = X[row_index, k, :, Channel.delete]
                     if (
                         k < (flanking_base_number + maximum_variant_length) or
-                        sum(reference_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(deletion_tensor)
+                        sum(deletion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
                     ):
                         inferred_delete_length += 1
                     else:
