@@ -446,7 +446,7 @@ def Output(
             elif is_hetero_insertion:
                 variant_length_1 = 0 if prediction.variant_lengths[0] <= 0 else prediction.variant_lengths[0]
                 variant_length_2 = 0 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1]
-                variant_length = max(variant_length_1, variant_length_2)
+                variant_length = min(max(variant_length_1, variant_length_2), 1)
 
             if is_hetero_insertion and variant_length <= 0:
                 continue
@@ -519,7 +519,7 @@ def Output(
             elif is_hetero_deletion:
                 variant_length_1 = 0 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0]
                 variant_length_2 = 0 if prediction.variant_lengths[1] >= 0 else -prediction.variant_lengths[1]
-                variant_length = max(variant_length_1, variant_length_2)
+                variant_length = min(max(variant_length_1, variant_length_2), 1)
 
             if is_hetero_deletion and variant_length >= 0:
                 continue
