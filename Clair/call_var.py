@@ -79,7 +79,7 @@ def is_hetero_SNP_from(prediction):
 
 
 def is_homo_insertion_from(prediction):
-    # is_genotype_match = prediction.genotype == Genotype.homo_variant
+    is_genotype_match = prediction.genotype == Genotype.homo_variant
     is_base_change_match = prediction.base_change == BaseChange.InsIns
     is_variant_length_match = (
         prediction.variant_lengths[0] > 0 and
@@ -87,19 +87,20 @@ def is_homo_insertion_from(prediction):
         prediction.variant_lengths[0] == prediction.variant_lengths[1]
     )
     votes = (
-        # (1 if is_genotype_match else 0) +
+        (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
+        0
+        # (1 if is_variant_length_match else 0)
     )
     # return votes >= 3
     return votes >= 2
 
 
 def is_hetero_insertion_from(prediction):
-    # is_genotype_match = (
-    #     prediction.genotype == Genotype.hetero_variant or
-    #     prediction.genotype == Genotype.hetero_variant_multi
-    # )
+    is_genotype_match = (
+        prediction.genotype == Genotype.hetero_variant or
+        prediction.genotype == Genotype.hetero_variant_multi
+    )
     is_base_change_match = (
         prediction.base_change == BaseChange.InsIns or
         prediction.base_change == BaseChange.AIns or
@@ -109,16 +110,17 @@ def is_hetero_insertion_from(prediction):
     )
     is_variant_length_match = prediction.variant_lengths[0] >= 0 and prediction.variant_lengths[1] > 0
     votes = (
-        # (1 if is_genotype_match else 0) +
+        (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
+        0
+        # (1 if is_variant_length_match else 0)
     )
     # return votes >= 3
     return votes >= 2
 
 
 def is_homo_deletion_from(prediction):
-    # is_genotype_match = prediction.genotype == Genotype.homo_variant
+    is_genotype_match = prediction.genotype == Genotype.homo_variant
     is_base_change_match = prediction.base_change == BaseChange.DelDel
     is_variant_length_match = (
         prediction.variant_lengths[0] < 0 and
@@ -126,19 +128,20 @@ def is_homo_deletion_from(prediction):
         prediction.variant_lengths[0] == prediction.variant_lengths[1]
     )
     votes = (
-        # (1 if is_genotype_match else 0) +
+        (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
+        0
+        # (1 if is_variant_length_match else 0)
     )
     # return votes >= 3
     return votes >= 2
 
 
 def is_hetero_deletion_from(prediction):
-    # is_genotype_match = (
-    #     prediction.genotype == Genotype.hetero_variant or
-    #     prediction.genotype == Genotype.hetero_variant_multi
-    # )
+    is_genotype_match = (
+        prediction.genotype == Genotype.hetero_variant or
+        prediction.genotype == Genotype.hetero_variant_multi
+    )
     is_base_change_match = (
         prediction.base_change == BaseChange.DelDel or
         prediction.base_change == BaseChange.ADel or
@@ -148,25 +151,27 @@ def is_hetero_deletion_from(prediction):
     )
     is_variant_length_match = prediction.variant_lengths[0] < 0 and prediction.variant_lengths[1] <= 0
     votes = (
-        # (1 if is_genotype_match else 0) +
+        (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
+        0
+        # (1 if is_variant_length_match else 0)
     )
     # return votes >= 3
     return votes >= 2
 
 
 def is_insertion_and_deletion_from(prediction):
-    # is_genotype_match = (
-    #     prediction.genotype == Genotype.hetero_variant or
-    #     prediction.genotype == Genotype.hetero_variant_multi
-    # )
+    is_genotype_match = (
+        prediction.genotype == Genotype.hetero_variant or
+        prediction.genotype == Genotype.hetero_variant_multi
+    )
     is_base_change_match = prediction.base_change == BaseChange.InsDel
     is_variant_length_match = prediction.variant_lengths[0] < 0 and prediction.variant_lengths[1] > 0
     votes = (
-        # (1 if is_genotype_match else 0) +
+        (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
+        0
+        # (1 if is_variant_length_match else 0)
     )
     # return votes >= 3
     return votes >= 2
