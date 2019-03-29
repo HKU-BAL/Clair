@@ -425,8 +425,8 @@ def Output(
             genotype_string = genotype_string_from(Genotype.homo_variant)
         elif is_hetero_SNP or is_hetero_deletion or is_hetero_insertion:
             genotype_string = genotype_string_from(Genotype.hetero_variant)
-        elif if_insertion_and_deletion:
-            genotype_string = genotype_string_from(Genotype.getero_variant_multi)
+        elif is_insertion_and_deletion:
+            genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
         # reference base and alternate base
         reference_base = ""
