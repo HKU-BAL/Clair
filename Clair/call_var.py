@@ -678,6 +678,11 @@ def Output(
             supported_reads_count = sum(X[row_index, position_center+1, :, Channel.insert])
         elif is_deletion:
             supported_reads_count = sum(X[row_index, position_center+1, :, Channel.delete])
+        elif is_insertion_and_deletion:
+            supported_reads_count = (
+                sum(X[row_index, position_center+1, :, Channel.insertion]) +
+                sum(X[row_index, position_center+1, :, Channel.delete])
+            )
         allele_frequency = ((supported_reads_count + 0.0) / read_depth) if read_depth != 0 else 0.0
 
         # if using inferred indel length, add info LENGUESS
