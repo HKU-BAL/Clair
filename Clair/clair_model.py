@@ -484,7 +484,7 @@ class Clair(object):
                 self.L3_flattened = tf.reshape(
                     self.L3,
                     shape=(tf.shape(self.L3)[0], self.L2_num_units * self.LSTM2_num_units * 2),
-                    name="L2_flattened"
+                    name="L3_flattened"
                 )
                 self.layers.append(self.L3_flattened)
 
