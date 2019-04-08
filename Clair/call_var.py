@@ -473,7 +473,9 @@ def Output(
             if need_inferred_variant_length:
                 for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
                     reference_tensor = X[row_index, k, :, Channel.reference]
-                    insertion_tensor = X[row_index, k, :, Channel.insert]
+                    insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
+                    for base_index in range(0, 4):
+                        insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
                     if (
                         k < (flanking_base_number + minimum_variant_length_that_need_infer) or
                         sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
@@ -484,7 +486,10 @@ def Output(
                         break
             else:
                 for k in range(flanking_base_number + 1, flanking_base_number + variant_length + 1):
-                    alternate_base += num2base[np.argmax(X[row_index, k, :, Channel.insert]) % 4]
+                    insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
+                    for base_index in range(0, 4):
+                        insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
+                    alternate_base += num2base[np.argmax(insertion_tensor) % 4]
 
             is_marked_as_SV = need_inferred_variant_length and inferred_indel_length >= flanking_base_number
             hetero_insert_base = hetero_insert_base_from(base_change_probabilities[row_index])
@@ -621,7 +626,9 @@ def Output(
             if is_inferred_insertion_length:
                 for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
                     reference_tensor = X[row_index, k, :, Channel.reference]
-                    insertion_tensor = X[row_index, k, :, Channel.insert]
+                    insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
+                    for base_index in range(0, 4):
+                        insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
                     if (
                         k < (flanking_base_number + minimum_variant_length_that_need_infer) or
                         sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
