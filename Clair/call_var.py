@@ -476,6 +476,7 @@ def Output(
                     insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
                     for base_index in range(0, 4):
                         insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
+                        insertion_tensor[base_index + 4] = 0
                     if (
                         k < (flanking_base_number + minimum_variant_length_that_need_infer) or
                         sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
@@ -489,6 +490,7 @@ def Output(
                     insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
                     for base_index in range(0, 4):
                         insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
+                        insertion_tensor[base_index + 4] = 0
                     alternate_base += num2base[np.argmax(insertion_tensor) % 4]
 
             is_marked_as_SV = need_inferred_variant_length and inferred_indel_length >= flanking_base_number
@@ -629,6 +631,7 @@ def Output(
                     insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
                     for base_index in range(0, 4):
                         insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
+                        insertion_tensor[base_index + 4] = 0
                     if (
                         k < (flanking_base_number + minimum_variant_length_that_need_infer) or
                         sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
@@ -639,7 +642,11 @@ def Output(
                         break
             else:
                 for k in range(flanking_base_number + 1, flanking_base_number + variant_length_insert + 1):
-                    alternate_base_insert += num2base[np.argmax(X[row_index, k, :, Channel.insert]) % 4]
+                    insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
+                    for base_index in range(0, 4):
+                        insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
+                        insertion_tensor[base_index + 4] = 0
+                    alternate_base_insert += num2base[np.argmax(insertion_tensor) % 4]
 
             if is_inferred_deletion_length:
                 for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
