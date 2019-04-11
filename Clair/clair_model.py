@@ -13,6 +13,8 @@ import math
 from collections import defaultdict
 import multiprocessing
 
+from utils import VariantLength
+
 
 class Clair(object):
     """
@@ -73,20 +75,16 @@ class Clair(object):
             structure="2BiLSTM",
             output_base_change_shape=21,
             output_genotype_shape=3,
-            output_indel_length_shape_1=11,
-            output_indel_length_shape_2=11,
+            output_indel_length_shape_1=VariantLength.number_of_output_labels,
+            output_indel_length_shape_2=VariantLength.number_of_output_labels,
             output_base_change_entropy_weights=[
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             ],
             output_genotype_entropy_weights=[
                 1, 1, 1
             ],
-            output_indel_length_entropy_weights_1=[
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-            ],
-            output_indel_length_entropy_weights_2=[
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-            ],
+            output_indel_length_entropy_weights_1=[1] * VariantLength.number_of_output_labels,
+            output_indel_length_entropy_weights_2=[1] * VariantLength.number_of_output_labels,
             L1_num_units=30,
             L2_num_units=30,
             L4_num_units=192,
@@ -1056,7 +1054,7 @@ class Clair(object):
         Assign a set new task loss weights for training
 
         Arguments:
-            task_loss_weights: A list of 5 numbers specifying the weights to the tasks
+            task_loss_weights: A list of numbers specifying the weights to the tasks
         """
         self.task_loss_weights = np.array(task_loss_weights, dtype=float)
 

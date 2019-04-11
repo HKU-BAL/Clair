@@ -12,7 +12,7 @@ from collections import namedtuple
 
 import utils
 import clair_model as cv
-from utils import BaseChange, base_change_label_from, Genotype, genotype_string_from
+from utils import BaseChange, base_change_label_from, Genotype, genotype_string_from, VariantLength
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))
@@ -21,7 +21,7 @@ v1Type2Name = dict(zip((0, 1, 2, 3, 4), ('HET', 'HOM', 'INS', 'DEL', 'REF')))
 v2Zygosity2Name = dict(zip((0, 1), ('HET', 'HOM')))
 v2Type2Name = dict(zip((0, 1, 2, 3), ('REF', 'SNP', 'INS', 'DEL')))
 v2Length2Name = dict(zip((0, 1, 2, 3, 4, 5), ('0', '1', '2', '3', '4', '4+')))
-minimum_variant_length_that_need_infer = 5
+minimum_variant_length_that_need_infer = VariantLength.max
 inferred_indel_length_minimum_allele_frequency = 0.125
 
 Predictions = namedtuple('Predictions', ['base_change', 'genotype', 'variant_lengths'])
@@ -345,8 +345,8 @@ def Output(
 
     for row_index in range(no_of_rows):
         variant_lengths = [
-            np.argmax(variant_length_probabilities_1[row_index]) - 5,
-            np.argmax(variant_length_probabilities_2[row_index]) - 5,
+            np.argmax(variant_length_probabilities_1[row_index]) - VariantLength.index_offset,
+            np.argmax(variant_length_probabilities_2[row_index]) - VariantLength.index_offset,
         ]
         variant_lengths.sort()
 

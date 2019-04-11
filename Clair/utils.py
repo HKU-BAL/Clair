@@ -12,8 +12,20 @@ import blosc
 import param
 from enum import IntEnum
 
+from collections import namedtuple
+
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+IndelConfig = namedtuple('IndelConfig', ['index_offset', 'min', 'max', 'output_label_count'])
+variant_length_index_offset = 16
+VariantLength = IndelConfig(
+    index_offset=variant_length_index_offset,
+    min=-variant_length_index_offset,
+    max=variant_length_index_offset,
+    output_label_count=variant_length_index_offset * 2 + 1
+)
+
 
 class BaseChange(IntEnum):
     AA = 0
@@ -260,12 +272,15 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
                 # genotype_vec[Genotype.hetero_variant_multi] = 1.0
 
             # variant length
-            variant_lengths = [max(min(len(alternate) - len(reference), 5), -5) for alternate in alternate_arr]
+            variant_lengths = [max(
+                min(len(alternate) - len(reference), VariantLength.max),
+                VariantLength.min
+            ) for alternate in alternate_arr]
             variant_lengths.sort()
-            variant_length_vec_1 = [0] * 11
-            variant_length_vec_2 = [0] * 11
-            variant_length_vec_1[variant_lengths[0] + 5] = 1.0
-            variant_length_vec_2[variant_lengths[1] + 5] = 1.0
+            variant_length_vec_1 = [0] * VariantLength.output_label_count
+            variant_length_vec_2 = [0] * VariantLength.output_label_count
+            variant_length_vec_1[variant_lengths[0] + VariantLength.index_offset] = 1.0
+            variant_length_vec_2[variant_lengths[1] + VariantLength.index_offset] = 1.0
 
             Y[key] = base_change_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
 
@@ -311,10 +326,10 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             #               0/0 1/1 0/1
             genotype_vec = [1., 0., 0.]
             #                       L
-            variant_length_vec_1 = [0] * 11
-            variant_length_vec_2 = [0] * 11
-            variant_length_vec_1[0+5] = 1
-            variant_length_vec_2[0+5] = 1
+            variant_length_vec_1 = [0] * VariantLength.output_label_count
+            variant_length_vec_2 = [0] * VariantLength.output_label_count
+            variant_length_vec_1[0 + VariantLength.index_offset] = 1
+            variant_length_vec_2[0 + VariantLength.index_offset] = 1
 
             base_change_vec[base_change_enum_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
 

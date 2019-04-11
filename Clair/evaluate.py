@@ -9,10 +9,12 @@ import numpy as np
 import param
 import utils
 import clair_model as cv
+from utils import VariantLength
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))
+
 
 def f1_score(confusion_matrix):
     column_sum = confusion_matrix.sum(axis=0)
@@ -91,8 +93,8 @@ def evaluate_model(m, dataset_info):
             top_2_count += 1
 
     print("[INFO] all/top1/top2/top1p/top2p: %d/%d/%d/%.2f/%.2f" %
-                 (all_base_count, top_1_count, top_2_count,
-                  float(top_1_count)/all_base_count*100, float(top_2_count)/all_base_count*100))
+          (all_base_count, top_1_count, top_2_count,
+           float(top_1_count)/all_base_count*100, float(top_2_count)/all_base_count*100))
     for i in range(21):
         print("\t".join([str(confusion_matrix[i][j]) for j in range(21)]))
     base_change_f_measure = f1_score(confusion_matrix)
@@ -110,32 +112,23 @@ def evaluate_model(m, dataset_info):
 
     # Indel length 1
     print("\n[INFO] evaluation on indel length 1:")
-    confusion_matrix = np.zeros((11, 11), dtype=np.int)
-    for indel_length_prediction_1, true_indel_length_label_1 in zip(indel_length_predictions_1, y_array[:, 24:35]):
+    confusion_matrix = np.zeros((VariantLength.output_label_count, VariantLength.output_label_count), dtype=np.int)
+    for indel_length_prediction_1, true_indel_length_label_1 in zip(indel_length_predictions_1, y_array[:, 24:57]):
         confusion_matrix[np.argmax(true_indel_length_label_1)][np.argmax(indel_length_prediction_1)] += 1
-    for i in range(11):
-        print("\t".join([str(confusion_matrix[i][j]) for j in range(11)]))
+    for i in range(VariantLength.output_label_count):
+        print("\t".join([str(confusion_matrix[i][j]) for j in range(VariantLength.output_label_count)]))
     indel_length_f_measure_1 = f1_score(confusion_matrix)
     print("[INFO] f-measure: ", indel_length_f_measure_1)
 
     # Indel length 2
     print("\n[INFO] evaluation on indel length 2:")
-    confusion_matrix = np.zeros((11, 11), dtype=np.int)
-    for indel_length_prediction_2, true_indel_length_label_2 in zip(indel_length_predictions_2, y_array[:, 35:46]):
+    confusion_matrix = np.zeros((VariantLength.output_label_count, VariantLength.output_label_count), dtype=np.int)
+    for indel_length_prediction_2, true_indel_length_label_2 in zip(indel_length_predictions_2, y_array[:, 57:90]):
         confusion_matrix[np.argmax(true_indel_length_label_2)][np.argmax(indel_length_prediction_2)] += 1
-    for i in range(11):
-        print("\t".join([str(confusion_matrix[i][j]) for j in range(11)]))
+    for i in range(VariantLength.output_label_count):
+        print("\t".join([str(confusion_matrix[i][j]) for j in range(VariantLength.output_label_count)]))
     indel_length_f_measure_2 = f1_score(confusion_matrix)
     print("[INFO] f-measure: ", indel_length_f_measure_2)
-
-    # print("[INFO] base change f-measure mean: %.6f" % np.mean(base_change_f_measure))
-    # print("[INFO] genotype f-measure mean: %.6f" % np.mean(genotype_f_measure))
-    # print("[INFO] indel length f-measure mean: %.6f" % np.mean(indel_length_f_measure))
-    # print("[INFO] f-measure mean: %.6f" % np.mean([
-    #     np.mean(base_change_f_measure),
-    #     np.mean(genotype_f_measure),
-    #     np.mean(indel_length_f_measure)
-    # ]))
 
 
 if __name__ == "__main__":
