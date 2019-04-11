@@ -75,16 +75,16 @@ class Clair(object):
             structure="2BiLSTM",
             output_base_change_shape=21,
             output_genotype_shape=3,
-            output_indel_length_shape_1=VariantLength.number_of_output_labels,
-            output_indel_length_shape_2=VariantLength.number_of_output_labels,
+            output_indel_length_shape_1=VariantLength.output_label_count,
+            output_indel_length_shape_2=VariantLength.output_label_count,
             output_base_change_entropy_weights=[
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             ],
             output_genotype_entropy_weights=[
                 1, 1, 1
             ],
-            output_indel_length_entropy_weights_1=[1] * VariantLength.number_of_output_labels,
-            output_indel_length_entropy_weights_2=[1] * VariantLength.number_of_output_labels,
+            output_indel_length_entropy_weights_1=[1] * VariantLength.output_label_count,
+            output_indel_length_entropy_weights_2=[1] * VariantLength.output_label_count,
             L1_num_units=30,
             L2_num_units=30,
             L4_num_units=192,
