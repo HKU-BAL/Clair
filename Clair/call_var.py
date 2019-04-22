@@ -367,8 +367,8 @@ def Output(
         is_homo_deletion = is_homo_deletion_from(prediction)
         is_hetero_deletion = is_hetero_deletion_from(prediction)
         is_insertion_and_deletion = is_insertion_and_deletion_from(prediction)
-        is_SNP_Ins_multi = False
-        is_SNP_Del_multi = False
+        # is_SNP_Ins_multi = False
+        # is_SNP_Del_multi = False
 
         is_SNP = is_homo_SNP or is_hetero_SNP
         is_insertion = is_homo_insertion or is_hetero_insertion
@@ -401,6 +401,7 @@ def Output(
         #     X[row_index, position_center+1, :, Channel.insert] +
         #     X[row_index, position_center+1, :, Channel.delete]
         # )
+        read_depth = 0
         if is_SNP or is_reference:
             read_depth = sum(
                 X[row_index, position_center, :, Channel.reference] +
