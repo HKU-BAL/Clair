@@ -367,6 +367,8 @@ def Output(
         is_homo_deletion = is_homo_deletion_from(prediction)
         is_hetero_deletion = is_hetero_deletion_from(prediction)
         is_insertion_and_deletion = is_insertion_and_deletion_from(prediction)
+        is_SNP_Ins_multi = False
+        is_SNP_Del_multi = False
 
         is_SNP = is_homo_SNP or is_hetero_SNP
         is_insertion = is_homo_insertion or is_hetero_insertion
@@ -393,28 +395,33 @@ def Output(
         info = []
 
         # read depth
-        read_depth = 0
-        if is_SNP or is_reference:
-            read_depth = sum(
-                X[row_index, position_center, :, Channel.reference] +
-                X[row_index, position_center, :, Channel.SNP]
-            )
-        elif is_insertion:
-            read_depth = sum(
-                X[row_index, position_center+1, :, Channel.reference] +
-                X[row_index, position_center+1, :, Channel.insert]
-            )
-        elif is_deletion:
-            read_depth = sum(
-                X[row_index, position_center+1, :, Channel.reference] +
-                X[row_index, position_center+1, :, Channel.delete]
-            )
-        elif is_insertion_and_deletion:
-            read_depth = sum(
-                X[row_index, position_center+1, :, Channel.reference] +
-                X[row_index, position_center+1, :, Channel.insert] +
-                X[row_index, position_center+1, :, Channel.delete]
-            )
+        read_depth = sum(
+            X[row_index, position_center, :, Channel.reference] +
+            X[row_index, position_center, :, Channel.SNP] +
+            X[row_index, position_center+1, :, Channel.insert] +
+            X[row_index, position_center+1, :, Channel.delete]
+        )
+        # if is_SNP or is_reference:
+        #     read_depth = sum(
+        #         X[row_index, position_center, :, Channel.reference] +
+        #         X[row_index, position_center, :, Channel.SNP]
+        #     )
+        # elif is_insertion:
+        #     read_depth = sum(
+        #         X[row_index, position_center+1, :, Channel.reference] +
+        #         X[row_index, position_center+1, :, Channel.insert]
+        #     )
+        # elif is_deletion:
+        #     read_depth = sum(
+        #         X[row_index, position_center+1, :, Channel.reference] +
+        #         X[row_index, position_center+1, :, Channel.delete]
+        #     )
+        # elif is_insertion_and_deletion:
+        #     read_depth = sum(
+        #         X[row_index, position_center+1, :, Channel.reference] +
+        #         X[row_index, position_center+1, :, Channel.insert] +
+        #         X[row_index, position_center+1, :, Channel.delete]
+        #     )
         if read_depth == 0:
             continue
 
@@ -694,8 +701,18 @@ def Output(
                 )
         elif is_insertion:
             supported_reads_count = sum(X[row_index, position_center+1, :, Channel.insert])
+            if is_SNP_Ins_multi:
+                supported_reads_count += (
+                    X[row_index, position_center,   base2num[alternate_base[0]], Channel.SNP] +
+                    X[row_index, position_center, base2num[alternate_base[0]+4], Channel.SNP]
+                )
         elif is_deletion:
             supported_reads_count = sum(X[row_index, position_center+1, :, Channel.delete])
+            if is_SNP_Del_multi:
+                supported_reads_count += (
+                    X[row_index, position_center,   base2num[alternate_base[0]], Channel.SNP] +
+                    X[row_index, position_center, base2num[alternate_base[0]]+4, Channel.SNP]
+                )
         elif is_insertion_and_deletion:
             supported_reads_count = (
                 sum(X[row_index, position_center+1, :, Channel.insert]) +
