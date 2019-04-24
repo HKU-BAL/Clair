@@ -17,13 +17,36 @@ from collections import namedtuple
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-IndelConfig = namedtuple('IndelConfig', ['index_offset', 'min', 'max', 'output_label_count'])
+VariantLengthNamedTuple = namedtuple('VariantLengthNamedTuple', ['index_offset', 'min', 'max', 'output_label_count'])
 variant_length_index_offset = 16
-VariantLength = IndelConfig(
+VariantLength = VariantLengthNamedTuple(
     index_offset=variant_length_index_offset,
     min=-variant_length_index_offset,
     max=variant_length_index_offset,
-    output_label_count=variant_length_index_offset * 2 + 1
+    output_label_count=variant_length_index_offset * 2 + 1,
+)
+
+OutputLabelNamedTuple = namedtuple('BasePredictNamedTuple', ['output_label_count', 'y_start_index', 'y_end_index'])
+
+BASE_CHANGE = OutputLabelNamedTuple(
+    output_label_count=21,
+    y_start_index=0,
+    y_end_index=21,
+)
+GENOTYPE = OutputLabelNamedTuple(
+    output_label_count=3,
+    y_start_index=BASE_CHANGE.y_end_index,
+    y_end_index=BASE_CHANGE.y_end_index + 3,
+)
+VARIANT_LENGTH_1 = OutputLabelNamedTuple(
+    output_label_count=VariantLength.output_label_count,
+    y_start_index=GENOTYPE.y_end_index,
+    y_end_index=GENOTYPE.y_end_index + VariantLength.output_label_count,
+)
+VARIANT_LENGTH_2 = OutputLabelNamedTuple(
+    output_label_count=VariantLength.output_label_count,
+    y_start_index=VARIANT_LENGTH_1.y_end_index,
+    y_end_index=VARIANT_LENGTH_1.y_end_index + VariantLength.output_label_count,
 )
 
 
