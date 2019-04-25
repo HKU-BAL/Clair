@@ -611,8 +611,7 @@ def Output(
                 genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
             elif is_Del_Del_multi:
                 alternate_base_1 = alternate_base
-                alternate_base_2 = reference_sequence[position_center:position_center +
-                                                      variant_length_2 - variant_length_1 + 1]
+                alternate_base_2 = reference_base[0] + reference_base[variant_length_1 + 1:]
                 if (
                     alternate_base_1 != alternate_base_2 and
                     reference_base != alternate_base_1 and
@@ -683,7 +682,10 @@ def Output(
                 reference_base = reference_sequence[position_center:position_center + variant_length_delete + 1]
                 alternate_base_delete = reference_sequence[position_center]
 
-            alternate_base = "{},{}".format(alternate_base_delete, reference_base + alternate_base_insert)
+            alternate_base = "{},{}".format(
+                alternate_base_delete,
+                reference_base[0] + alternate_base_insert + reference_base[1:]
+            )
 
         # allele frequency / supported reads
         supported_reads_count = 0
