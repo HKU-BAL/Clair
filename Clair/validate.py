@@ -115,9 +115,6 @@ def validate_model(m, dataset_info):
             predict_label_index = np.argmax(indel_length_prediction_2)
             confusion_matrix_indel_length_2[true_label_index][predict_label_index] += 1
 
-
-    print("[INFO] Validation loss: %.6f" % (validation_loss_sum / float(dataset_size - validation_data_start_index)))
-
     print("[INFO] Prediciton time elapsed: %.2f s" % (time.time() - prediction_start_time))
 
     # Base Change
