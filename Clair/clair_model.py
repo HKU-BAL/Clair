@@ -13,7 +13,7 @@ import math
 from collections import defaultdict
 import multiprocessing
 
-from utils import VariantLength
+from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2, VariantLength
 
 
 class Clair(object):
@@ -73,18 +73,14 @@ class Clair(object):
                 1                        # l2 loss
             ],
             structure="2BiLSTM",
-            output_base_change_shape=21,
-            output_genotype_shape=3,
+            output_base_change_shape=BASE_CHANGE.output_label_count,
+            output_genotype_shape=GENOTYPE.output_label_count,
             output_indel_length_shape_1=VariantLength.output_label_count,
             output_indel_length_shape_2=VariantLength.output_label_count,
-            output_base_change_entropy_weights=[
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-            ],
-            output_genotype_entropy_weights=[
-                1, 1, 1
-            ],
-            output_indel_length_entropy_weights_1=[1] * VariantLength.output_label_count,
-            output_indel_length_entropy_weights_2=[1] * VariantLength.output_label_count,
+            output_base_change_entropy_weights=[1] * BASE_CHANGE.output_label_count,
+            output_genotype_entropy_weights=[1] * GENOTYPE.output_label_count,
+            output_indel_length_entropy_weights_1=[1] * VARIANT_LENGTH_1.output_label_count,
+            output_indel_length_entropy_weights_2=[1] * VARIANT_LENGTH_2.output_label_count,
             L1_num_units=30,
             L2_num_units=30,
             L4_num_units=192,

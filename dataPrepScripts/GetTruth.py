@@ -61,10 +61,10 @@ def OutputVariant(args):
         if ctgStart != None and ctgEnd != None:
             if int(row[1]) < ctgStart or int(row[1]) > ctgEnd:
                 continue
-        last = row[-1]
+        last_column = row[-1]
 
         # normal GetTruth
-        genotype = last.split(":")[0].replace("/", "|").replace(".", "0").split("|")
+        genotype = last_column.split(":")[0].replace("/", "|").replace(".", "0").split("|")
         genotype_1, genotype_2 = genotype
 
         # 1000 Genome GetTruth (format problem) (no genotype is given)
