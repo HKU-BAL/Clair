@@ -22,7 +22,7 @@ def PypyGCCollect(signum, frame):
 cigarRe = r"(\d+)([MIDNSHP=X])"
 
 
-def OutputCandidate(ctgName, pos, baseCount, refBase, minCoverage, threshold):
+def output_candidate(ctgName, pos, baseCount, refBase, minCoverage, threshold):
     totalCount = 0
     totalCount += sum(x[1] for x in baseCount)
     if totalCount < minCoverage:
@@ -45,6 +45,49 @@ def OutputCandidate(ctgName, pos, baseCount, refBase, minCoverage, threshold):
         return None
 
 
+def variants_map_from(vcf_file_path):
+    if vcf_file_path == None:
+        return {}
+
+    variants_map = {}
+    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (vcf_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
+    for row in f.stdout:
+        columns = row.split()
+        ctg_name = columns[0]
+        position_str = columns[1]
+
+        key = ctg_name + ":" + position_str
+
+        variants_map[key] = True
+
+    f.stdout.close()
+    f.wait()
+
+    return variants_map
+
+
+def non_variants_before_or_after_variants_from(variants_map):
+    non_variants_map = {}
+
+    for key in variants_map.keys():
+        ctg_name, position_str = key.split(':')
+        position = int(position_str)
+
+        for i in range(5):
+            position_offset = -2 + i
+            if position_offset == 0:
+                continue
+            temp_position = position + position_offset
+            if temp_position < 0:
+                continue
+
+            temp_key = ctg_name + ":" + str(temp_position)
+            if temp_key not in variants_map and temp_key not in non_variants_map:
+                non_variants_map[temp_key] = True
+
+    return non_variants_map
+
+
 class CandidateStdout(object):
     def __init__(self, handle):
         self.stdin = handle
@@ -53,7 +96,13 @@ class CandidateStdout(object):
         self.stdin.close()
 
 
-def MakeCandidates(args):
+def make_candidates(args):
+
+    variants_map = variants_map_from(args.vcf_fn) if args.vcf_fn is not None else {}
+    non_variants_map = non_variants_before_or_after_variants_from(variants_map) if args.vcf_fn is not None else {}
+    no_of_candidates_near_variant = 0
+    no_of_candidates_outside_variant = 0
+
     if args.gen4Training == True:
         args.minCoverage = 0
         args.threshold = 0
@@ -229,12 +278,23 @@ def MakeCandidates(args):
                     outputFlag = 1
             else:
                 outputFlag = 1
-            if args.gen4Training == True:
-                if outputFlag == 1:
-                    if random.uniform(0, 1) > args.outputProb:
-                        outputFlag = 0
+            if args.gen4Training and outputFlag == 1:
+                if args.vcf_fn is not None:
+                    temp_key = args.ctgName + ":" + str(sweep)
+                    if temp_key in non_variants_map:
+                        if random.uniform(0, 1) > args.outputProb / 2:
+                            outputFlag = 0
+                        else:
+                            no_of_candidates_near_variant += 1
+                    else
+                        if random.uniform(0, 1) > args.outputProb / 2:
+                            outputFlag = 0
+                        else:
+                            no_of_candidates_outside_variant += 1
+                elif random.uniform(0, 1) > args.outputProb:
+                    outputFlag = 0
             if outputFlag == 1:
-                out = OutputCandidate(args.ctgName, sweep, baseCount, refBase, args.minCoverage, args.threshold)
+                out = output_candidate(args.ctgName, sweep, baseCount, refBase, args.minCoverage, args.threshold)
             if out != None:
                 # print "[INFO] output: {}".format(can_fp.stdin)
                 _totalCount, outline = out
@@ -263,16 +323,30 @@ def MakeCandidates(args):
                 outputFlag = 1
         else:
             outputFlag = 1
-        if args.gen4Training == True:
-            if outputFlag == 1:
-                if random.uniform(0, 1) > args.outputProb:
-                    outputFlag = 0
+        if args.gen4Training == True and outputFlag == 1:
+            if args.vcf_fn is not None:
+                temp_key = args.ctgName + ":" + str(sweep)
+                if temp_key in non_variants_map:
+                    if random.uniform(0, 1) > args.outputProb / 2:
+                        outputFlag = 0
+                    else:
+                        no_of_candidates_near_variant += 1
+                else
+                    if random.uniform(0, 1) > args.outputProb / 2:
+                        outputFlag = 0
+                    else:
+                        no_of_candidates_outside_variant += 1
+            elif random.uniform(0, 1) > args.outputProb:
+                outputFlag = 0
         if outputFlag == 1:
-            out = OutputCandidate(args.ctgName, pos, baseCount, refBase, args.minCoverage, args.threshold)
+            out = output_candidate(args.ctgName, pos, baseCount, refBase, args.minCoverage, args.threshold)
         if out != None:
             _totalCount, outline = out
             can_fp.stdin.write(outline)
             can_fp.stdin.write("\n")
+
+    print "# of candidates near variant: ", no_of_candidates_near_variant
+    print "# of candidates outside variant: ", no_of_candidates_outside_variant
 
     p2.stdout.close()
     p2.wait()
@@ -302,6 +376,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--can_fn', type=str, default="PIPE",
                         help="Pile-up count output, use PIPE for standard output, default: %(default)s")
+
+    parser.add_argument('--vcf_fn', type=str, default=None,
+                        help="Candidate sites VCF file input, if provided, will choose candidate +/- 1 or +/- 2. Use together with gen4Training. default: %(default)s")
 
     parser.add_argument('--threshold', type=float, default=0.125,
                         help="Minimum allele frequence of the 1st non-reference allele for a site to be considered as a condidate site, default: %(default)f")
@@ -342,4 +419,4 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(1)
 
-    MakeCandidates(args)
+    make_candidates(args)
