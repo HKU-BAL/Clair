@@ -98,8 +98,8 @@ class CandidateStdout(object):
 
 def make_candidates(args):
 
-    variants_map = variants_map_from(args.vcf_fn) if args.vcf_fn is not None else {}
-    non_variants_map = non_variants_before_or_after_variants_from(variants_map) if args.vcf_fn is not None else {}
+    variants_map = variants_map_from(args.var_fn) if args.var_fn is not None else {}
+    non_variants_map = non_variants_before_or_after_variants_from(variants_map) if args.var_fn is not None else {}
     no_of_candidates_near_variant = 0
     no_of_candidates_outside_variant = 0
 
@@ -279,7 +279,7 @@ def make_candidates(args):
             else:
                 outputFlag = 1
             if args.gen4Training and outputFlag == 1:
-                if args.vcf_fn is not None:
+                if args.var_fn is not None:
                     temp_key = args.ctgName + ":" + str(sweep)
                     # original prob: 7000000 * 2.0 / 3000000000
                     # output candidates near variant probability: 7000000 * 1.0 / len(non_variants_map)
@@ -327,7 +327,7 @@ def make_candidates(args):
         else:
             outputFlag = 1
         if args.gen4Training == True and outputFlag == 1:
-            if args.vcf_fn is not None:
+            if args.var_fn is not None:
                 temp_key = args.ctgName + ":" + str(sweep)
                 if temp_key in non_variants_map:
                     if random.uniform(0, 1) > args.outputProb / 2:
@@ -380,7 +380,7 @@ if __name__ == "__main__":
     parser.add_argument('--can_fn', type=str, default="PIPE",
                         help="Pile-up count output, use PIPE for standard output, default: %(default)s")
 
-    parser.add_argument('--vcf_fn', type=str, default=None,
+    parser.add_argument('--var_fn', type=str, default=None,
                         help="Candidate sites VCF file input, if provided, will choose candidate +/- 1 or +/- 2. Use together with gen4Training. default: %(default)s")
 
     parser.add_argument('--threshold', type=float, default=0.125,
