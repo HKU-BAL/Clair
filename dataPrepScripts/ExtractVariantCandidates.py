@@ -289,7 +289,7 @@ def make_candidates(args):
                             outputFlag = 0
                         else:
                             no_of_candidates_near_variant += 1
-                    else
+                    else:
                         if random.uniform(0, 1) > args.outputProb / 2:
                             outputFlag = 0
                         else:
@@ -334,7 +334,7 @@ def make_candidates(args):
                         outputFlag = 0
                     else:
                         no_of_candidates_near_variant += 1
-                else
+                else:
                     if random.uniform(0, 1) > args.outputProb / 2:
                         outputFlag = 0
                     else:
