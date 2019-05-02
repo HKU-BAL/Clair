@@ -10,7 +10,7 @@ import tensorflow as tf
 import param
 import utils
 import clair_model as cv
-from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2, VariantLength
+from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
@@ -136,14 +136,16 @@ def validate_model(m, dataset_info):
     print("[INFO] f-measure: ", genotype_f_measure)
 
     print("\n[INFO] evaluation on indel length 1:")
-    for i in range(VariantLength.output_label_count):
-        print("\t".join([str(confusion_matrix_indel_length_1[i][j]) for j in range(VariantLength.output_label_count)]))
+    for i in range(VARIANT_LENGTH_1.output_label_count):
+        print("\t".join([str(confusion_matrix_indel_length_1[i][j])
+                         for j in range(VARIANT_LENGTH_1.output_label_count)]))
     indel_length_f_measure_1 = f1_score(confusion_matrix_indel_length_1)
     print("[INFO] f-measure: ", indel_length_f_measure_1)
 
     print("\n[INFO] evaluation on indel length 2:")
-    for i in range(VariantLength.output_label_count):
-        print("\t".join([str(confusion_matrix_indel_length_2[i][j]) for j in range(VariantLength.output_label_count)]))
+    for i in range(VARIANT_LENGTH_2.output_label_count):
+        print("\t".join([str(confusion_matrix_indel_length_2[i][j])
+                         for j in range(VARIANT_LENGTH_2.output_label_count)]))
     indel_length_f_measure_2 = f1_score(confusion_matrix_indel_length_2)
     print("[INFO] f-measure: ", indel_length_f_measure_2)
 
