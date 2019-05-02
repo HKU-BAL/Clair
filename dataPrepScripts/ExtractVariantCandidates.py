@@ -281,8 +281,11 @@ def make_candidates(args):
             if args.gen4Training and outputFlag == 1:
                 if args.vcf_fn is not None:
                     temp_key = args.ctgName + ":" + str(sweep)
+                    # original prob: 7000000 * 2.0 / 3000000000
+                    # output candidates near variant probability: 7000000 * 1.0 / len(non_variants_map)
+                    # output candidates outside variant probability: 7000000 * 1.0 / 3000000000
                     if temp_key in non_variants_map:
-                        if random.uniform(0, 1) > args.outputProb / 2:
+                        if random.uniform(0, 1) > (7000000 / len(non_variants_map)):
                             outputFlag = 0
                         else:
                             no_of_candidates_near_variant += 1
