@@ -13,7 +13,7 @@ from math import log
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
-RATIO_OF_NON_VARIANT_TO_VARIANT = 2
+RATIO_OF_NON_VARIANT_TO_VARIANT = 2.0
 
 def PypyGCCollect(signum, frame):
     gc.collect()
@@ -100,7 +100,7 @@ class CandidateStdout(object):
 def make_candidates(args):
 
     # preparation for candidates near variants
-    need_consider_candidates_near_variant = args.var_fn is not None
+    need_consider_candidates_near_variant = args.gen4Training == True and args.var_fn is not None
     variants_map = variants_map_from(args.var_fn) if need_consider_candidates_near_variant else {}
     non_variants_map = non_variants_before_or_after_variants_from(variants_map)
     no_of_candidates_near_variant = 0
@@ -408,7 +408,7 @@ if __name__ == "__main__":
     # parser.add_argument('--genomeSize', type=int, default=3000000000,
     #         help="Use with gen4Training, default: %(default)s")
 
-    parser.add_argument('--outputProb', type=float, default=(7000000 * RATIO_OF_NON_VARIANT_TO_VARIANT / 3000000000),
+    parser.add_argument('--outputProb', type=float, default=(7000000.0 * RATIO_OF_NON_VARIANT_TO_VARIANT / 3000000000),
                         help="output probability")
 
     parser.add_argument('--ctgName', type=str, default="chr17",
