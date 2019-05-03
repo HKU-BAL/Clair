@@ -13,6 +13,7 @@ from math import log
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
+RATIO_OF_NON_VARIANT_TO_VARIANT = 2
 
 def PypyGCCollect(signum, frame):
     gc.collect()
@@ -45,12 +46,12 @@ def output_candidate(ctgName, pos, baseCount, refBase, minCoverage, threshold):
         return None
 
 
-def variants_map_from(vcf_file_path):
-    if vcf_file_path == None:
+def variants_map_from(var_file_path):
+    if var_file_path == None:
         return {}
 
     variants_map = {}
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (vcf_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (var_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
     for row in f.stdout:
         columns = row.split()
         ctg_name = columns[0]
@@ -98,15 +99,25 @@ class CandidateStdout(object):
 
 def make_candidates(args):
 
-    variants_map = variants_map_from(args.var_fn) if args.var_fn is not None else {}
-    non_variants_map = non_variants_before_or_after_variants_from(variants_map) if args.var_fn is not None else {}
+    # preparation for candidates near variants
+    need_consider_candidates_near_variant = args.var_fn is not None
+    variants_map = variants_map_from(args.var_fn) if need_consider_candidates_near_variant else {}
+    non_variants_map = non_variants_before_or_after_variants_from(variants_map)
     no_of_candidates_near_variant = 0
     no_of_candidates_outside_variant = 0
+
+    # update output probabilities for candidates near variants
+    output_probability = args.outputProb
+    genome_size = 300000000
+    ratio_of_candidate_near_variant_to_candidate_outside_variant = 1
+    output_probability_near_variant = (output_probability * genome_size / 2.0) * \
+        ratio_of_candidate_near_variant_to_candidate_outside_variant / len(non_variants_map)
+    output_probability_outside_variant = (output_probability * genome_size / 2.0) * \
+        ratio_of_candidate_near_variant_to_candidate_outside_variant / (genome_size - len(non_variants_map))
 
     if args.gen4Training == True:
         args.minCoverage = 0
         args.threshold = 0
-        # args.outputProb = (args.candidates * 2.) / (args.genomeSize)
 
     if os.path.isfile("%s.fai" % (args.ref_fn)) == False:
         print >> sys.stderr, "Fasta index %s.fai doesn't exist." % (args.ref_fn)
@@ -168,7 +179,6 @@ def make_candidates(args):
     pileup = {}
     sweep = 0
 
-
     p2 = subprocess.Popen(shlex.split("%s view -F 2308 %s %s:%d-%d" % (args.samtools, args.bam_fn, args.ctgName, args.ctgStart, args.ctgEnd)), stdout=subprocess.PIPE, bufsize=8388608)\
         if args.ctgStart != None and args.ctgEnd != None\
         else subprocess.Popen(shlex.split("%s view -F 2308 %s %s" % (args.samtools, args.bam_fn, args.ctgName)), stdout=subprocess.PIPE, bufsize=8388608)
@@ -177,7 +187,7 @@ def make_candidates(args):
         # print "[INFO] create candidate file: {}".format(args.can_fn)
         can_fpo = open(args.can_fn, "wb")
         can_fp = subprocess.Popen(shlex.split("gzip -c"), stdin=subprocess.PIPE,
-                                    stdout=can_fpo, stderr=sys.stderr, bufsize=8388608)
+                                  stdout=can_fpo, stderr=sys.stderr, bufsize=8388608)
     else:
         # print "[INFO] use standard output"
         can_fp = CandidateStdout(sys.stdout)
@@ -279,22 +289,19 @@ def make_candidates(args):
             else:
                 outputFlag = 1
             if args.gen4Training and outputFlag == 1:
-                if args.var_fn is not None:
+                if need_consider_candidates_near_variant:
                     temp_key = args.ctgName + ":" + str(sweep)
-                    # original prob: 7000000 * 2.0 / 3000000000
-                    # output candidates near variant probability: 7000000 * 1.0 / len(non_variants_map)
-                    # output candidates outside variant probability: 7000000 * 1.0 / 3000000000
                     if temp_key in non_variants_map:
-                        if random.uniform(0, 1) > (7000000 / len(non_variants_map)):
+                        if random.uniform(0, 1) > output_probability_near_variant:
                             outputFlag = 0
                         else:
                             no_of_candidates_near_variant += 1
                     else:
-                        if random.uniform(0, 1) > args.outputProb / 2:
+                        if random.uniform(0, 1) > output_probability_outside_variant:
                             outputFlag = 0
                         else:
                             no_of_candidates_outside_variant += 1
-                elif random.uniform(0, 1) > args.outputProb:
+                elif random.uniform(0, 1) > output_probability:
                     outputFlag = 0
             if outputFlag == 1:
                 out = output_candidate(args.ctgName, sweep, baseCount, refBase, args.minCoverage, args.threshold)
@@ -326,20 +333,20 @@ def make_candidates(args):
                 outputFlag = 1
         else:
             outputFlag = 1
-        if args.gen4Training == True and outputFlag == 1:
-            if args.var_fn is not None:
+        if args.gen4Training and outputFlag == 1:
+            if need_consider_candidates_near_variant:
                 temp_key = args.ctgName + ":" + str(sweep)
                 if temp_key in non_variants_map:
-                    if random.uniform(0, 1) > args.outputProb / 2:
+                    if random.uniform(0, 1) > output_probability_near_variant:
                         outputFlag = 0
                     else:
                         no_of_candidates_near_variant += 1
                 else:
-                    if random.uniform(0, 1) > args.outputProb / 2:
+                    if random.uniform(0, 1) > output_probability_outside_variant:
                         outputFlag = 0
                     else:
                         no_of_candidates_outside_variant += 1
-            elif random.uniform(0, 1) > args.outputProb:
+            elif random.uniform(0, 1) > output_probability:
                 outputFlag = 0
         if outputFlag == 1:
             out = output_candidate(args.ctgName, pos, baseCount, refBase, args.minCoverage, args.threshold)
@@ -401,7 +408,7 @@ if __name__ == "__main__":
     # parser.add_argument('--genomeSize', type=int, default=3000000000,
     #         help="Use with gen4Training, default: %(default)s")
 
-    parser.add_argument('--outputProb', type=float, default=(7000000 * 2.0 / 3000000000),
+    parser.add_argument('--outputProb', type=float, default=(7000000 * RATIO_OF_NON_VARIANT_TO_VARIANT / 3000000000),
                         help="output probability")
 
     parser.add_argument('--ctgName', type=str, default="chr17",
