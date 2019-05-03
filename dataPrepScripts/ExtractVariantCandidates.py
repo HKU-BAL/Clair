@@ -15,6 +15,7 @@ is_pypy = '__pypy__' in sys.builtin_module_names
 
 RATIO_OF_NON_VARIANT_TO_VARIANT = 2.0
 
+
 def PypyGCCollect(signum, frame):
     gc.collect()
     signal.alarm(60)
@@ -100,22 +101,24 @@ class CandidateStdout(object):
 def make_candidates(args):
 
     # preparation for candidates near variants
-    need_consider_candidates_near_variant = args.gen4Training == True and args.var_fn is not None
+    is_building_training_dataset = args.gen4Training == True
+    need_consider_candidates_near_variant = is_building_training_dataset and args.var_fn is not None
     variants_map = variants_map_from(args.var_fn) if need_consider_candidates_near_variant else {}
     non_variants_map = non_variants_before_or_after_variants_from(variants_map)
     no_of_candidates_near_variant = 0
     no_of_candidates_outside_variant = 0
 
     # update output probabilities for candidates near variants
+    # (7000000.0 * 2.0 / 3000000000)
     output_probability = args.outputProb
-    genome_size = 300000000
-    ratio_of_candidate_near_variant_to_candidate_outside_variant = 1
-    output_probability_near_variant = (output_probability * genome_size / 2.0) * \
-        ratio_of_candidate_near_variant_to_candidate_outside_variant / len(non_variants_map)
-    output_probability_outside_variant = (output_probability * genome_size / 2.0) * \
-        ratio_of_candidate_near_variant_to_candidate_outside_variant / (genome_size - len(non_variants_map))
+    ratio_of_candidates_near_variant_to_candidates_outside_variant = 1.0
 
-    if args.gen4Training == True:
+    output_probability_near_variant = (
+        3500000.0 * ratio_of_candidates_near_variant_to_candidates_outside_variant * RATIO_OF_NON_VARIANT_TO_VARIANT / 14000000
+    )
+    output_probability_outside_variant = 3500000.0 * RATIO_OF_NON_VARIANT_TO_VARIANT / (3000000000 - 14000000)
+
+    if is_building_training_dataset:
         args.minCoverage = 0
         args.threshold = 0
 
@@ -288,9 +291,11 @@ def make_candidates(args):
                     outputFlag = 1
             else:
                 outputFlag = 1
-            if args.gen4Training and outputFlag == 1:
+            temp_key = args.ctgName + ":" + str(sweep)
+            if temp_key in variants_map:
+                outputFlag = 0
+            if outputFlag == 1 and is_building_training_dataset:
                 if need_consider_candidates_near_variant:
-                    temp_key = args.ctgName + ":" + str(sweep)
                     if temp_key in non_variants_map:
                         if random.uniform(0, 1) > output_probability_near_variant:
                             outputFlag = 0
@@ -333,7 +338,7 @@ def make_candidates(args):
                 outputFlag = 1
         else:
             outputFlag = 1
-        if args.gen4Training and outputFlag == 1:
+        if outputFlag == 1 and is_building_training_dataset:
             if need_consider_candidates_near_variant:
                 temp_key = args.ctgName + ":" + str(sweep)
                 if temp_key in non_variants_map:
