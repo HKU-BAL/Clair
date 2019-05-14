@@ -13,6 +13,8 @@ from math import log
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
+RATIO_OF_NON_VARIANT_TO_VARIANT = 2.0
+
 
 def PypyGCCollect(signum, frame):
     gc.collect()
@@ -22,7 +24,7 @@ def PypyGCCollect(signum, frame):
 cigarRe = r"(\d+)([MIDNSHP=X])"
 
 
-def OutputCandidate(ctgName, pos, baseCount, refBase, minCoverage, threshold):
+def output_candidate(ctgName, pos, baseCount, refBase, minCoverage, threshold):
     totalCount = 0
     totalCount += sum(x[1] for x in baseCount)
     if totalCount < minCoverage:
@@ -45,6 +47,49 @@ def OutputCandidate(ctgName, pos, baseCount, refBase, minCoverage, threshold):
         return None
 
 
+def variants_map_from(var_file_path):
+    if var_file_path == None:
+        return {}
+
+    variants_map = {}
+    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (var_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
+    for row in f.stdout:
+        columns = row.split()
+        ctg_name = columns[0]
+        position_str = columns[1]
+
+        key = ctg_name + ":" + position_str
+
+        variants_map[key] = True
+
+    f.stdout.close()
+    f.wait()
+
+    return variants_map
+
+
+def non_variants_before_or_after_variants_from(variants_map):
+    non_variants_map = {}
+
+    for key in variants_map.keys():
+        ctg_name, position_str = key.split(':')
+        position = int(position_str)
+
+        for i in range(5):
+            position_offset = -2 + i
+            if position_offset == 0:
+                continue
+            temp_position = position + position_offset
+            if temp_position < 0:
+                continue
+
+            temp_key = ctg_name + ":" + str(temp_position)
+            if temp_key not in variants_map and temp_key not in non_variants_map:
+                non_variants_map[temp_key] = True
+
+    return non_variants_map
+
+
 class CandidateStdout(object):
     def __init__(self, handle):
         self.stdin = handle
@@ -53,11 +98,29 @@ class CandidateStdout(object):
         self.stdin.close()
 
 
-def MakeCandidates(args):
-    if args.gen4Training == True:
+def make_candidates(args):
+
+    # preparation for candidates near variants
+    is_building_training_dataset = args.gen4Training == True
+    need_consider_candidates_near_variant = is_building_training_dataset and args.var_fn is not None
+    variants_map = variants_map_from(args.var_fn) if need_consider_candidates_near_variant else {}
+    non_variants_map = non_variants_before_or_after_variants_from(variants_map)
+    no_of_candidates_near_variant = 0
+    no_of_candidates_outside_variant = 0
+
+    # update output probabilities for candidates near variants
+    # (7000000.0 * 2.0 / 3000000000)
+    output_probability = args.outputProb
+    ratio_of_candidates_near_variant_to_candidates_outside_variant = 1.0
+
+    output_probability_near_variant = (
+        3500000.0 * ratio_of_candidates_near_variant_to_candidates_outside_variant * RATIO_OF_NON_VARIANT_TO_VARIANT / 14000000
+    )
+    output_probability_outside_variant = 3500000.0 * RATIO_OF_NON_VARIANT_TO_VARIANT / (3000000000 - 14000000)
+
+    if is_building_training_dataset:
         args.minCoverage = 0
         args.threshold = 0
-        # args.outputProb = (args.candidates * 2.) / (args.genomeSize)
 
     if os.path.isfile("%s.fai" % (args.ref_fn)) == False:
         print >> sys.stderr, "Fasta index %s.fai doesn't exist." % (args.ref_fn)
@@ -119,7 +182,6 @@ def MakeCandidates(args):
     pileup = {}
     sweep = 0
 
-
     p2 = subprocess.Popen(shlex.split("%s view -F 2308 %s %s:%d-%d" % (args.samtools, args.bam_fn, args.ctgName, args.ctgStart, args.ctgEnd)), stdout=subprocess.PIPE, bufsize=8388608)\
         if args.ctgStart != None and args.ctgEnd != None\
         else subprocess.Popen(shlex.split("%s view -F 2308 %s %s" % (args.samtools, args.bam_fn, args.ctgName)), stdout=subprocess.PIPE, bufsize=8388608)
@@ -128,7 +190,7 @@ def MakeCandidates(args):
         # print "[INFO] create candidate file: {}".format(args.can_fn)
         can_fpo = open(args.can_fn, "wb")
         can_fp = subprocess.Popen(shlex.split("gzip -c"), stdin=subprocess.PIPE,
-                                    stdout=can_fpo, stderr=sys.stderr, bufsize=8388608)
+                                  stdout=can_fpo, stderr=sys.stderr, bufsize=8388608)
     else:
         # print "[INFO] use standard output"
         can_fp = CandidateStdout(sys.stdout)
@@ -229,12 +291,25 @@ def MakeCandidates(args):
                     outputFlag = 1
             else:
                 outputFlag = 1
-            if args.gen4Training == True:
-                if outputFlag == 1:
-                    if random.uniform(0, 1) > args.outputProb:
-                        outputFlag = 0
+            temp_key = args.ctgName + ":" + str(sweep)
+            if temp_key in variants_map:
+                outputFlag = 0
+            if outputFlag == 1 and is_building_training_dataset:
+                if need_consider_candidates_near_variant:
+                    if temp_key in non_variants_map:
+                        if random.uniform(0, 1) > output_probability_near_variant:
+                            outputFlag = 0
+                        else:
+                            no_of_candidates_near_variant += 1
+                    else:
+                        if random.uniform(0, 1) > output_probability_outside_variant:
+                            outputFlag = 0
+                        else:
+                            no_of_candidates_outside_variant += 1
+                elif random.uniform(0, 1) > output_probability:
+                    outputFlag = 0
             if outputFlag == 1:
-                out = OutputCandidate(args.ctgName, sweep, baseCount, refBase, args.minCoverage, args.threshold)
+                out = output_candidate(args.ctgName, sweep, baseCount, refBase, args.minCoverage, args.threshold)
             if out != None:
                 # print "[INFO] output: {}".format(can_fp.stdin)
                 _totalCount, outline = out
@@ -263,16 +338,30 @@ def MakeCandidates(args):
                 outputFlag = 1
         else:
             outputFlag = 1
-        if args.gen4Training == True:
-            if outputFlag == 1:
-                if random.uniform(0, 1) > args.outputProb:
-                    outputFlag = 0
+        if outputFlag == 1 and is_building_training_dataset:
+            if need_consider_candidates_near_variant:
+                temp_key = args.ctgName + ":" + str(sweep)
+                if temp_key in non_variants_map:
+                    if random.uniform(0, 1) > output_probability_near_variant:
+                        outputFlag = 0
+                    else:
+                        no_of_candidates_near_variant += 1
+                else:
+                    if random.uniform(0, 1) > output_probability_outside_variant:
+                        outputFlag = 0
+                    else:
+                        no_of_candidates_outside_variant += 1
+            elif random.uniform(0, 1) > output_probability:
+                outputFlag = 0
         if outputFlag == 1:
-            out = OutputCandidate(args.ctgName, pos, baseCount, refBase, args.minCoverage, args.threshold)
+            out = output_candidate(args.ctgName, pos, baseCount, refBase, args.minCoverage, args.threshold)
         if out != None:
             _totalCount, outline = out
             can_fp.stdin.write(outline)
             can_fp.stdin.write("\n")
+
+    print "# of candidates near variant: ", no_of_candidates_near_variant
+    print "# of candidates outside variant: ", no_of_candidates_outside_variant
 
     p2.stdout.close()
     p2.wait()
@@ -303,6 +392,9 @@ if __name__ == "__main__":
     parser.add_argument('--can_fn', type=str, default="PIPE",
                         help="Pile-up count output, use PIPE for standard output, default: %(default)s")
 
+    parser.add_argument('--var_fn', type=str, default=None,
+                        help="Candidate sites VCF file input, if provided, will choose candidate +/- 1 or +/- 2. Use together with gen4Training. default: %(default)s")
+
     parser.add_argument('--threshold', type=float, default=0.125,
                         help="Minimum allele frequence of the 1st non-reference allele for a site to be considered as a condidate site, default: %(default)f")
 
@@ -321,7 +413,7 @@ if __name__ == "__main__":
     # parser.add_argument('--genomeSize', type=int, default=3000000000,
     #         help="Use with gen4Training, default: %(default)s")
 
-    parser.add_argument('--outputProb', type=float, default=(7000000 * 2.0 / 3000000000),
+    parser.add_argument('--outputProb', type=float, default=(7000000.0 * RATIO_OF_NON_VARIANT_TO_VARIANT / 3000000000),
                         help="output probability")
 
     parser.add_argument('--ctgName', type=str, default="chr17",
@@ -342,4 +434,4 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(1)
 
-    MakeCandidates(args)
+    make_candidates(args)

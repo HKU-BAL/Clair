@@ -300,8 +300,8 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
                 VariantLength.min
             ) for alternate in alternate_arr]
             variant_lengths.sort()
-            variant_length_vec_1 = [0] * VariantLength.output_label_count
-            variant_length_vec_2 = [0] * VariantLength.output_label_count
+            variant_length_vec_1 = [0] * VARIANT_LENGTH_1.output_label_count
+            variant_length_vec_2 = [0] * VARIANT_LENGTH_2.output_label_count
             variant_length_vec_1[variant_lengths[0] + VariantLength.index_offset] = 1.0
             variant_length_vec_2[variant_lengths[1] + VariantLength.index_offset] = 1.0
 
@@ -349,8 +349,8 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             #               0/0 1/1 0/1
             genotype_vec = [1., 0., 0.]
             #                       L
-            variant_length_vec_1 = [0] * VariantLength.output_label_count
-            variant_length_vec_2 = [0] * VariantLength.output_label_count
+            variant_length_vec_1 = [0] * VARIANT_LENGTH_1.output_label_count
+            variant_length_vec_2 = [0] * VARIANT_LENGTH_2.output_label_count
             variant_length_vec_1[0 + VariantLength.index_offset] = 1
             variant_length_vec_2[0 + VariantLength.index_offset] = 1
 
