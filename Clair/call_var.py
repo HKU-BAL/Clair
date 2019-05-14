@@ -166,7 +166,7 @@ def is_hetero_deletion_from(prediction):
 
 def is_insertion_and_deletion_from(prediction):
     is_genotype_match = (
-        prediction.genotype == Genotype.hetero_variant or
+        # prediction.genotype == Genotype.hetero_variant or
         prediction.genotype == Genotype.hetero_variant_multi
     )
     is_base_change_match = prediction.base_change == BaseChange.InsDel
@@ -367,8 +367,8 @@ def Output(
         is_homo_deletion = is_homo_deletion_from(prediction)
         is_hetero_deletion = is_hetero_deletion_from(prediction)
         is_insertion_and_deletion = is_insertion_and_deletion_from(prediction)
-        # is_SNP_Ins_multi = False
-        # is_SNP_Del_multi = False
+        is_SNP_Ins_multi = False
+        is_SNP_Del_multi = False
 
         is_SNP = is_homo_SNP or is_hetero_SNP
         is_insertion = is_homo_insertion or is_hetero_insertion
@@ -451,12 +451,24 @@ def Output(
         elif is_hetero_SNP:
             base1, base2 = hetero_SNP_bases_from(base_change_probabilities[row_index])
             reference_base = reference_sequence[position_center]
-            is_multi = base1 != reference_base and base2 != reference_base
-            if is_multi:
+
+            is_multi_SNP = (
+                base1 != reference_base and
+                base2 != reference_base and
+                prediction.genotype == Genotype.hetero_variant_multi
+            )
+            is_one_base_hetero_SNP = (
+                ((base1 != reference_base) != (base2 != reference_base)) and
+                prediction.genotype == Genotype.hetero_variant
+            )
+            if is_multi_SNP:
                 alternate_base = "{},{}".format(base1, base2)
                 genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
-            else:
+            elif is_one_base_hetero_SNP:
                 alternate_base = base1 if base1 != reference_base else base2
+            else:
+                reference_base = ""
+                alternate_base = ""
 
         elif is_insertion:
             if is_homo_insertion:
@@ -506,6 +518,7 @@ def Output(
             is_SNP_Ins_multi = (
                 not is_marked_as_SV and
                 is_hetero_insertion and
+                prediction.genotype == Genotype.hetero_variant_multi and
                 (
                     prediction.base_change == BaseChange.AIns or
                     prediction.base_change == BaseChange.CIns or
@@ -518,9 +531,25 @@ def Output(
             is_Ins_Ins_multi = (
                 not is_marked_as_SV and
                 is_hetero_insertion and
+                prediction.genotype == Genotype.hetero_variant_multi and
                 prediction.base_change == BaseChange.InsIns and
                 variant_length_1 > 0 and variant_length_2 > 0 and
                 variant_length_1 != variant_length_2
+            )
+            is_one_side_hetero_Ins = (
+                not is_marked_as_SV and
+                not is_SNP_Ins_multi and
+                not is_Ins_Ins_multi and
+                is_hetero_insertion and
+                prediction.genotype == Genotype.hetero_variant and
+                (
+                    prediction.base_change == BaseChange.AIns or
+                    prediction.base_change == BaseChange.CIns or
+                    prediction.base_change == BaseChange.GIns or
+                    prediction.base_change == BaseChange.TIns
+                ) and
+                variant_length_1 == 0 and variant_length_2 > 0 and
+                hetero_insert_base == reference_base
             )
 
             if is_marked_as_SV:
@@ -538,6 +567,9 @@ def Output(
                 if alternate_base_1 != alternate_base_2:
                     alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
                     genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
+            elif not is_homo_insertion and not is_one_side_hetero_Ins:
+                reference_base = ""
+                alternate_base = ""
 
         elif is_deletion:
             if is_homo_deletion:
@@ -576,6 +608,7 @@ def Output(
             is_SNP_Del_multi = (
                 not is_marked_as_SV and
                 is_hetero_deletion and
+                prediction.genotype == Genotype.hetero_variant_multi and
                 (
                     prediction.base_change == BaseChange.ADel or
                     prediction.base_change == BaseChange.CDel or
@@ -588,9 +621,25 @@ def Output(
             is_Del_Del_multi = (
                 not is_marked_as_SV and
                 is_hetero_deletion and
+                prediction.genotype == Genotype.hetero_variant_multi and
                 prediction.base_change == BaseChange.DelDel and
                 variant_length_1 > 0 and variant_length_2 > 0 and
                 variant_length_1 != variant_length_2
+            )
+            is_one_side_hetero_Del = (
+                not is_marked_as_SV and
+                not is_SNP_Del_multi and
+                not is_Del_Del_multi and
+                is_hetero_deletion and
+                prediction.genotype == Genotype.hetero_variant and
+                (
+                    prediction.base_change == BaseChange.ADel or
+                    prediction.base_change == BaseChange.CDel or
+                    prediction.base_change == BaseChange.GDel or
+                    prediction.base_change == BaseChange.TDel
+                ) and
+                variant_length_1 == 0 and variant_length_2 > 0 and
+                hetero_delete_base == reference_base
             )
 
             if is_marked_as_SV:
@@ -619,6 +668,9 @@ def Output(
                 ):
                     alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
                     genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
+            elif not is_homo_deletion and not is_one_side_hetero_Del:
+                reference_base = ""
+                alternate_base = ""
 
         elif is_insertion_and_deletion:
             variant_length_delete = 1 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0]
@@ -686,6 +738,8 @@ def Output(
                 alternate_base_delete,
                 reference_base[0] + alternate_base_insert + reference_base[1:]
             )
+        if reference_base == "" or alternate_base == "":
+            continue
 
         # allele frequency / supported reads
         supported_reads_count = 0

@@ -34,9 +34,9 @@ BASE_CHANGE = OutputLabelNamedTuple(
     y_end_index=21,
 )
 GENOTYPE = OutputLabelNamedTuple(
-    output_label_count=3,
+    output_label_count=4,
     y_start_index=BASE_CHANGE.y_end_index,
-    y_end_index=BASE_CHANGE.y_end_index + 3,
+    y_end_index=BASE_CHANGE.y_end_index + 4,
 )
 VARIANT_LENGTH_1 = OutputLabelNamedTuple(
     output_label_count=VariantLength.output_label_count,
@@ -270,16 +270,14 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
                 )
 
             # base change
-            #                  AA  AC  AG  AT  CC  CG  CT  GG  GT  TT  DD  AD  CD  GD  TD  II  AI  CI  GI  TI  ID
-            base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
+            base_change_vec = [0.] * BASE_CHANGE.output_label_count
             partial_labels = [partial_label_from(reference, alternate) for alternate in alternate_arr]
             base_change_label = mix_two_partial_labels(partial_labels[0], partial_labels[1])
             base_change = base_change_enum_from(base_change_label)
             base_change_vec[base_change] = 1
 
             # geno type
-            #               0/0 1/1 0/1
-            genotype_vec = [0., 0., 0.]
+            genotype_vec = [0.] * GENOTYPE.output_label_count
             is_homo_reference = genotype_1 == "0" and genotype_2 == "0"
             is_homo_variant = not is_homo_reference and genotype_1 == genotype_2
             is_hetero_variant = not is_homo_reference and not is_homo_variant
@@ -291,8 +289,8 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             elif is_hetero_variant and not is_multi:
                 genotype_vec[Genotype.hetero_variant] = 1.0
             elif is_hetero_variant and is_multi:
-                genotype_vec[Genotype.hetero_variant] = 1.0
-                # genotype_vec[Genotype.hetero_variant_multi] = 1.0
+                # genotype_vec[Genotype.hetero_variant] = 1.0
+                genotype_vec[Genotype.hetero_variant_multi] = 1.0
 
             # variant length
             variant_lengths = [max(
@@ -344,11 +342,8 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
 
         is_reference = key not in Y
         if is_reference:
-            #                  AA  AC  AG  AT  CC  CG  CT  GG  GT  TT  DD  AD  CD  GD  TD  II  AI  CI  GI  TI  ID
-            base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
-            #               0/0 1/1 0/1
-            genotype_vec = [1., 0., 0.]
-            #                       L
+            base_change_vec = [0.] * BASE_CHANGE.output_label_count
+            genotype_vec = [1., 0., 0., 0.]
             variant_length_vec_1 = [0] * VARIANT_LENGTH_1.output_label_count
             variant_length_vec_2 = [0] * VARIANT_LENGTH_2.output_label_count
             variant_length_vec_1[0 + VariantLength.index_offset] = 1
