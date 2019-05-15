@@ -70,22 +70,41 @@ def variants_map_from(var_file_path):
 
 def non_variants_before_or_after_variants_from(variants_map):
     non_variants_map = {}
+    non_variants_map_to_exclude = {}
+
+    lower_limit_to_non_variants = 15
+    upper_limit_to_non_variants = 16
 
     for key in variants_map.keys():
         ctg_name, position_str = key.split(':')
         position = int(position_str)
 
-        for i in range(5):
-            position_offset = -2 + i
-            if position_offset == 0:
-                continue
+        for i in range(upper_limit_to_non_variants * 2 + 1):
+            position_offset = -upper_limit_to_non_variants + i
             temp_position = position + position_offset
             if temp_position < 0:
                 continue
 
             temp_key = ctg_name + ":" + str(temp_position)
-            if temp_key not in variants_map and temp_key not in non_variants_map:
+            is_in_non_variants_map = (
+                temp_key not in variants_map and
+                temp_key not in non_variants_map and
+                (
+                   -upper_limit_to_non_variants <= position_offset <= -lower_limit_to_non_variants or
+                   lower_limit_to_non_variants <= position_offset <= upper_limit_to_non_variants
+                )
+            )
+            is_in_non_variants_map_to_exclude = (
+                lower_limit_to_non_variants > position_offset > -lower_limit_to_non_variants
+            )
+            if is_in_non_variants_map:
                 non_variants_map[temp_key] = True
+            if is_in_non_variants_map_to_exclude:
+                non_variants_map_to_exclude[temp_key] = True
+
+    for key in non_variants_map_to_exclude.keys():
+        if key in non_variants_map:
+            del non_variants_map[key]
 
     return non_variants_map
 
