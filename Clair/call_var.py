@@ -17,10 +17,6 @@ from utils import BaseChange, base_change_label_from, Genotype, genotype_string_
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
-v1Type2Name = dict(zip((0, 1, 2, 3, 4), ('HET', 'HOM', 'INS', 'DEL', 'REF')))
-v2Zygosity2Name = dict(zip((0, 1), ('HET', 'HOM')))
-v2Type2Name = dict(zip((0, 1, 2, 3), ('REF', 'SNP', 'INS', 'DEL')))
-v2Length2Name = dict(zip((0, 1, 2, 3, 4, 5), ('0', '1', '2', '3', '4', '4+')))
 minimum_variant_length_that_need_infer = VariantLength.max
 inferred_indel_length_minimum_allele_frequency = 0.125
 
