@@ -379,8 +379,9 @@ def make_candidates(args):
             can_fp.stdin.write(outline)
             can_fp.stdin.write("\n")
 
-    print "# of candidates near variant: ", no_of_candidates_near_variant
-    print "# of candidates outside variant: ", no_of_candidates_outside_variant
+    if need_consider_candidates_near_variant:
+        print "# of candidates near variant: ", no_of_candidates_near_variant
+        print "# of candidates outside variant: ", no_of_candidates_outside_variant
 
     p2.stdout.close()
     p2.wait()
