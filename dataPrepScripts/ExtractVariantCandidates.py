@@ -10,6 +10,7 @@ import param
 import intervaltree
 import random
 from math import log
+from enum import Enum, IntEnum
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
@@ -21,38 +22,48 @@ def PypyGCCollect(signum, frame):
     signal.alarm(60)
 
 
-cigarRe = r"(\d+)([MIDNSHP=X])"
+class SamColumnIndex(IntEnum):
+    QNAME = 0
+    FLAG = 1
+    RNAME = 2
+    POS = 3
+    MAPQ = 4
+    CIGAR = 5
+    RNEXT = 6
+    PNEXT = 7
+    TLEN = 8
+    SEQ = 9
+    QUAL = 10
 
 
-def output_candidate(ctgName, pos, baseCount, refBase, minCoverage, threshold):
-    totalCount = 0
-    totalCount += sum(x[1] for x in baseCount)
-    if totalCount < minCoverage:
-        return None
-
-    denominator = totalCount
-    if denominator == 0:
-        denominator = 1
-    baseCount.sort(key=lambda x: -x[1])  # sort baseCount descendingly
-    p0 = float(baseCount[0][1]) / denominator
-    p1 = float(baseCount[1][1]) / denominator
-    output = []
-    if (p0 <= 1.0 - threshold and p1 >= threshold) or baseCount[0][0] != refBase:
-        output = [ctgName, pos+1, refBase, totalCount]
-        output.extend(["%s %d" % x for x in baseCount])
-        output = " ".join([str(x) for x in output])
-        # print output
-        return totalCount, output
-    else:
-        return None
+class CigarOp(Enum):
+    ALIGNMENT_MATCH = "M"
+    INSERTION = "I"
+    DELETION = "D"
+    SKIPPED = "N"
+    SOFT_CLIPPING = "S"
+    HARD_CLIPPING = "H"
+    PADDING = "P"
+    SEQUENCE_MATCH = "="
+    SEQUENCE_MISMATCH = "X"
 
 
-def variants_map_from(var_file_path):
-    if var_file_path == None:
+class PileupOp(Enum):
+    BASE_A = "A"
+    BASE_C = "C"
+    BASE_G = "G"
+    BASE_T = "T"
+    BASE_N = "N"
+    INSERT = "I"
+    DELETE = "D"
+
+
+def variants_map_from(variant_file_path):
+    if variant_file_path == None:
         return {}
 
     variants_map = {}
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (var_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (variant_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
     for row in f.stdout:
         columns = row.split()
         ctg_name = columns[0]
@@ -90,8 +101,8 @@ def non_variants_before_or_after_variants_from(variants_map):
                 temp_key not in variants_map and
                 temp_key not in non_variants_map and
                 (
-                   -upper_limit_to_non_variants <= position_offset <= -lower_limit_to_non_variants or
-                   lower_limit_to_non_variants <= position_offset <= upper_limit_to_non_variants
+                    -upper_limit_to_non_variants <= position_offset <= -lower_limit_to_non_variants or
+                    lower_limit_to_non_variants <= position_offset <= upper_limit_to_non_variants
                 )
             )
             is_in_non_variants_map_to_exclude = (
@@ -117,280 +128,324 @@ class CandidateStdout(object):
         self.stdin.close()
 
 
+def region_from(ctg_name, ctg_start=None, ctg_end=None):
+    if ctg_name is None:
+        return None
+    if ctg_start is None != ctg_end is None:
+        return None
+
+    if ctg_start is None and ctg_end is None:
+        return "{}".format(ctg_name)
+    return "{}:{}-{}".format(ctg_name, ctg_start, ctg_end)
+
+
+def reference_sequence_from(samtools_execute_command, fasta_file_path, regions):
+    refernce_sequences = []
+    region_value_for_faidx = " ".join(regions)
+
+    samtools_faidx_process = subprocess.Popen(
+        shlex.split("{} faidx {} {}".format(samtools_execute_command, fasta_file_path, region_value_for_faidx)),
+        stdout=subprocess.PIPE,
+        bufsize=8388608
+    )
+    for row in samtools_faidx_process.stdout:
+        refernce_sequences.append(row.rstrip())
+
+    # first line is reference name ">xxxx", need to be ignored
+    reference_sequence = "".join(refernce_sequences[1:])
+
+    samtools_faidx_process.stdout.close()
+    samtools_faidx_process.wait()
+    if samtools_faidx_process.returncode != 0:
+        return None
+
+    return reference_sequence
+
+
+def interval_tree_map_from(bed_file_path):
+    interval_tree_map = {}
+    if bed_file_path is None:
+        return interval_tree_map
+
+    gzip_process = subprocess.Popen(
+        shlex.split("gzip -fdc %s" % (bed_file_path)),
+        stdout=subprocess.PIPE,
+        bufsize=8388608
+    )
+    for row in gzip_process.stdout:
+        row = row.strip().split()
+        ctg_name = row[0]
+
+        if ctg_name not in interval_tree_map:
+            interval_tree_map[ctg_name] = intervaltree.IntervalTree()
+
+        ctg_start = int(row[1])
+        ctg_end = int(row[2])-1
+        if ctg_start == ctg_end:
+            ctg_end += 1
+
+        interval_tree_map[ctg_name].addi(ctg_start, ctg_end)
+
+    gzip_process.stdout.close()
+    gzip_process.wait()
+
+    return interval_tree_map
+
+
+def is_too_many_soft_clipped_bases_for_a_read_from(CIGAR):
+    soft_clipped_bases = 0
+    total_alignment_positions = 0
+
+    advance = 0
+    for c in str(CIGAR):
+        if c.isdigit():
+            advance = advance * 10 + int(c)
+            continue
+        if c == CigarOp.SOFT_CLIPPING:
+            soft_clipped_bases += advance
+        total_alignment_positions += advance
+        advance = 0
+
+    # skip a read less than 55% aligned
+    return 1.0 - float(soft_clipped_bases) / (total_alignment_positions + 1) < 0.55
+
+
 def make_candidates(args):
 
+    gen4Training = args.gen4Training
+    variant_file_path = args.var_fn
+    bed_file_path = args.bed_fn
+    fasta_file_path = args.ref_fn
+    ctg_name = args.ctgName
+    ctg_start = args.ctgStart
+    ctg_end = args.ctgEnd
+    output_probability = args.outputProb
+    samtools_execute_command = args.samtools
+    minimum_depth_for_candidate = args.minCoverage
+    minimum_af_for_candidate = args.threshold
+    minimum_mapping_quality = args.minMQ
+    bam_file_path = args.bam_fn
+    candidate_output_path = args.can_fn
+    is_using_stdout_for_output_candidate = candidate_output_path == "PIPE"
+
+    is_building_training_dataset = gen4Training == True
+    is_variant_file_given = variant_file_path is not None
+    is_bed_file_given = bed_file_path is not None
+    is_ctg_name_given = ctg_name is not None
+    is_ctg_range_given = is_ctg_name_given and ctg_start is not None and ctg_end is not None
+
+    if is_building_training_dataset:
+        minimum_depth_for_candidate = 0
+        minimum_af_for_candidate = 0
+
     # preparation for candidates near variants
-    is_building_training_dataset = args.gen4Training == True
-    need_consider_candidates_near_variant = is_building_training_dataset and args.var_fn is not None
-    variants_map = variants_map_from(args.var_fn) if need_consider_candidates_near_variant else {}
+    need_consider_candidates_near_variant = is_building_training_dataset and is_variant_file_given
+    variants_map = variants_map_from(variant_file_path) if need_consider_candidates_near_variant else {}
     non_variants_map = non_variants_before_or_after_variants_from(variants_map)
     no_of_candidates_near_variant = 0
     no_of_candidates_outside_variant = 0
 
     # update output probabilities for candidates near variants
-    # (7000000.0 * 2.0 / 3000000000)
-    output_probability = args.outputProb
+    # original: (7000000.0 * 2.0 / 3000000000)
     ratio_of_candidates_near_variant_to_candidates_outside_variant = 1.0
-
     output_probability_near_variant = (
         3500000.0 * ratio_of_candidates_near_variant_to_candidates_outside_variant * RATIO_OF_NON_VARIANT_TO_VARIANT / 14000000
     )
     output_probability_outside_variant = 3500000.0 * RATIO_OF_NON_VARIANT_TO_VARIANT / (3000000000 - 14000000)
 
-    if is_building_training_dataset:
-        args.minCoverage = 0
-        args.threshold = 0
-
-    if os.path.isfile("%s.fai" % (args.ref_fn)) == False:
-        print >> sys.stderr, "Fasta index %s.fai doesn't exist." % (args.ref_fn)
+    if not os.path.isfile("{}.fai".format(fasta_file_path)):
+        print >> sys.stderr, "Fasta index {}.fai doesn't exist.".format(fasta_file_path)
         sys.exit(1)
 
-    args.refStart = None
-    args.refEnd = None
-    refSeq = []
-    _refName = None
-    rowCount = 0
-    if args.ctgStart != None and args.ctgEnd != None:
-        args.ctgStart += 1
-        args.refStart = args.ctgStart
-        args.refEnd = args.ctgEnd
-        args.refStart -= param.expandReferenceRegion
-        args.refStart = 1 if args.refStart < 1 else args.refStart
-        args.refEnd += param.expandReferenceRegion
-        p1 = subprocess.Popen(shlex.split("%s faidx %s %s:%d-%d" % (args.samtools, args.ref_fn,
-                                                                    args.ctgName, args.refStart, args.refEnd)), stdout=subprocess.PIPE, bufsize=8388608)
+    regions = []
+    reference_start = None
+    reference_end = None
+    if is_ctg_range_given:
+        ctg_start += 1
+        reference_start = ctg_start
+        reference_end = ctg_end
+
+        reference_start -= param.expandReferenceRegion
+        reference_start = 1 if reference_start < 1 else reference_start
+        reference_end += param.expandReferenceRegion
+
+        regions.append(region_from(ctg_name=ctg_name, ctg_start=reference_start, ctg_end=reference_end))
+    elif is_ctg_name_given:
+        regions.append(region_from(ctg_name=ctg_name))
+
+    reference_sequence = reference_sequence_from(
+        samtools_execute_command=samtools_execute_command,
+        fasta_file_path=fasta_file_path,
+        regions=regions
+    )
+    if reference_sequence is None or len(reference_sequence) == 0:
+        print >> sys.stderr, "[ERROR] Failed to load reference seqeunce from file ({}).".format(fasta_file_path)
+        sys.exit(1)
+
+    tree = interval_tree_map_from(bed_file_path=bed_file_path)
+    if is_bed_file_given and ctg_name not in tree:
+        print >> sys.stderr, "[ERROR] ctgName not exists in bed file ({}).".format(bed_file_path)
+        sys.exit(1)
+
+    samtools_view_process = subprocess.Popen(
+        shlex.split("{} view -F 2308 {} {}".format(samtools_execute_command, bam_file_path, " ".join(regions))),
+        stdout=subprocess.PIPE,
+        bufsize=8388608
+    )
+
+    if is_using_stdout_for_output_candidate:
+        can_fp = CandidateStdout(sys.stdout)
     else:
-        args.ctgStart = args.ctgEnd = None
-        p1 = subprocess.Popen(shlex.split("%s faidx %s %s" % (args.samtools, args.ref_fn,
-                                                              args.ctgName)), stdout=subprocess.PIPE, bufsize=8388608)
-    for row in p1.stdout:
-        if rowCount == 0:
-            _refName = row.rstrip().lstrip(">")
-        else:
-            refSeq.append(row.rstrip())
-        rowCount += 1
-    refSeq = "".join(refSeq)
-
-    p1.stdout.close()
-    p1.wait()
-
-    if p1.returncode != 0 or len(refSeq) == 0:
-        print >> sys.stderr, "Failed to load reference seqeunce."
-        sys.exit(1)
-
-    tree = {}
-    if args.bed_fn != None:
-        f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
-        for row in f.stdout:
-            row = row.strip().split()
-            name = row[0]
-            if name not in tree:
-                tree[name] = intervaltree.IntervalTree()
-            begin = int(row[1])
-            end = int(row[2])-1
-            if end == begin:
-                end += 1
-            tree[name].addi(begin, end)
-        f.stdout.close()
-        f.wait()
-        if args.ctgName not in tree:
-            print >> sys.stderr, "ctgName is not in the bed file, are you using the correct bed file (%s)?" % (
-                args.bed_fn)
-            sys.exit(1)
+        can_fpo = open(candidate_output_path, "wb")
+        can_fp = subprocess.Popen(
+            shlex.split("gzip -c"), stdin=subprocess.PIPE, stdout=can_fpo, stderr=sys.stderr, bufsize=8388608
+        )
 
     pileup = {}
     sweep = 0
+    POS = 0
+    number_of_reads_processed = 0
 
-    p2 = subprocess.Popen(shlex.split("%s view -F 2308 %s %s:%d-%d" % (args.samtools, args.bam_fn, args.ctgName, args.ctgStart, args.ctgEnd)), stdout=subprocess.PIPE, bufsize=8388608)\
-        if args.ctgStart != None and args.ctgEnd != None\
-        else subprocess.Popen(shlex.split("%s view -F 2308 %s %s" % (args.samtools, args.bam_fn, args.ctgName)), stdout=subprocess.PIPE, bufsize=8388608)
+    while True:
+        line = samtools_view_process.stdout.readline()
 
-    if args.can_fn != "PIPE":
-        # print "[INFO] create candidate file: {}".format(args.can_fn)
-        can_fpo = open(args.can_fn, "wb")
-        can_fp = subprocess.Popen(shlex.split("gzip -c"), stdin=subprocess.PIPE,
-                                  stdout=can_fpo, stderr=sys.stderr, bufsize=8388608)
-    else:
-        # print "[INFO] use standard output"
-        can_fp = CandidateStdout(sys.stdout)
+        is_last_line = line == ''
+        if not is_last_line:
+            line = line.strip().split()
 
-    # if is_pypy:
-    #    signal.signal(signal.SIGALRM, PypyGCCollect)
-    #    signal.alarm(60)
-
-    processedReads = 0
-    for l in p2.stdout:
-        l = l.strip().split()
-        if l[0][0] == "@":
-            continue
-
-        _QNAME = l[0]
-        RNAME = l[2]
-        if RNAME != args.ctgName:
-            continue
-
-        _FLAG = int(l[1])
-        POS = int(l[3]) - 1  # switch from 1-base to 0-base to match sequence index
-        MQ = int(l[4])
-        CIGAR = l[5]
-        SEQ = l[9]
-        refPos = POS
-        queryPos = 0
-
-        if MQ < args.minMQ:
-            continue
-
-        skipBase = 0
-        totalAlnPos = 0
-        advance = 0
-        for c in str(CIGAR):
-            if c.isdigit():
-                advance = advance * 10 + int(c)
+            if line[0][0] == "@":
                 continue
-            if c == "S":
-                skipBase += advance
-            totalAlnPos += advance
+
+            RNAME = line[SamColumnIndex.RNAME]
+            if RNAME != ctg_name:
+                continue
+            POS = int(line[SamColumnIndex.POS]) - 1  # switch from 1-base to 0-base to match sequence index
+            MAPQ = int(line[SamColumnIndex.MAPQ])
+            CIGAR = line[SamColumnIndex.CIGAR]
+            SEQ = line[SamColumnIndex.SEQ]
+
+            reference_position = POS
+            query_position = 0
+
+            if MAPQ < minimum_mapping_quality:
+                continue
+            if CIGAR == "*" or is_too_many_soft_clipped_bases_for_a_read_from(CIGAR):
+                continue
+
+            number_of_reads_processed += 1
+
             advance = 0
+            for c in str(CIGAR):
+                if c.isdigit():
+                    advance = advance * 10 + int(c)
+                    continue
 
-        if 1.0 - float(skipBase) / (totalAlnPos + 1) < 0.55:  # skip a read less than 55% aligned
-            continue
+                if c == CigarOp.SOFT_CLIPPING:
+                    query_position += advance
 
-        processedReads += 1
-        advance = 0
-        for c in str(CIGAR):
-            if c.isdigit():
-                advance = advance * 10 + int(c)
-                continue
+                elif c == CigarOp.ALIGNMENT_MATCH or c == CigarOp.SEQUENCE_MATCH or c == CigarOp.SEQUENCE_MISMATCH:
+                    for _ in range(advance):
+                        pos = reference_position
+                        base = SEQ[query_position]
 
-            if c == "S":
-                queryPos += advance
+                        pileup.setdefault(pos, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
+                        pileup[pos][base] += 1
 
-            elif c == "M" or c == "=" or c == "X":
-                matches = []
-                for _ in range(advance):
-                    matches.append((refPos, SEQ[queryPos]))
-                    refPos += 1
-                    queryPos += 1
-                for pos, base in matches:
-                    pileup.setdefault(pos, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
-                    pileup[pos][base] += 1
-                del matches
+                        # those CIGAR operations consumes query and reference
+                        reference_position += 1
+                        query_position += 1
 
-            elif c == "I":
-                pileup.setdefault(refPos-1, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
-                pileup[refPos-1]["I"] += 1
-                queryPos += advance
+                elif c == CigarOp.INSERTION:
+                    pileup.setdefault(reference_position - 1, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
+                    pileup[reference_position - 1][PileupOp.INSERT] += 1
 
-            elif c == "D":
-                pileup.setdefault(refPos-1, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
-                pileup[refPos-1]["D"] += 1
-                refPos += advance
+                    # insertion consumes query
+                    query_position += advance
 
-            # reset advance
-            advance = 0
+                elif c == CigarOp.DELETION:
+                    pileup.setdefault(reference_position - 1, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
+                    pileup[reference_position - 1][PileupOp.DELETE] += 1
 
-        while sweep < POS:
-            flag = pileup.get(sweep)
-            if flag is None:
-                sweep += 1
-                continue
-            baseCount = pileup[sweep].items()
-            refBase = refSeq[sweep - (0 if args.refStart == None else (args.refStart - 1))]
-            out = None
-            outputFlag = 0
-            if args.ctgStart != None and args.ctgEnd != None:
-                if sweep >= args.ctgStart and sweep <= args.ctgEnd:
-                    if args.bed_fn != None:
-                        if args.ctgName in tree and len(tree[args.ctgName].search(sweep)) != 0:
-                            outputFlag = 1
-                    else:
-                        outputFlag = 1
-            elif args.bed_fn != None:
-                if args.ctgName in tree and len(tree[args.ctgName].search(sweep)) != 0:
-                    outputFlag = 1
-            else:
-                outputFlag = 1
-            temp_key = args.ctgName + ":" + str(sweep)
-            if temp_key in variants_map:
-                outputFlag = 0
-            if outputFlag == 1 and is_building_training_dataset:
-                if need_consider_candidates_near_variant:
-                    if temp_key in non_variants_map:
-                        if random.uniform(0, 1) > output_probability_near_variant:
-                            outputFlag = 0
-                        else:
-                            no_of_candidates_near_variant += 1
-                    else:
-                        if random.uniform(0, 1) > output_probability_outside_variant:
-                            outputFlag = 0
-                        else:
-                            no_of_candidates_outside_variant += 1
-                elif random.uniform(0, 1) > output_probability:
-                    outputFlag = 0
-            if outputFlag == 1:
-                out = output_candidate(args.ctgName, sweep, baseCount, refBase, args.minCoverage, args.threshold)
-            if out != None:
-                # print "[INFO] output: {}".format(can_fp.stdin)
-                _totalCount, outline = out
-                can_fp.stdin.write(outline)
-                can_fp.stdin.write("\n")
+                    # deletion consumes reference
+                    reference_position += advance
+
+                # reset advance
+                advance = 0
+
+        keys = list(filter(lambda x: x < POS, pileup.keys())) if not is_last_line else pileup.keys()
+        keys.sort()
+        for sweep in keys:
+            baseCount = depth = reference_base = temp_key = None
+
+            # ctg and bed checking
+            pass_ctg = not is_ctg_range_given or ctg_start <= sweep <= ctg_end
+            pass_bed = not is_bed_file_given or (ctg_name in tree and len(tree[ctg_name].search(sweep)) != 0)
+
+            # output probability checking
+            pass_output_probability = True
+            if pass_ctg and pass_bed and is_building_training_dataset and is_variant_file_given:
+                temp_key = ctg_name + ":" + str(sweep)
+                pass_output_probability = (
+                    temp_key not in variants_map and (
+                        (temp_key in non_variants_map and random.uniform(0, 1) <= output_probability_near_variant) or
+                        (temp_key not in non_variants_map and random.uniform(0, 1) <= output_probability_outside_variant)
+                    )
+                )
+            elif pass_ctg and pass_bed and is_building_training_dataset:
+                pass_output_probability = random.uniform(0, 1) <= output_probability
+
+            # depth checking
+            pass_depth = False
+            if pass_ctg and pass_bed and pass_output_probability:
+                baseCount = pileup[sweep].items()
+                depth = sum(x[1] for x in baseCount)
+                pass_depth = depth >= minimum_depth_for_candidate
+
+            # af checking
+            pass_af = False
+            if pass_ctg and pass_bed and pass_output_probability and pass_depth:
+                reference_base = reference_sequence[sweep - (0 if reference_start == None else (reference_start - 1))]
+                denominator = depth if depth > 0 else 1
+                baseCount.sort(key=lambda x: -x[1])  # sort baseCount descendingly
+                p0, p1 = float(baseCount[0][1]) / denominator, float(baseCount[1][1]) / denominator
+                pass_af = (
+                    (p0 <= 1.0 - minimum_af_for_candidate and p1 >= minimum_af_for_candidate) or
+                    baseCount[0][0] != reference_base
+                )
+
+            # output
+            need_output_candidate = pass_ctg and pass_bed and pass_output_probability and pass_depth and pass_af
+            if need_output_candidate:
+                if temp_key is not None and temp_key in non_variants_map:
+                    no_of_candidates_near_variant += 1
+                elif temp_key is not None and temp_key not in non_variants_map:
+                    no_of_candidates_outside_variant += 1
+
+                output = [ctg_name, sweep+1, reference_base, depth]
+                output.extend(["%s %d" % x for x in baseCount])
+                output = " ".join([str(x) for x in output]) + "\n"
+
+                can_fp.stdin.write(output)
+
+        for sweep in keys:
             del pileup[sweep]
-            sweep += 1
 
-    # check remaining bases
-    remainder = pileup.keys()
-    remainder.sort()
-    for pos in remainder:
-        baseCount = pileup[pos].items()
-        refBase = refSeq[pos - (0 if args.refStart == None else (args.refStart - 1))]
-        out = None
-        outputFlag = 0
-        if args.ctgStart != None and args.ctgEnd != None:
-            if pos >= args.ctgStart and pos <= args.ctgEnd:
-                if args.bed_fn != None:
-                    if args.ctgName in tree and len(tree[args.ctgName].search(pos)) != 0:
-                        outputFlag = 1
-                else:
-                    outputFlag = 1
-        elif args.bed_fn != None:
-            if args.ctgName in tree and len(tree[args.ctgName].search(pos)) != 0:
-                outputFlag = 1
-        else:
-            outputFlag = 1
-        if outputFlag == 1 and is_building_training_dataset:
-            if need_consider_candidates_near_variant:
-                temp_key = args.ctgName + ":" + str(sweep)
-                if temp_key in non_variants_map:
-                    if random.uniform(0, 1) > output_probability_near_variant:
-                        outputFlag = 0
-                    else:
-                        no_of_candidates_near_variant += 1
-                else:
-                    if random.uniform(0, 1) > output_probability_outside_variant:
-                        outputFlag = 0
-                    else:
-                        no_of_candidates_outside_variant += 1
-            elif random.uniform(0, 1) > output_probability:
-                outputFlag = 0
-        if outputFlag == 1:
-            out = output_candidate(args.ctgName, pos, baseCount, refBase, args.minCoverage, args.threshold)
-        if out != None:
-            _totalCount, outline = out
-            can_fp.stdin.write(outline)
-            can_fp.stdin.write("\n")
+        if is_last_line:
+            break
 
     if need_consider_candidates_near_variant:
         print "# of candidates near variant: ", no_of_candidates_near_variant
         print "# of candidates outside variant: ", no_of_candidates_outside_variant
 
-    p2.stdout.close()
-    p2.wait()
-    if args.can_fn != "PIPE":
+    samtools_view_process.stdout.close()
+    samtools_view_process.wait()
+
+    if not is_using_stdout_for_output_candidate:
         can_fp.stdin.close()
         can_fp.wait()
         can_fpo.close()
 
-    if processedReads == 0:
+    if number_of_reads_processed == 0:
         print >> sys.stderr, "No read has been process, either the genome region you specified has no read cover, or please check the correctness of your BAM input (%s)." % (
             args.bam_fn)
         sys.exit(0)
