@@ -10,7 +10,6 @@ import param
 import intervaltree
 import random
 from math import log
-from enum import Enum, IntEnum
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
