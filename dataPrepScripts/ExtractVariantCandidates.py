@@ -28,7 +28,13 @@ def variants_map_from(variant_file_path):
 
     variants_map = {}
     f = subprocess.Popen(shlex.split("gzip -fdc %s" % (variant_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
-    for row in f.stdout:
+
+    while True:
+        row = f.stdout.readline()
+        is_finish_reading_output = row == '' and f.poll() is not None
+        if is_finish_reading_output:
+            break
+
         columns = row.split()
         ctg_name = columns[0]
         position_str = columns[1]
@@ -112,7 +118,12 @@ def reference_sequence_from(samtools_execute_command, fasta_file_path, regions):
         stdout=subprocess.PIPE,
         bufsize=8388608
     )
-    for row in samtools_faidx_process.stdout:
+    while True:
+        row = samtools_faidx_process.stdout.readline()
+        is_finish_reading_output = row == '' and samtools_faidx_process.poll() is not None
+        if is_finish_reading_output:
+            break
+
         refernce_sequences.append(row.rstrip())
 
     # first line is reference name ">xxxx", need to be ignored
@@ -136,7 +147,13 @@ def interval_tree_map_from(bed_file_path):
         stdout=subprocess.PIPE,
         bufsize=8388608
     )
-    for row in gzip_process.stdout:
+
+    while True:
+        row = gzip_process.stdout.readline()
+        is_finish_reading_output = row == '' and gzip_process.poll() is not None
+        if is_finish_reading_output:
+            break
+
         row = row.strip().split()
         ctg_name = row[0]
 
@@ -272,9 +289,9 @@ def make_candidates(args):
 
     while True:
         line = samtools_view_process.stdout.readline()
+        is_finish_reading_output = line == '' and samtools_view_process.poll() is not None
 
-        is_last_line = line == ''
-        if not is_last_line:
+        if not is_finish_reading_output:
             line = line.strip().split()
 
             if line[0][0] == "@":
@@ -336,7 +353,7 @@ def make_candidates(args):
                 # reset advance
                 advance = 0
 
-        keys = list(filter(lambda x: x < POS, pileup.keys())) if not is_last_line else pileup.keys()
+        keys = list(filter(lambda x: x < POS, pileup.keys())) if not is_finish_reading_output else pileup.keys()
         keys.sort()
         for sweep in keys:
             baseCount = depth = reference_base = temp_key = None
@@ -394,7 +411,7 @@ def make_candidates(args):
         for sweep in keys:
             del pileup[sweep]
 
-        if is_last_line:
+        if is_finish_reading_output:
             break
 
     if need_consider_candidates_near_variant:
