@@ -34,13 +34,13 @@ def variants_map_from(variant_file_path):
         if is_finish_reading_output:
             break
 
-        columns = row.split()
-        ctg_name = columns[0]
-        position_str = columns[1]
+        if row:
+            columns = row.split()
+            ctg_name = columns[0]
+            position_str = columns[1]
+            key = ctg_name + ":" + position_str
 
-        key = ctg_name + ":" + position_str
-
-        variants_map[key] = True
+            variants_map[key] = True
 
     f.stdout.close()
     f.wait()
@@ -122,8 +122,8 @@ def reference_sequence_from(samtools_execute_command, fasta_file_path, regions):
         is_finish_reading_output = row == '' and samtools_faidx_process.poll() is not None
         if is_finish_reading_output:
             break
-
-        refernce_sequences.append(row.rstrip())
+        if row:
+            refernce_sequences.append(row.rstrip())
 
     # first line is reference name ">xxxx", need to be ignored
     reference_sequence = "".join(refernce_sequences[1:])
@@ -153,18 +153,19 @@ def interval_tree_map_from(bed_file_path):
         if is_finish_reading_output:
             break
 
-        row = row.strip().split()
-        ctg_name = row[0]
+        if row:
+            columns = row.strip().split()
 
-        if ctg_name not in interval_tree_map:
-            interval_tree_map[ctg_name] = intervaltree.IntervalTree()
+            ctg_name = columns[0]
+            if ctg_name not in interval_tree_map:
+                interval_tree_map[ctg_name] = intervaltree.IntervalTree()
 
-        ctg_start = int(row[1])
-        ctg_end = int(row[2])-1
-        if ctg_start == ctg_end:
-            ctg_end += 1
+            ctg_start = int(columns[1])
+            ctg_end = int(columns[2])-1
+            if ctg_start == ctg_end:
+                ctg_end += 1
 
-        interval_tree_map[ctg_name].addi(ctg_start, ctg_end)
+            interval_tree_map[ctg_name].addi(ctg_start, ctg_end)
 
     gzip_process.stdout.close()
     gzip_process.wait()
@@ -287,22 +288,22 @@ def make_candidates(args):
     number_of_reads_processed = 0
 
     while True:
-        line = samtools_view_process.stdout.readline()
-        is_finish_reading_output = line == '' and samtools_view_process.poll() is not None
+        row = samtools_view_process.stdout.readline()
+        is_finish_reading_output = row == '' and samtools_view_process.poll() is not None
 
-        if not is_finish_reading_output:
-            line = line.strip().split()
+        if row:
+            columns = row.strip().split()
 
-            if line[0][0] == "@":
+            if columns[0][0] == "@":
                 continue
 
-            RNAME = line[2]
+            RNAME = columns[2]
             if RNAME != ctg_name:
                 continue
-            POS = int(line[3]) - 1  # switch from 1-base to 0-base to match sequence index
-            MAPQ = int(line[4])
-            CIGAR = line[5]
-            SEQ = line[9]
+            POS = int(columns[3]) - 1  # switch from 1-base to 0-base to match sequence index
+            MAPQ = int(columns[4])
+            CIGAR = columns[5]
+            SEQ = columns[9]
 
             reference_position = POS
             query_position = 0
