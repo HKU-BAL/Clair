@@ -22,42 +22,6 @@ def PypyGCCollect(signum, frame):
     signal.alarm(60)
 
 
-class SamColumnIndex(IntEnum):
-    QNAME = 0
-    FLAG = 1
-    RNAME = 2
-    POS = 3
-    MAPQ = 4
-    CIGAR = 5
-    RNEXT = 6
-    PNEXT = 7
-    TLEN = 8
-    SEQ = 9
-    QUAL = 10
-
-
-class CigarOp(Enum):
-    ALIGNMENT_MATCH = "M"
-    INSERTION = "I"
-    DELETION = "D"
-    SKIPPED = "N"
-    SOFT_CLIPPING = "S"
-    HARD_CLIPPING = "H"
-    PADDING = "P"
-    SEQUENCE_MATCH = "="
-    SEQUENCE_MISMATCH = "X"
-
-
-class PileupOp(Enum):
-    BASE_A = "A"
-    BASE_C = "C"
-    BASE_G = "G"
-    BASE_T = "T"
-    BASE_N = "N"
-    INSERT = "I"
-    DELETE = "D"
-
-
 def variants_map_from(variant_file_path):
     if variant_file_path == None:
         return {}
@@ -201,7 +165,7 @@ def is_too_many_soft_clipped_bases_for_a_read_from(CIGAR):
         if c.isdigit():
             advance = advance * 10 + int(c)
             continue
-        if c == CigarOp.SOFT_CLIPPING:
+        if c == "S":
             soft_clipped_bases += advance
         total_alignment_positions += advance
         advance = 0
@@ -316,13 +280,13 @@ def make_candidates(args):
             if line[0][0] == "@":
                 continue
 
-            RNAME = line[SamColumnIndex.RNAME]
+            RNAME = line[2]
             if RNAME != ctg_name:
                 continue
-            POS = int(line[SamColumnIndex.POS]) - 1  # switch from 1-base to 0-base to match sequence index
-            MAPQ = int(line[SamColumnIndex.MAPQ])
-            CIGAR = line[SamColumnIndex.CIGAR]
-            SEQ = line[SamColumnIndex.SEQ]
+            POS = int(line[3]) - 1  # switch from 1-base to 0-base to match sequence index
+            MAPQ = int(line[4])
+            CIGAR = line[5]
+            SEQ = line[9]
 
             reference_position = POS
             query_position = 0
@@ -340,10 +304,10 @@ def make_candidates(args):
                     advance = advance * 10 + int(c)
                     continue
 
-                if c == CigarOp.SOFT_CLIPPING:
+                if c == "S":
                     query_position += advance
 
-                elif c == CigarOp.ALIGNMENT_MATCH or c == CigarOp.SEQUENCE_MATCH or c == CigarOp.SEQUENCE_MISMATCH:
+                elif c == "M" or c == "=" or c == "X":
                     for _ in range(advance):
                         pos = reference_position
                         base = SEQ[query_position]
@@ -355,16 +319,16 @@ def make_candidates(args):
                         reference_position += 1
                         query_position += 1
 
-                elif c == CigarOp.INSERTION:
+                elif c == "I":
                     pileup.setdefault(reference_position - 1, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
-                    pileup[reference_position - 1][PileupOp.INSERT] += 1
+                    pileup[reference_position - 1]["I"] += 1
 
                     # insertion consumes query
                     query_position += advance
 
-                elif c == CigarOp.DELETION:
+                elif c == "D":
                     pileup.setdefault(reference_position - 1, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
-                    pileup[reference_position - 1][PileupOp.DELETE] += 1
+                    pileup[reference_position - 1]["D"] += 1
 
                     # deletion consumes reference
                     reference_position += advance
