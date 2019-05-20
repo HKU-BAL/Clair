@@ -99,9 +99,9 @@ class CandidateStdout(object):
 
 def region_from(ctg_name, ctg_start=None, ctg_end=None):
     if ctg_name is None:
-        return None
-    if ctg_start is None != ctg_end is None:
-        return None
+        return ""
+    if (ctg_start is None) != (ctg_end is None):
+        return ""
 
     if ctg_start is None and ctg_end is None:
         return "{}".format(ctg_name)
