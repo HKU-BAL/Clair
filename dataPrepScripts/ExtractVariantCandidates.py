@@ -48,7 +48,7 @@ def variants_map_from(variant_file_path):
     return variants_map
 
 
-def non_variants_before_or_after_variants_from(variants_map):
+def non_variants_map_near_variants_from(variants_map):
     non_variants_map = {}
     non_variants_map_to_exclude = {}
 
@@ -222,7 +222,7 @@ def make_candidates(args):
     # preparation for candidates near variants
     need_consider_candidates_near_variant = is_building_training_dataset and is_variant_file_given
     variants_map = variants_map_from(variant_file_path) if need_consider_candidates_near_variant else {}
-    non_variants_map = non_variants_before_or_after_variants_from(variants_map)
+    non_variants_map = non_variants_map_near_variants_from(variants_map)
     no_of_candidates_near_variant = 0
     no_of_candidates_outside_variant = 0
 
@@ -428,7 +428,7 @@ def make_candidates(args):
 
     if number_of_reads_processed == 0:
         print >> sys.stderr, "No read has been process, either the genome region you specified has no read cover, or please check the correctness of your BAM input (%s)." % (
-            args.bam_fn)
+            bam_file_path)
         sys.exit(0)
 
 
