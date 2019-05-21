@@ -218,7 +218,7 @@ def make_candidates(args):
     is_ctg_range_given = is_ctg_name_given and ctg_start is not None and ctg_end is not None
 
     if is_building_training_dataset:
-        minimum_depth_for_candidate = 0
+        # minimum_depth_for_candidate = 0
         minimum_af_for_candidate = 0
 
     # preparation for candidates near variants
