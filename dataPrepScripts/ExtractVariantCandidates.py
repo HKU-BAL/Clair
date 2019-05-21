@@ -22,6 +22,9 @@ def PypyGCCollect(signum, frame):
 
 
 def variants_map_from(variant_file_path):
+    """
+        variants map with 1-based position as key
+    """
     if variant_file_path == None:
         return {}
 
@@ -36,8 +39,7 @@ def variants_map_from(variant_file_path):
 
         if row:
             columns = row.split()
-            ctg_name = columns[0]
-            position_str = columns[1]
+            ctg_name, position_str = columns[0], columns[1]
             key = ctg_name + ":" + position_str
 
             variants_map[key] = True
@@ -48,12 +50,12 @@ def variants_map_from(variant_file_path):
     return variants_map
 
 
-def non_variants_map_near_variants_from(variants_map):
+def non_variants_map_near_variants_from(variants_map, lower_limit_to_non_variants=15, upper_limit_to_non_variants=16):
+    """
+        non variants map with 1-based position as key
+    """
     non_variants_map = {}
     non_variants_map_to_exclude = {}
-
-    lower_limit_to_non_variants = 15
-    upper_limit_to_non_variants = 16
 
     for key in variants_map.keys():
         ctg_name, position_str = key.split(':')
@@ -62,11 +64,11 @@ def non_variants_map_near_variants_from(variants_map):
         for i in range(upper_limit_to_non_variants * 2 + 1):
             position_offset = -upper_limit_to_non_variants + i
             temp_position = position + position_offset
-            if temp_position < 0:
+            if temp_position <= 0:
                 continue
 
             temp_key = ctg_name + ":" + str(temp_position)
-            is_in_non_variants_map = (
+            can_add_to_non_variants_map = (
                 temp_key not in variants_map and
                 temp_key not in non_variants_map and
                 (
@@ -74,12 +76,12 @@ def non_variants_map_near_variants_from(variants_map):
                     lower_limit_to_non_variants <= position_offset <= upper_limit_to_non_variants
                 )
             )
-            is_in_non_variants_map_to_exclude = (
+            can_add_to_non_variants_map_to_exclude = (
                 lower_limit_to_non_variants > position_offset > -lower_limit_to_non_variants
             )
-            if is_in_non_variants_map:
+            if can_add_to_non_variants_map:
                 non_variants_map[temp_key] = True
-            if is_in_non_variants_map_to_exclude:
+            if can_add_to_non_variants_map_to_exclude:
                 non_variants_map_to_exclude[temp_key] = True
 
     for key in non_variants_map_to_exclude.keys():
@@ -283,7 +285,7 @@ def make_candidates(args):
         )
 
     pileup = {}
-    sweep = 0
+    zero_based_position = 0
     POS = 0
     number_of_reads_processed = 0
 
@@ -293,13 +295,13 @@ def make_candidates(args):
 
         if row:
             columns = row.strip().split()
-
             if columns[0][0] == "@":
                 continue
 
             RNAME = columns[2]
             if RNAME != ctg_name:
                 continue
+
             POS = int(columns[3]) - 1  # switch from 1-base to 0-base to match sequence index
             MAPQ = int(columns[4])
             CIGAR = columns[5]
@@ -353,19 +355,19 @@ def make_candidates(args):
                 # reset advance
                 advance = 0
 
-        keys = list(filter(lambda x: x < POS, pileup.keys())) if not is_finish_reading_output else pileup.keys()
-        keys.sort()
-        for sweep in keys:
+        positions = list(filter(lambda x: x < POS, pileup.keys())) if not is_finish_reading_output else pileup.keys()
+        positions.sort()
+        for zero_based_position in positions:
             baseCount = depth = reference_base = temp_key = None
 
             # ctg and bed checking
-            pass_ctg = not is_ctg_range_given or ctg_start <= sweep <= ctg_end
-            pass_bed = not is_bed_file_given or (ctg_name in tree and len(tree[ctg_name].search(sweep)) != 0)
+            pass_ctg = not is_ctg_range_given or ctg_start <= zero_based_position <= ctg_end
+            pass_bed = not is_bed_file_given or (ctg_name in tree and len(tree[ctg_name].search(zero_based_position)) != 0)
 
             # output probability checking
             pass_output_probability = True
             if pass_ctg and pass_bed and is_building_training_dataset and is_variant_file_given:
-                temp_key = ctg_name + ":" + str(sweep)
+                temp_key = ctg_name + ":" + str(zero_based_position+1)
                 pass_output_probability = (
                     temp_key not in variants_map and (
                         (temp_key in non_variants_map and random.uniform(0, 1) <= output_probability_near_variant) or
@@ -378,14 +380,14 @@ def make_candidates(args):
             # depth checking
             pass_depth = False
             if pass_ctg and pass_bed and pass_output_probability:
-                baseCount = pileup[sweep].items()
+                baseCount = pileup[zero_based_position].items()
                 depth = sum(x[1] for x in baseCount)
                 pass_depth = depth >= minimum_depth_for_candidate
 
             # af checking
             pass_af = False
             if pass_ctg and pass_bed and pass_output_probability and pass_depth:
-                reference_base = reference_sequence[sweep - (0 if reference_start == None else (reference_start - 1))]
+                reference_base = reference_sequence[zero_based_position - (0 if reference_start is None else (reference_start - 1))]
                 denominator = depth if depth > 0 else 1
                 baseCount.sort(key=lambda x: -x[1])  # sort baseCount descendingly
                 p0, p1 = float(baseCount[0][1]) / denominator, float(baseCount[1][1]) / denominator
@@ -402,14 +404,14 @@ def make_candidates(args):
                 elif temp_key is not None and temp_key not in non_variants_map:
                     no_of_candidates_outside_variant += 1
 
-                output = [ctg_name, sweep+1, reference_base, depth]
+                output = [ctg_name, zero_based_position+1, reference_base, depth]
                 output.extend(["%s %d" % x for x in baseCount])
                 output = " ".join([str(x) for x in output]) + "\n"
 
                 can_fp.stdin.write(output)
 
-        for sweep in keys:
-            del pileup[sweep]
+        for zero_based_position in positions:
+            del pileup[zero_based_position]
 
         if is_finish_reading_output:
             break
