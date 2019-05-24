@@ -51,11 +51,9 @@ def is_homo_SNP_from(prediction):
     votes = (
         (1 if is_base_change_match else 0) +
         (1 if is_genotype_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_hetero_SNP_from(prediction):
@@ -75,11 +73,9 @@ def is_hetero_SNP_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_homo_insertion_from(prediction):
@@ -93,11 +89,9 @@ def is_homo_insertion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_hetero_insertion_from(prediction):
@@ -116,11 +110,9 @@ def is_hetero_insertion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_homo_deletion_from(prediction):
@@ -134,11 +126,9 @@ def is_homo_deletion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_hetero_deletion_from(prediction):
@@ -157,11 +147,9 @@ def is_hetero_deletion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_insertion_and_deletion_from(prediction):
@@ -174,11 +162,9 @@ def is_insertion_and_deletion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def homo_SNP_bases_from(base_change_probabilities):
@@ -257,25 +243,15 @@ def quality_score_from(
 ):
     sorted_base_change_probabilities = np.sort(base_change_probabilities)[::-1]
     sorted_genotype_probabilities = np.sort(genotype_probabilities)[::-1]
-    # sorted_variant_length_probabilities_1 = np.sort(variant_length_probabilities_1)[::-1]
-    # sorted_variant_length_probabilities_2 = np.sort(variant_length_probabilities_2)[::-1]
 
     return min(
         int(
             (-10 * log(e, 10)) * log(
                 (
-                    # np.sum(sorted_base_change_probabilities[1]) *
-                    # np.sum(sorted_genotype_probabilities[1]) *
-                    # np.sum(sorted_variant_length_probabilities_1[1]) *
-                    # np.sum(sorted_variant_length_probabilities_2[1]) + 1e-300
                     np.sum(sorted_base_change_probabilities[1]) *
                     np.sum(sorted_genotype_probabilities[1]) + 1e-300
                 ) /
                 (
-                    # sorted_base_change_probabilities[0] *
-                    # sorted_genotype_probabilities[0] *
-                    # sorted_variant_length_probabilities_1[0] *
-                    # sorted_variant_length_probabilities_2[0] + 1e-300
                     sorted_base_change_probabilities[0] *
                     sorted_genotype_probabilities[0] + 1e-300
                 )
