@@ -10,6 +10,7 @@ import param
 import intervaltree
 import random
 from math import log
+from collections import defaultdict
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
@@ -50,7 +51,11 @@ def variants_map_from(variant_file_path):
     return variants_map
 
 
-def non_variants_map_near_variants_from(variants_map, lower_limit_to_non_variants=15, upper_limit_to_non_variants=16):
+def non_variants_map_near_variants_from(
+    variants_map,
+    lower_limit_to_non_variants=15,
+    upper_limit_to_non_variants=16
+):
     """
         non variants map with 1-based position as key
     """
@@ -284,7 +289,7 @@ def make_candidates(args):
             shlex.split("gzip -c"), stdin=subprocess.PIPE, stdout=can_fpo, stderr=sys.stderr, bufsize=8388608
         )
 
-    pileup = {}
+    pileup = defaultdict(lambda: {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
     zero_based_position = 0
     POS = 0
     number_of_reads_processed = 0
@@ -328,25 +333,20 @@ def make_candidates(args):
 
                 elif c == "M" or c == "=" or c == "X":
                     for _ in range(advance):
-                        pos = reference_position
                         base = SEQ[query_position]
-
-                        pileup.setdefault(pos, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
-                        pileup[pos][base] += 1
+                        pileup[reference_position][base] += 1
 
                         # those CIGAR operations consumes query and reference
                         reference_position += 1
                         query_position += 1
 
                 elif c == "I":
-                    pileup.setdefault(reference_position - 1, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
                     pileup[reference_position - 1]["I"] += 1
 
                     # insertion consumes query
                     query_position += advance
 
                 elif c == "D":
-                    pileup.setdefault(reference_position - 1, {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
                     pileup[reference_position - 1]["D"] += 1
 
                     # deletion consumes reference
@@ -362,7 +362,9 @@ def make_candidates(args):
 
             # ctg and bed checking
             pass_ctg = not is_ctg_range_given or ctg_start <= zero_based_position <= ctg_end
-            pass_bed = not is_bed_file_given or (ctg_name in tree and len(tree[ctg_name].search(zero_based_position)) != 0)
+            pass_bed = not is_bed_file_given or (
+                ctg_name in tree and len(tree[ctg_name].search(zero_based_position)) != 0
+            )
 
             # output probability checking
             pass_output_probability = True
@@ -387,7 +389,9 @@ def make_candidates(args):
             # af checking
             pass_af = False
             if pass_ctg and pass_bed and pass_output_probability and pass_depth:
-                reference_base = reference_sequence[zero_based_position - (0 if reference_start is None else (reference_start - 1))]
+                reference_base = reference_sequence[
+                    zero_based_position - (0 if reference_start is None else (reference_start - 1))
+                ]
                 denominator = depth if depth > 0 else 1
                 baseCount.sort(key=lambda x: -x[1])  # sort baseCount descendingly
                 p0, p1 = float(baseCount[0][1]) / denominator, float(baseCount[1][1]) / denominator
