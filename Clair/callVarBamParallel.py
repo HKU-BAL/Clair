@@ -58,6 +58,8 @@ def Run(args):
     else:
         log_path = ""
 
+    debug = "--DEBUG" if args.DEBUG else ""
+
     includingAllContigs = args.includingAllContigs
     refChunkSize = args.refChunkSize
 
@@ -98,18 +100,18 @@ def Run(args):
                 if chromName in tree:
                     if len(tree[chromName].search(start, end)) != 0:
                         if args.activation_only:
-                            print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --bed_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s --activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s" %
-                                  (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, bed_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, log_path, args.max_plot, args.parallel_level, args.workers, qual, "--fast_plotting" if args.fast_plotting else ""))
+                            print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --bed_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s --activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s %s" %
+                                  (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, bed_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, log_path, args.max_plot, args.parallel_level, args.workers, qual, "--fast_plotting" if args.fast_plotting else "", debug))
                         else:
-                            print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --bed_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s %s" % (
-                                callVarBamBin, chkpnt_fn, ref_fn, bam_fn, bed_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, qual))
+                            print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --bed_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s %s %s" % (
+                                callVarBamBin, chkpnt_fn, ref_fn, bam_fn, bed_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, qual, debug))
             else:
                 if args.activation_only:
-                    print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s --activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s" %
-                          (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, log_path, args.max_plot, args.parallel_level, args.workers, qual, "--fast_plotting" if args.fast_plotting else ""))
+                    print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s --activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s %s" %
+                          (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, log_path, args.max_plot, args.parallel_level, args.workers, qual, "--fast_plotting" if args.fast_plotting else "", debug))
                 else:
-                    print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s %s" %
-                          (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, qual))
+                    print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s %s %s" %
+                          (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, qual, debug))
             regionStart = end
 
 
@@ -186,6 +188,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--fast_plotting', action='store_true',
                         help="Enable fast plotting.")
+
+    parser.add_argument('--DEBUG', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Debug mode, optional")
 
     args = parser.parse_args()
 

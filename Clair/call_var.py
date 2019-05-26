@@ -297,6 +297,27 @@ def Run(args):
         Test(args, m, utils)
 
 
+def print_debug_message_with(
+    call_fh,
+    chromosome,
+    position,
+    base_change_probabilities,
+    genotype_probabilities,
+    variant_length_probabilities_1,
+    variant_length_probabilities_2,
+    extra_infomation_string=""
+):
+    print >> call_fh, "{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
+        chromosome,
+        position,
+        ["{:0.4f}".format(x) for x in base_change_probabilities],
+        ["{:0.4f}".format(x) for x in genotype_probabilities],
+        ["{:0.4f}".format(x) for x in variant_length_probabilities_1],
+        ["{:0.4f}".format(x) for x in variant_length_probabilities_2],
+        extra_infomation_string
+    )
+
+
 def Output(
     args,
     call_fh,
@@ -318,6 +339,7 @@ def Output(
     flanking_base_number = param.flankingBaseNum
     position_center = flanking_base_number
     no_of_rows = len(base_change_probabilities)
+    is_debug = True if args.DEBUG is True else False
 
     for row_index in range(no_of_rows):
         variant_lengths = [
@@ -333,7 +355,7 @@ def Output(
         )
 
         is_reference = is_reference_from(prediction)
-        if not is_show_reference and is_reference:
+        if not is_debug and not is_show_reference and is_reference:
             continue
 
         is_homo_SNP = is_homo_SNP_from(prediction)
@@ -400,6 +422,16 @@ def Output(
                 X[row_index, position_center+1, :, Channel.delete]
             )
         if read_depth == 0:
+            print_debug_message_with(
+                call_fh,
+                chromosome,
+                position,
+                base_change_probabilities,
+                genotype_probabilities,
+                variant_length_probabilities_1,
+                variant_length_probabilities_2,
+                "Read Depth is zero"
+            )
             continue
 
         # geno type string, would changed to 1/2 later if is multi
@@ -446,6 +478,16 @@ def Output(
                 variant_length = variant_length if variant_length > 0 else 1
 
             if is_hetero_insertion and variant_length <= 0:
+                print_debug_message_with(
+                    call_fh,
+                    chromosome,
+                    position,
+                    base_change_probabilities,
+                    genotype_probabilities,
+                    variant_length_probabilities_1,
+                    variant_length_probabilities_2,
+                    "is hetero insertion and # of insertion bases predicted is less than 0"
+                )
                 continue
 
             if variant_length_2 < variant_length_1:
@@ -527,6 +569,16 @@ def Output(
                 variant_length = variant_length if variant_length > 0 else 1
 
             if is_hetero_deletion and variant_length <= 0:
+                print_debug_message_with(
+                    call_fh,
+                    chromosome,
+                    position,
+                    base_change_probabilities,
+                    genotype_probabilities,
+                    variant_length_probabilities_1,
+                    variant_length_probabilities_2,
+                    "is hetero deletion and # of deletion bases predicted is less than 0"
+                )
                 continue
 
             if variant_length_2 < variant_length_1:
@@ -650,6 +702,16 @@ def Output(
 
             if is_marked_as_SV:
                 # TODO: don't know what to do for this condition, yet
+                print_debug_message_with(
+                    call_fh,
+                    chromosome,
+                    position,
+                    base_change_probabilities,
+                    genotype_probabilities,
+                    variant_length_probabilities_1,
+                    variant_length_probabilities_2,
+                    "is INS_DEL and marked as SV"
+                )
                 continue
             elif is_inferred_deletion_length:
                 reference_base = reference_sequence[position_center:position_center + inferred_delete_length + 1]
@@ -710,19 +772,31 @@ def Output(
         else:
             information_string = ";".join(info)
 
-        print >> call_fh, "%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
-            chromosome,
-            position,
-            reference_base,
-            alternate_base,
-            quality_score,
-            filtration_value,
-            information_string,
-            genotype_string,
-            quality_score,
-            read_depth,
-            allele_frequency
-        )
+        if not is_debug:
+            print >> call_fh, "%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
+                chromosome,
+                position,
+                reference_base,
+                alternate_base,
+                quality_score,
+                filtration_value,
+                information_string,
+                genotype_string,
+                quality_score,
+                read_depth,
+                allele_frequency
+            )
+        else:
+            print_debug_message_with(
+                call_fh,
+                chromosome,
+                position,
+                base_change_probabilities,
+                genotype_probabilities,
+                variant_length_probabilities_1,
+                variant_length_probabilities_2,
+                "Normal output"
+            )
 
 
 def print_vcf_header(args, call_fh):
@@ -867,6 +941,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--showRef', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Show reference calls, optional")
+
+    parser.add_argument('--DEBUG', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Debug mode, optional")
 
     parser.add_argument('--ref_fn', type=str, default=None,
                         help="Reference fasta file input, optional, print contig tags in the VCF header if set")
