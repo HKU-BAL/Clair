@@ -23,9 +23,7 @@ def PypyGCCollect(signum, frame):
 
 
 def variants_map_from(variant_file_path):
-    """
-        variants map with 1-based position as key
-    """
+    """variants map with 1-based position as key"""
     if variant_file_path == None:
         return {}
 
@@ -56,9 +54,7 @@ def non_variants_map_near_variants_from(
     lower_limit_to_non_variants=15,
     upper_limit_to_non_variants=16
 ):
-    """
-        non variants map with 1-based position as key
-    """
+    """non variants map with 1-based position as key"""
     non_variants_map = {}
     non_variants_map_to_exclude = {}
 
