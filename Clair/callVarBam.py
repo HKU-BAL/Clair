@@ -103,7 +103,7 @@ def Run(args):
     else:
         log_path = ""
 
-    debug = "--DEBUG" if args.DEBUG else ""
+    debug = "--debug" if args.debug else ""
 
     if args.ctgStart != None and args.ctgEnd != None and int(args.ctgStart) <= int(args.ctgEnd):
         ctgRange = "--ctgStart %s --ctgEnd %s" % (args.ctgStart, args.ctgEnd)
@@ -282,7 +282,7 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--workers', type=int, default=8,
                         help="The number of workers in plotting, default: %(default)s")
 
-    parser.add_argument('--DEBUG', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Debug mode, optional")
 
     args = parser.parse_args()

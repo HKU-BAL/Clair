@@ -58,7 +58,7 @@ def Run(args):
     else:
         log_path = ""
 
-    debug = "--DEBUG" if args.DEBUG else ""
+    debug = "--debug" if args.debug else ""
 
     includingAllContigs = args.includingAllContigs
     refChunkSize = args.refChunkSize
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument('--fast_plotting', action='store_true',
                         help="Enable fast plotting.")
 
-    parser.add_argument('--DEBUG', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Debug mode, optional")
 
     args = parser.parse_args()

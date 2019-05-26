@@ -339,7 +339,7 @@ def Output(
     flanking_base_number = param.flankingBaseNum
     position_center = flanking_base_number
     no_of_rows = len(base_change_probabilities)
-    is_debug = True if args.DEBUG is True else False
+    is_debug = True if args.debug is True else False
 
     for row_index in range(no_of_rows):
         variant_lengths = [
@@ -942,7 +942,7 @@ if __name__ == "__main__":
     parser.add_argument('--showRef', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Show reference calls, optional")
 
-    parser.add_argument('--DEBUG', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Debug mode, optional")
 
     parser.add_argument('--ref_fn', type=str, default=None,
