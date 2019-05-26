@@ -426,10 +426,10 @@ def Output(
                 call_fh,
                 chromosome,
                 position,
-                base_change_probabilities,
-                genotype_probabilities,
-                variant_length_probabilities_1,
-                variant_length_probabilities_2,
+                base_change_probabilities[row_index],
+                genotype_probabilities[row_index],
+                variant_length_probabilities_1[row_index],
+                variant_length_probabilities_2[row_index],
                 "Read Depth is zero"
             )
             continue
@@ -482,10 +482,10 @@ def Output(
                     call_fh,
                     chromosome,
                     position,
-                    base_change_probabilities,
-                    genotype_probabilities,
-                    variant_length_probabilities_1,
-                    variant_length_probabilities_2,
+                    base_change_probabilities[row_index],
+                    genotype_probabilities[row_index],
+                    variant_length_probabilities_1[row_index],
+                    variant_length_probabilities_2[row_index],
                     "is hetero insertion and # of insertion bases predicted is less than 0"
                 )
                 continue
@@ -573,10 +573,10 @@ def Output(
                     call_fh,
                     chromosome,
                     position,
-                    base_change_probabilities,
-                    genotype_probabilities,
-                    variant_length_probabilities_1,
-                    variant_length_probabilities_2,
+                    base_change_probabilities[row_index],
+                    genotype_probabilities[row_index],
+                    variant_length_probabilities_1[row_index],
+                    variant_length_probabilities_2[row_index],
                     "is hetero deletion and # of deletion bases predicted is less than 0"
                 )
                 continue
@@ -706,10 +706,10 @@ def Output(
                     call_fh,
                     chromosome,
                     position,
-                    base_change_probabilities,
-                    genotype_probabilities,
-                    variant_length_probabilities_1,
-                    variant_length_probabilities_2,
+                    base_change_probabilities[row_index],
+                    genotype_probabilities[row_index],
+                    variant_length_probabilities_1[row_index],
+                    variant_length_probabilities_2[row_index],
                     "is INS_DEL and marked as SV"
                 )
                 continue
@@ -791,10 +791,10 @@ def Output(
                 call_fh,
                 chromosome,
                 position,
-                base_change_probabilities,
-                genotype_probabilities,
-                variant_length_probabilities_1,
-                variant_length_probabilities_2,
+                base_change_probabilities[row_index],
+                genotype_probabilities[row_index],
+                variant_length_probabilities_1[row_index],
+                variant_length_probabilities_2[row_index],
                 "Normal output"
             )
 
