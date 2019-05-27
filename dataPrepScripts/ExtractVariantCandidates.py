@@ -286,7 +286,6 @@ def make_candidates(args):
         )
 
     pileup = defaultdict(lambda: {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
-    zero_based_position = 0
     POS = 0
     number_of_reads_processed = 0
 
