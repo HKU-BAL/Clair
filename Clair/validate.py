@@ -99,23 +99,25 @@ def validate_model(m, dataset_info):
         ):
             confusion_matrix_genotype[np.argmax(true_genotype_label)][np.argmax(genotype_prediction)] += 1
 
-        # update confusion matrix for indel length 1
-        for indel_length_prediction_1, true_indel_length_label_1 in zip(
+        # update confusion matrix for indel length 1 and 2
+        for indel_length_prediction_1, true_indel_length_label_1, indel_length_prediction_2, true_indel_length_label_2 in zip(
             minibatch_indel_length_prediction_1,
-            y_batch[:, VARIANT_LENGTH_1.y_start_index:VARIANT_LENGTH_1.y_end_index]
-        ):
-            true_label_index = np.argmax(true_indel_length_label_1)
-            predict_label_index = np.argmax(indel_length_prediction_1)
-            confusion_matrix_indel_length_1[true_label_index][predict_label_index] += 1
-
-        # update confusion matrix for indel length 2
-        for indel_length_prediction_2, true_indel_length_label_2 in zip(
+            y_batch[:, VARIANT_LENGTH_1.y_start_index:VARIANT_LENGTH_1.y_end_index],
             minibatch_indel_length_prediction_2,
             y_batch[:, VARIANT_LENGTH_2.y_start_index:VARIANT_LENGTH_2.y_end_index]
         ):
-            true_label_index = np.argmax(true_indel_length_label_2)
-            predict_label_index = np.argmax(indel_length_prediction_2)
-            confusion_matrix_indel_length_2[true_label_index][predict_label_index] += 1
+            true_label_index_1 = np.argmax(true_indel_length_label_1)
+            true_label_index_2 = np.argmax(true_indel_length_label_2)
+            predict_label_index_1 = np.argmax(indel_length_prediction_1)
+            predict_label_index_2 = np.argmax(indel_length_prediction_2)
+
+            if true_label_index_1 > true_label_index_2:
+                true_label_index_1, true_label_index_2 = true_label_index_2, true_label_index_1
+            if predict_label_index_1 > predict_label_index_2:
+                predict_label_index_1, predict_label_index_2 = predict_label_index_2, predict_label_index_1
+
+            confusion_matrix_indel_length_1[true_label_index_1][predict_label_index_1] += 1
+            confusion_matrix_indel_length_2[true_label_index_2][predict_label_index_2] += 1
 
     print("[INFO] Prediciton time elapsed: %.2f s" % (time.time() - prediction_start_time))
 
