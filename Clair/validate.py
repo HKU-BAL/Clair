@@ -10,7 +10,7 @@ import tensorflow as tf
 import param
 import utils
 import clair_model as cv
-from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2, VariantLength
+from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
@@ -23,13 +23,15 @@ def f1_score(confusion_matrix):
 
     f1_score_array = np.array([])
     matrix_size = confusion_matrix.shape[0]
+    epsilon = 1e-15
     for i in range(matrix_size):
         TP = confusion_matrix[i][i] + 0.0
-        precision = TP / column_sum[i]
-        recall = TP / row_sum[i]
+        precision = TP / (column_sum[i] + epsilon)
+        recall = TP / (row_sum[i] + epsilon)
         f1_score_array = np.append(f1_score_array, (2.0 * precision * recall) / (precision + recall))
 
     return f1_score_array
+
 
 def new_confusion_matrix_with_dimension(size):
     return np.zeros((size, size), dtype=np.int)
@@ -134,14 +136,16 @@ def validate_model(m, dataset_info):
     print("[INFO] f-measure: ", genotype_f_measure)
 
     print("\n[INFO] evaluation on indel length 1:")
-    for i in range(VariantLength.output_label_count):
-        print("\t".join([str(confusion_matrix_indel_length_1[i][j]) for j in range(VariantLength.output_label_count)]))
+    for i in range(VARIANT_LENGTH_1.output_label_count):
+        print("\t".join([str(confusion_matrix_indel_length_1[i][j])
+                         for j in range(VARIANT_LENGTH_1.output_label_count)]))
     indel_length_f_measure_1 = f1_score(confusion_matrix_indel_length_1)
     print("[INFO] f-measure: ", indel_length_f_measure_1)
 
     print("\n[INFO] evaluation on indel length 2:")
-    for i in range(VariantLength.output_label_count):
-        print("\t".join([str(confusion_matrix_indel_length_2[i][j]) for j in range(VariantLength.output_label_count)]))
+    for i in range(VARIANT_LENGTH_2.output_label_count):
+        print("\t".join([str(confusion_matrix_indel_length_2[i][j])
+                         for j in range(VARIANT_LENGTH_2.output_label_count)]))
     indel_length_f_measure_2 = f1_score(confusion_matrix_indel_length_2)
     print("[INFO] f-measure: ", indel_length_f_measure_2)
 
