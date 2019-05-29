@@ -402,10 +402,11 @@ def Output(
         #     X[row_index, position_center+1, :, Channel.delete]
         # )
         read_depth = 0
-        if is_SNP or is_reference:
-            read_depth = sum(X[row_index, position_center, :, Channel.delete] + X[row_index, position_center, :, Channel.reference])
-        elif is_insertion or is_deletion or is_insertion_and_deletion:
-            read_depth = sum(X[row_index, position_center+1, :, Channel.delete] + X[row_index, position_center+1, :, Channel.reference])
+        read_depth = sum(X[row_index, position_center, :, Channel.delete] + X[row_index, position_center, :, Channel.reference])
+        #if is_SNP or is_reference:
+        #    read_depth = sum(X[row_index, position_center, :, Channel.delete] + X[row_index, position_center, :, Channel.reference])
+        #elif is_insertion or is_deletion or is_insertion_and_deletion:
+        #    read_depth = sum(X[row_index, position_center+1, :, Channel.delete] + X[row_index, position_center+1, :, Channel.reference])
         if read_depth == 0:
             continue
 
@@ -684,8 +685,8 @@ def Output(
                 supported_reads_count += (
                     X[row_index, position_center,   base2num[base], Channel.SNP] +
                     X[row_index, position_center, base2num[base]+4, Channel.SNP] +
-                    X[row_index, position_center,   base2num[reference_base], Channel.reference] +
-                    X[row_index, position_center, base2num[reference_base]+4, Channel.reference]
+                    X[row_index, position_center,   base2num[base], Channel.reference] +
+                    X[row_index, position_center, base2num[base]+4, Channel.reference]
                 )
         elif is_insertion:
             supported_reads_count = sum(X[row_index, position_center+1, :, Channel.insert]) - sum(X[row_index, position_center+1, :, Channel.SNP])
@@ -708,6 +709,8 @@ def Output(
                 sum(X[row_index, position_center+1, :, Channel.SNP])
             )
         allele_frequency = ((supported_reads_count + 0.0) / read_depth) if read_depth != 0 else 0.0
+        if allele_frequency > 1:
+            allele_frequency = 1
 
         # if using inferred indel length, add info LENGUESS
         if 0 < inferred_indel_length < flanking_base_number:
