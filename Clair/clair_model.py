@@ -668,22 +668,22 @@ class Clair(object):
                 )
                 self.Y_indel_length_loss_2 = tf.reduce_sum(self.Y_indel_length_cross_entropy_2, name="Y_indel_length_loss_2")
 
-                # self.Y_base_change_loss = Clair.focal_loss(
-                #     prediction_tensor=self.Y_base_change,
-                #     target_tensor=Y_base_change_label,
-                # )
-                # self.Y_genotype_loss = Clair.focal_loss(
-                #     prediction_tensor=self.Y_genotype,
-                #     target_tensor=Y_genotype_label,
-                # )
-                # self.Y_indel_length_loss_1 = Clair.focal_loss(
-                #     prediction_tensor=self.Y_indel_length_1,
-                #     target_tensor=Y_indel_length_label_1,
-                # )
-                # self.Y_indel_length_loss_2 = Clair.focal_loss(
-                #     prediction_tensor=self.Y_indel_length_2,
-                #     target_tensor=Y_indel_length_label_2,
-                # )
+                #self.Y_base_change_loss = Clair.focal_loss(
+                #    prediction_tensor=self.Y_base_change,
+                #    target_tensor=Y_base_change_label,
+                #)
+                #self.Y_genotype_loss = Clair.focal_loss(
+                #    prediction_tensor=self.Y_genotype,
+                #    target_tensor=Y_genotype_label,
+                #)
+                #self.Y_indel_length_loss_1 = Clair.focal_loss(
+                #    prediction_tensor=self.Y_indel_length_1,
+                #    target_tensor=Y_indel_length_label_1,
+                #)
+                #self.Y_indel_length_loss_2 = Clair.focal_loss(
+                #    prediction_tensor=self.Y_indel_length_2,
+                #    target_tensor=Y_indel_length_label_2,
+                #)
 
                 self.regularization_L2_loss_without_lambda = tf.add_n([
                     tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name
