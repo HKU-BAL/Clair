@@ -27,7 +27,7 @@ def f1_score(confusion_matrix):
         TP = confusion_matrix[i][i] + 0.0
         precision = TP / (column_sum[i] + epsilon)
         recall = TP / (row_sum[i] + epsilon)
-        f1_score_array = np.append(f1_score_array, (2.0 * precision * recall) / (precision + recall))
+        f1_score_array = np.append(f1_score_array, (2.0 * precision * recall) / (precision + recall + epsilon))
 
     return f1_score_array
 
