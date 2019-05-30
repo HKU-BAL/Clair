@@ -670,6 +670,8 @@ def Output(
                 alternate_base_delete,
                 reference_base[0] + alternate_base_insert + reference_base[1:]
             )
+        if reference_base == "" or alternate_base == "":
+            continue
 
         # allele frequency / supported reads
         supported_reads_count = 0
