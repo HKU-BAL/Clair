@@ -407,7 +407,7 @@ def Output(
         #    read_depth = sum(X[row_index, position_center, :, Channel.delete] + X[row_index, position_center, :, Channel.reference])
         #elif is_insertion or is_deletion or is_insertion_and_deletion:
         #    read_depth = sum(X[row_index, position_center+1, :, Channel.delete] + X[row_index, position_center+1, :, Channel.reference])
-        if read_depth == 0:
+        if read_depth <= 0:
             continue
 
         # geno type string, would changed to 1/2 later if is multi
