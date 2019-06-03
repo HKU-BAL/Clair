@@ -632,58 +632,58 @@ class Clair(object):
                     self.Y_placeholder, self.output_label_split, axis=1, name="label_split"
                 )
 
-                self.Y_base_change_cross_entropy = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_base_change,
-                    labels=Y_base_change_label,
-                    weights=self.output_base_change_entropy_weights_placeholder,
-                    epsilon=self.epsilon,
-                    name="Y_base_change_cross_entropy"
-                )
-                self.Y_base_change_loss = tf.reduce_sum(self.Y_base_change_cross_entropy, name="Y_base_change_loss")
+                # self.Y_base_change_cross_entropy = Clair.weighted_cross_entropy(
+                #     softmax_prediction=self.Y_base_change,
+                #     labels=Y_base_change_label,
+                #     weights=self.output_base_change_entropy_weights_placeholder,
+                #     epsilon=self.epsilon,
+                #     name="Y_base_change_cross_entropy"
+                # )
+                # self.Y_base_change_loss = tf.reduce_sum(self.Y_base_change_cross_entropy, name="Y_base_change_loss")
 
-                self.Y_genotype_cross_entropy = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_genotype,
-                    labels=Y_genotype_label,
-                    weights=self.output_genotype_entropy_weights_placeholder,
-                    epsilon=self.epsilon,
-                    name="Y_genotype_cross_entropy"
-                )
-                self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
+                # self.Y_genotype_cross_entropy = Clair.weighted_cross_entropy(
+                #     softmax_prediction=self.Y_genotype,
+                #     labels=Y_genotype_label,
+                #     weights=self.output_genotype_entropy_weights_placeholder,
+                #     epsilon=self.epsilon,
+                #     name="Y_genotype_cross_entropy"
+                # )
+                # self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
 
-                self.Y_indel_length_cross_entropy_1 = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_indel_length_1,
-                    labels=Y_indel_length_label_1,
-                    weights=self.output_indel_length_entropy_weights_placeholder_1,
-                    epsilon=self.epsilon,
-                    name="Y_indel_length_cross_entropy_1"
-                )
-                self.Y_indel_length_loss_1 = tf.reduce_sum(self.Y_indel_length_cross_entropy_1, name="Y_indel_length_loss_1")
+                # self.Y_indel_length_cross_entropy_1 = Clair.weighted_cross_entropy(
+                #     softmax_prediction=self.Y_indel_length_1,
+                #     labels=Y_indel_length_label_1,
+                #     weights=self.output_indel_length_entropy_weights_placeholder_1,
+                #     epsilon=self.epsilon,
+                #     name="Y_indel_length_cross_entropy_1"
+                # )
+                # self.Y_indel_length_loss_1 = tf.reduce_sum(self.Y_indel_length_cross_entropy_1, name="Y_indel_length_loss_1")
 
-                self.Y_indel_length_cross_entropy_2 = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_indel_length_2,
-                    labels=Y_indel_length_label_2,
-                    weights=self.output_indel_length_entropy_weights_placeholder_2,
-                    epsilon=self.epsilon,
-                    name="Y_indel_length_cross_entropy_2"
-                )
-                self.Y_indel_length_loss_2 = tf.reduce_sum(self.Y_indel_length_cross_entropy_2, name="Y_indel_length_loss_2")
+                # self.Y_indel_length_cross_entropy_2 = Clair.weighted_cross_entropy(
+                #     softmax_prediction=self.Y_indel_length_2,
+                #     labels=Y_indel_length_label_2,
+                #     weights=self.output_indel_length_entropy_weights_placeholder_2,
+                #     epsilon=self.epsilon,
+                #     name="Y_indel_length_cross_entropy_2"
+                # )
+                # self.Y_indel_length_loss_2 = tf.reduce_sum(self.Y_indel_length_cross_entropy_2, name="Y_indel_length_loss_2")
 
-                #self.Y_base_change_loss = Clair.focal_loss(
-                #    prediction_tensor=self.Y_base_change,
-                #    target_tensor=Y_base_change_label,
-                #)
-                #self.Y_genotype_loss = Clair.focal_loss(
-                #    prediction_tensor=self.Y_genotype,
-                #    target_tensor=Y_genotype_label,
-                #)
-                #self.Y_indel_length_loss_1 = Clair.focal_loss(
-                #    prediction_tensor=self.Y_indel_length_1,
-                #    target_tensor=Y_indel_length_label_1,
-                #)
-                #self.Y_indel_length_loss_2 = Clair.focal_loss(
-                #    prediction_tensor=self.Y_indel_length_2,
-                #    target_tensor=Y_indel_length_label_2,
-                #)
+                self.Y_base_change_loss = Clair.focal_loss(
+                   prediction_tensor=self.Y_base_change_logits,
+                   target_tensor=Y_base_change_label,
+                )
+                self.Y_genotype_loss = Clair.focal_loss(
+                   prediction_tensor=self.Y_genotype_logits,
+                   target_tensor=Y_genotype_label,
+                )
+                self.Y_indel_length_loss_1 = Clair.focal_loss(
+                   prediction_tensor=self.Y_indel_length_logits_1,
+                   target_tensor=Y_indel_length_label_1,
+                )
+                self.Y_indel_length_loss_2 = Clair.focal_loss(
+                   prediction_tensor=self.Y_indel_length_logits_2,
+                   target_tensor=Y_indel_length_label_2,
+                )
 
                 self.regularization_L2_loss_without_lambda = tf.add_n([
                     tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name
@@ -769,25 +769,25 @@ class Clair(object):
 
     @staticmethod
     def focal_loss(prediction_tensor, target_tensor, alpha=0.25, gamma=2):
-        sigmoid_p = tf.nn.sigmoid(prediction_tensor)
+        softmax_p = tf.nn.softmax(prediction_tensor)
 
         # array_ops.zeros_like(tensor, dtype):
         #   create a tensor with all elements set to zero, with the same shape as tensor
-        zeros = array_ops.zeros_like(sigmoid_p, dtype=sigmoid_p.dtype)
+        zeros = array_ops.zeros_like(softmax_p, dtype=softmax_p.dtype)
 
         # For positive prediction, only need consider front part loss, back part is 0;
         # target_tensor > zeros <=> z=1, so positive coefficient = z - p.
         #
         # array_ops.where(condition, x, y):
         #   return the elements, either from x or y, depending on the condition
-        pos_p_sub = array_ops.where(target_tensor > zeros, target_tensor - sigmoid_p, zeros)
+        pos_p_sub = array_ops.where(target_tensor > zeros, target_tensor - softmax_p, zeros)
 
         # For negative prediction, only need consider back part loss, front part is 0;
         # target_tensor > zeros <=> z=1, so negative coefficient = 0.
-        neg_p_sub = array_ops.where(target_tensor > zeros, zeros, sigmoid_p)
+        neg_p_sub = array_ops.where(target_tensor > zeros, zeros, softmax_p)
         per_entry_cross_ent = -(
-            (0 + alpha) * (pos_p_sub ** gamma) * tf.log(tf.clip_by_value(0.0 + sigmoid_p, 1e-8, 1.0)) +
-            (1 - alpha) * (neg_p_sub ** gamma) * tf.log(tf.clip_by_value(1.0 - sigmoid_p, 1e-8, 1.0))
+            (pos_p_sub ** gamma) * tf.log(tf.clip_by_value(0.0 + softmax_p, 1e-8, 1.0)) +
+            (neg_p_sub ** gamma) * tf.log(tf.clip_by_value(1.0 - softmax_p, 1e-8, 1.0))
         )
         return tf.reduce_sum(per_entry_cross_ent)
 

@@ -245,18 +245,12 @@ def quality_score_from(
     sorted_genotype_probabilities = np.sort(genotype_probabilities)[::-1]
 
     return min(
-        int(
+        int(round(
             (-10 * log(e, 10)) * log(
-                (
-                    np.sum(sorted_base_change_probabilities[1]) *
-                    np.sum(sorted_genotype_probabilities[1]) + 1e-300
-                ) /
-                (
-                    sorted_base_change_probabilities[0] *
-                    sorted_genotype_probabilities[0] + 1e-300
-                )
+                (np.sum(sorted_base_change_probabilities[1]) * np.sum(sorted_genotype_probabilities[1]) + 1e-300) /
+                (sorted_base_change_probabilities[0] * sorted_genotype_probabilities[0] + 1e-300)
             )
-        ),
+        )),
         999
     )
 
@@ -708,6 +702,8 @@ def Output(
                 alternate_base_delete,
                 reference_base[0] + alternate_base_insert + reference_base[1:]
             )
+        if reference_base == "" or alternate_base == "":
+            continue
 
         # allele frequency / supported reads
         supported_reads_count = 0
