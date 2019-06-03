@@ -292,6 +292,7 @@ def Run(args):
 
 
 def print_debug_message_with(
+    is_debug,
     call_fh,
     chromosome,
     position,
@@ -301,6 +302,9 @@ def print_debug_message_with(
     variant_length_probabilities_2,
     extra_infomation_string=""
 ):
+    if not is_debug:
+        return
+
     print >> call_fh, "{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
         chromosome,
         position,
@@ -401,6 +405,7 @@ def Output(
         #    read_depth = sum(X[row_index, position_center+1, :, Channel.delete] + X[row_index, position_center+1, :, Channel.reference])
         if read_depth == 0:
             print_debug_message_with(
+                is_debug,
                 call_fh,
                 chromosome,
                 position,
@@ -457,6 +462,7 @@ def Output(
 
             if is_hetero_insertion and variant_length <= 0:
                 print_debug_message_with(
+                    is_debug,
                     call_fh,
                     chromosome,
                     position,
@@ -548,6 +554,7 @@ def Output(
 
             if is_hetero_deletion and variant_length <= 0:
                 print_debug_message_with(
+                    is_debug,
                     call_fh,
                     chromosome,
                     position,
@@ -681,6 +688,7 @@ def Output(
             if is_marked_as_SV:
                 # TODO: don't know what to do for this condition, yet
                 print_debug_message_with(
+                    is_debug,
                     call_fh,
                     chromosome,
                     position,
@@ -757,7 +765,19 @@ def Output(
         else:
             information_string = ";".join(info)
 
-        if not is_debug:
+        if is_debug:
+            print_debug_message_with(
+                is_debug,
+                call_fh,
+                chromosome,
+                position,
+                base_change_probabilities[row_index],
+                genotype_probabilities[row_index],
+                variant_length_probabilities_1[row_index],
+                variant_length_probabilities_2[row_index],
+                "Normal output"
+            )
+        else:
             print >> call_fh, "%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
                 chromosome,
                 position,
@@ -770,17 +790,6 @@ def Output(
                 quality_score,
                 read_depth,
                 allele_frequency
-            )
-        else:
-            print_debug_message_with(
-                call_fh,
-                chromosome,
-                position,
-                base_change_probabilities[row_index],
-                genotype_probabilities[row_index],
-                variant_length_probabilities_1[row_index],
-                variant_length_probabilities_2[row_index],
-                "Normal output"
             )
 
 
