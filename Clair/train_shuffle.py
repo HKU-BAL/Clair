@@ -120,6 +120,7 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
+    learning_rates=[]
 
     if model_initalization_file_path != None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
@@ -222,6 +223,7 @@ def train_model(m, training_config):
         logging.info("[INFO] Epoch time elapsed: %.2f s" % (time.time() - epoch_start_time))
         training_losses.append((training_loss_sum, epoch_count))
         validation_losses.append((validation_loss_sum, epoch_count))
+        learning_rates.append((learning_rate,epoch_count))
 
         # Output the model
         if output_file_path_prefix != None:
@@ -231,25 +233,25 @@ def train_model(m, training_config):
         # Adaptive learning rate decay
         no_of_epochs_with_current_learning_rate += 1
 
-        need_learning_rate_update = (
-            (
-                no_of_epochs_with_current_learning_rate >= 6 and
-                not is_last_five_epoch_approaches_minimum(validation_losses) and
-                is_validation_loss_goes_up_and_down(validation_losses)
-            ) or
-            (
-                no_of_epochs_with_current_learning_rate >= 8 and
-                is_validation_losses_keep_increasing(validation_losses)
-            )
-        )
+        #need_learning_rate_update = (
+        #    (
+        #        no_of_epochs_with_current_learning_rate >= 6 and
+        #        not is_last_five_epoch_approaches_minimum(validation_losses) and
+        #        is_validation_loss_goes_up_and_down(validation_losses)
+        #    ) or
+        #    (
+        #        no_of_epochs_with_current_learning_rate >= 8 and
+        #        is_validation_losses_keep_increasing(validation_losses)
+        #    )
+        #)
 
-        if need_learning_rate_update:
-            learning_rate_switch_count -= 1
-            if learning_rate_switch_count == 0:
-                break
-            logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate())
-            logging.info("[INFO] New L2 regularization lambda: %.2e" % m.decay_l2_regularization_lambda())
-            no_of_epochs_with_current_learning_rate = 0
+        #if need_learning_rate_update:
+        learning_rate_switch_count -= 1
+        if learning_rate_switch_count == 0:
+            break
+        logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate(no_of_training_examples))
+        logging.info("[INFO] New L2 regularization lambda: %.2e" % m.decay_l2_regularization_lambda())
+            #no_of_epochs_with_current_learning_rate = 0
 
         # variables update per epoch
         epoch_count += 1
@@ -275,7 +277,7 @@ def train_model(m, training_config):
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
 
-    return training_losses, validation_losses
+    return training_losses, validation_losses, learning_rates
 
 
 if __name__ == "__main__":
@@ -345,11 +347,12 @@ if __name__ == "__main__":
         summary_writer=m.get_summary_file_writer(args.olog_dir) if args.olog_dir != None else None,
     )
 
-    _training_losses, validation_losses = train_model(m, training_config)
+    _training_losses, validation_losses, learning_rates = train_model(m, training_config)
 
     # show the parameter set with the smallest validation loss
     validation_losses.sort()
     best_validation_epoch = validation_losses[0][1]
+    best_learning_rate=[learning_rates[i][0] for i in range(len(learning_rates)) if learning_rates[i][1]==best_validation_epoch]
     logging.info("[INFO] Best validation loss at epoch: %d" % best_validation_epoch)
 
     # load best validation model and evaluate it

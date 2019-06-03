@@ -103,7 +103,8 @@ class Clair(object):
             learning_rate_decay=param.learningRateDecay,
             l2_regularization_lambda=param.l2RegularizationLambda,
             l2_regularization_lambda_decay_rate=param.l2RegularizationLambdaDecay,
-            tensor_transform_function=lambda X, Y, phase: (X, Y)
+            tensor_transform_function=lambda X, Y, phase: (X, Y),
+            global_step=tf.Variable(0,trainable=False)
         )
 
         # Getting other parameters from the param.py file
@@ -156,6 +157,7 @@ class Clair(object):
         self.l2_regularization_lambda_value = params['l2_regularization_lambda']
         self.l2_regularization_lambda_decay_rate = params['l2_regularization_lambda_decay_rate']
         self.structure = params['structure']
+        self.global_step=params['global_step']
 
         # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks,
         # which does not support tf.float64
@@ -718,11 +720,11 @@ class Clair(object):
                     )
                     gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-                    self.training_op = self.optimizer.apply_gradients(zip(gradients, variables))
+                    self.training_op = self.optimizer.apply_gradients(zip(gradients, variables),global_step=self.global_step)
             else:
                 self.training_op = tf.train.AdamOptimizer(
                     learning_rate=self.learning_rate_placeholder
-                ).minimize(self.total_loss)
+                ).minimize(self.total_loss,global_step=self.global_step)
 
             self.init_op = tf.global_variables_initializer()
 
@@ -1068,11 +1070,12 @@ class Clair(object):
         self.learning_rate_value = learning_rate
         return self.learning_rate_value
 
-    def decay_learning_rate(self):
+    def decay_learning_rate(self,no_of_training_example):
         """
         Decay the learning rate by the predefined decay rate
         """
-        self.learning_rate_value = self.learning_rate_value * self.learning_rate_decay_rate
+        #self.learning_rate_value = self.learning_rate_value * self.learning_rate_decay_rate
+        self.learning_rate_value=tf.train.exponential_decay(self.learning_rate_value,self.global_step,no_of_training_example,self.learning_rate_decay_rate,staircase=False)
         return self.learning_rate_value
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
