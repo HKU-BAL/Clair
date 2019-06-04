@@ -104,7 +104,7 @@ class Clair(object):
             l2_regularization_lambda=param.l2RegularizationLambda,
             l2_regularization_lambda_decay_rate=param.l2RegularizationLambdaDecay,
             tensor_transform_function=lambda X, Y, phase: (X, Y),
-            global_step=tf.Variable(0,trainable=False)
+
         )
 
         # Getting other parameters from the param.py file
@@ -157,7 +157,7 @@ class Clair(object):
         self.l2_regularization_lambda_value = params['l2_regularization_lambda']
         self.l2_regularization_lambda_decay_rate = params['l2_regularization_lambda_decay_rate']
         self.structure = params['structure']
-        self.global_step=params['global_step']
+
 
         # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks,
         # which does not support tf.float64
@@ -1070,12 +1070,11 @@ class Clair(object):
         self.learning_rate_value = learning_rate
         return self.learning_rate_value
 
-    def decay_learning_rate(self,no_of_training_example):
+    def decay_learning_rate(self,epoch_count):
         """
         Decay the learning rate by the predefined decay rate
         """
-        self.learning_rate_value = self.learning_rate_value * self.learning_rate_decay_rate**(self.global_step/no_of_training_example)
-
+        self.learning_rate_value = self.learning_rate_value * exp(-self.learning_rate_decay_rate*epoch_count)
         return self.learning_rate_value
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
