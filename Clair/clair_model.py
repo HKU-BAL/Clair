@@ -720,11 +720,11 @@ class Clair(object):
                     )
                     gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-                    self.training_op = self.optimizer.apply_gradients(zip(gradients, variables),global_step=self.global_step)
+                    self.training_op = self.optimizer.apply_gradients(zip(gradients, variables))
             else:
                 self.training_op = tf.train.AdamOptimizer(
                     learning_rate=self.learning_rate_placeholder
-                ).minimize(self.total_loss,global_step=self.global_step)
+                ).minimize(self.total_loss)
 
             self.init_op = tf.global_variables_initializer()
 
@@ -1074,7 +1074,7 @@ class Clair(object):
         """
         Decay the learning rate by the predefined decay rate
         """
-        self.learning_rate_value = self.learning_rate_value * exp(-self.learning_rate_decay_rate*epoch_count)
+        self.learning_rate_value = self.learning_rate_value * exp(-self.learning_rate_decay_rate*epoch_countglo)
         return self.learning_rate_value
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
