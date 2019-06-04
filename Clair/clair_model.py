@@ -11,6 +11,7 @@ import selu
 import param
 import math
 from collections import defaultdict
+from math import exp
 import multiprocessing
 
 from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
@@ -1074,7 +1075,8 @@ class Clair(object):
         """
         Decay the learning rate by the predefined decay rate
         """
-        self.learning_rate_value = self.learning_rate_value * exp(-self.learning_rate_decay_rate*epoch_countglo)
+        #self.learning_rate_value = self.learning_rate_value * exp(-self.learning_rate_decay_rate*epoch_count)
+        self.learning_rate_value=self.learning_rate_value/(1+self.learning_rate_decay_rate*epoch_count)
         return self.learning_rate_value
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):

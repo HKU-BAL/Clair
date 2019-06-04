@@ -354,7 +354,7 @@ if __name__ == "__main__":
     best_validation_epoch = validation_losses[0][1]
     best_learning_rate=[learning_rates[i][0] for i in range(len(learning_rates)) if learning_rates[i][1]==best_validation_epoch]
     logging.info("[INFO] Best validation loss at epoch: %d" % best_validation_epoch)
-    logging.info("[INFO] Best learning rate: %d" % best_learning_rate)
+    logging.info("[INFO] Best learning rate: %g" % best_learning_rate)
 
     # load best validation model and evaluate it
     model_file_path = "%s-%%0%dd" % (training_config["output_file_path_prefix"], param.parameterOutputPlaceHolder)
