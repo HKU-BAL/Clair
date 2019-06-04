@@ -233,25 +233,25 @@ def train_model(m, training_config):
         # Adaptive learning rate decay
         no_of_epochs_with_current_learning_rate += 1
 
-        #need_learning_rate_update = (
-        #    (
-        #        no_of_epochs_with_current_learning_rate >= 6 and
-        #        not is_last_five_epoch_approaches_minimum(validation_losses) and
-        #        is_validation_loss_goes_up_and_down(validation_losses)
-        #    ) or
-        #    (
-        #        no_of_epochs_with_current_learning_rate >= 8 and
-        #        is_validation_losses_keep_increasing(validation_losses)
-        #    )
-        #)
+        need_learning_rate_update = (
+           (
+                #no_of_epochs_with_current_learning_rate >= 6 and
+                not is_last_five_epoch_approaches_minimum(validation_losses) and
+                is_validation_loss_goes_up_and_down(validation_losses)
+            ) or
+            (
+                #no_of_epochs_with_current_learning_rate >= 8 and
+                is_validation_losses_keep_increasing(validation_losses)
+            )
+        )
 
-        #if need_learning_rate_update:
-        learning_rate_switch_count -= 1
-        if learning_rate_switch_count == 0:
-            break
-        logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate(no_of_training_examples))
-        logging.info("[INFO] New L2 regularization lambda: %.2e" % m.decay_l2_regularization_lambda())
-            #no_of_epochs_with_current_learning_rate = 0
+        if need_learning_rate_update:
+            learning_rate_switch_count -= 1
+            if learning_rate_switch_count == 0:
+                break
+            logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate(no_of_training_examples))
+            logging.info("[INFO] New L2 regularization lambda: %.2e" % m.decay_l2_regularization_lambda())
+            no_of_epochs_with_current_learning_rate = 0
 
         # variables update per epoch
         epoch_count += 1

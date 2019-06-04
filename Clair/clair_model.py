@@ -1074,8 +1074,8 @@ class Clair(object):
         """
         Decay the learning rate by the predefined decay rate
         """
-        #self.learning_rate_value = self.learning_rate_value * self.learning_rate_decay_rate
-        self.learning_rate_value=tf.train.exponential_decay(self.learning_rate_value,self.global_step,no_of_training_example,self.learning_rate_decay_rate,staircase=False)
+        self.learning_rate_value = self.learning_rate_value * self.learning_rate_decay_rate**(self.global_step/no_of_training_example)
+
         return self.learning_rate_value
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
