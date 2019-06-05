@@ -308,10 +308,10 @@ def print_debug_message_with(
     print >> call_fh, "{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
         chromosome,
         position,
-        ["{:0.4f}".format(x) for x in base_change_probabilities],
-        ["{:0.4f}".format(x) for x in genotype_probabilities],
-        ["{:0.4f}".format(x) for x in variant_length_probabilities_1],
-        ["{:0.4f}".format(x) for x in variant_length_probabilities_2],
+        ["{:0.8f}".format(x) for x in base_change_probabilities],
+        ["{:0.8f}".format(x) for x in genotype_probabilities],
+        ["{:0.8f}".format(x) for x in variant_length_probabilities_1],
+        ["{:0.8f}".format(x) for x in variant_length_probabilities_2],
         extra_infomation_string
     )
 
