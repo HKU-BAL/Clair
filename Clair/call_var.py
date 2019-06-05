@@ -711,6 +711,17 @@ def Output(
                 reference_base[0] + alternate_base_insert + reference_base[1:]
             )
         if reference_base == "" or alternate_base == "":
+            print_debug_message_with(
+                is_debug,
+                call_fh,
+                chromosome,
+                position,
+                base_change_probabilities[row_index],
+                genotype_probabilities[row_index],
+                variant_length_probabilities_1[row_index],
+                variant_length_probabilities_2[row_index],
+                "no reference base / alternate base prediction"
+            )
             continue
 
         # allele frequency / supported reads
