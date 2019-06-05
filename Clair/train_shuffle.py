@@ -249,7 +249,7 @@ def train_model(m, training_config):
             learning_rate_switch_count -= 1
             if learning_rate_switch_count == 0:
                 break
-            logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate(epoch_count))
+            logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate(no_of_training_examples))
             logging.info("[INFO] New L2 regularization lambda: %.2e" % m.decay_l2_regularization_lambda())
             no_of_epochs_with_current_learning_rate = 0
 
