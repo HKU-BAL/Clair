@@ -775,7 +775,7 @@ def Output(
                 genotype_probabilities[row_index],
                 variant_length_probabilities_1[row_index],
                 variant_length_probabilities_2[row_index],
-                "Normal output"
+                "Normal output" if not is_reference else "Reference"
             )
         else:
             print >> call_fh, "%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
