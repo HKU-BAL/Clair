@@ -14,8 +14,9 @@ bloscBlockSize = 500
 trainBatchSize = 5000
 predictBatchSize = 10000
 initialLearningRate = 0.001
+minimumLearningRate= 1e-6
 learningRateDecay = 0.95
-maxLearningRateSwitch = maxEpoch
+maxLearningRateSwitch = 6
 trainingDatasetPercentage = 0.9
 
 # Clair specific

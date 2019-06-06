@@ -6,6 +6,7 @@ import logging
 import random
 
 import numpy as np
+import pandas as pd
 from threading import Thread
 
 import param
@@ -120,7 +121,7 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
-    learning_rates=[]
+    lr=pd.DataFrame(columns=['learning rate','training loss','validation_loss','iterations'])
 
     if model_initalization_file_path != None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
@@ -145,6 +146,7 @@ def train_model(m, training_config):
         epoch_count = int(model_initalization_file_path[-param.parameterOutputPlaceHolder:])+1
 
     epoch_start_time = time.time()
+    iterations=1
     training_loss_sum = 0
     validation_loss_sum = 0
     data_index = 0
@@ -192,6 +194,7 @@ def train_model(m, training_config):
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
 
+
             base_change_loss_sum += m.base_change_loss
             genotype_loss_sum += m.genotype_loss
             indel_length_loss_sum_1 += m.indel_length_loss_1
@@ -199,11 +202,15 @@ def train_model(m, training_config):
             l2_loss_sum += m.l2_loss
 
         data_index += batch_size
+        logging.info("[INFO] learning rate is: %g" %(learning_rate))
+        lr=lr.append({'learning rate':learning_rate,'training loss':m.trainLossRTVAL,'validation loss':m.getLossLossRTVal,'iterations':iterations})
 
         # if not go through whole dataset yet (have next x_batch and y_batch data), continue the process
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
+            learning_rate=m.decay_learning_rate(no_of_training_examples)
+            iterations +=1
             continue
 
         logging.info(
@@ -223,7 +230,6 @@ def train_model(m, training_config):
         logging.info("[INFO] Epoch time elapsed: %.2f s" % (time.time() - epoch_start_time))
         training_losses.append((training_loss_sum, epoch_count))
         validation_losses.append((validation_loss_sum, epoch_count))
-        learning_rates.append((learning_rate,epoch_count))
 
         # Output the model
         if output_file_path_prefix != None:
@@ -231,7 +237,7 @@ def train_model(m, training_config):
             m.save_parameters(os.path.abspath(parameter_output_path % epoch_count))
 
         # Adaptive learning rate decay
-        no_of_epochs_with_current_learning_rate += 1
+        """no_of_epochs_with_current_learning_rate += 1
 
         need_learning_rate_update = (
            (
@@ -251,12 +257,13 @@ def train_model(m, training_config):
                 break
             logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate(no_of_training_examples))
             logging.info("[INFO] New L2 regularization lambda: %.2e" % m.decay_l2_regularization_lambda())
-            no_of_epochs_with_current_learning_rate = 0
+            no_of_epochs_with_current_learning_rate = 0"""
 
         # variables update per epoch
         epoch_count += 1
 
         epoch_start_time = time.time()
+        iterations=1
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
@@ -276,8 +283,9 @@ def train_model(m, training_config):
         ))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
+    lr.to_csv('%s/learning_rate.csv' % (output_file_path_prefix), index=False, sep="\t")
 
-    return training_losses, validation_losses, learning_rates
+    return training_losses, validation_losses, lr
 
 
 if __name__ == "__main__":
@@ -347,14 +355,14 @@ if __name__ == "__main__":
         summary_writer=m.get_summary_file_writer(args.olog_dir) if args.olog_dir != None else None,
     )
 
-    _training_losses, validation_losses, learning_rates = train_model(m, training_config)
+    _training_losses, validation_losses,learning_rates = train_model(m, training_config)
 
     # show the parameter set with the smallest validation loss
     validation_losses.sort()
     best_validation_epoch = validation_losses[0][1]
-    best_learning_rate=[learning_rates[i][0] for i in range(len(learning_rates)) if learning_rates[i][1]==best_validation_epoch]
+    best_learning_rate=learning_rates[learning_rates['iterations']==learning_rates['iterations'].min()]['learning rate'].item()
     logging.info("[INFO] Best validation loss at epoch: %d" % best_validation_epoch)
-    logging.info("[INFO] Best learning rate: %g" % best_learning_rate)
+    logging.info("[INFO] Best learning rate: %g" % (best_learning_rate))
 
     # load best validation model and evaluate it
     model_file_path = "%s-%%0%dd" % (training_config["output_file_path_prefix"], param.parameterOutputPlaceHolder)
