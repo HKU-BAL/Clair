@@ -121,7 +121,7 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
-    lr=pd.DataFrame(columns=['learning rate','training loss','validation_loss','iterations'])
+    lr={'learning_rate':[],'validation_loss':[],'iterations':[]}
 
     if model_initalization_file_path != None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
@@ -193,7 +193,9 @@ def train_model(m, training_config):
                 summary_writer.add_summary(summary, epoch_count)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
-
+            lr['validation_loss'].append(m.getLossLossRTVal)
+            lr['learning_rate'].append(learning_rate)
+            lr['iterations'].append(iterations)
 
             base_change_loss_sum += m.base_change_loss
             genotype_loss_sum += m.genotype_loss
@@ -203,7 +205,6 @@ def train_model(m, training_config):
 
         data_index += batch_size
         logging.info("[INFO] learning rate is: %g" %(learning_rate))
-        lr=lr.append({'learning rate':learning_rate,'training loss':m.trainLossRTVAL,'validation loss':m.getLossLossRTVal,'iterations':iterations})
 
         # if not go through whole dataset yet (have next x_batch and y_batch data), continue the process
         if next_x_batch is not None and next_y_batch is not None:
@@ -287,6 +288,7 @@ def train_model(m, training_config):
         ))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
+    lr=pd.DataFrame(lr)
     lr.to_csv('%s/learning_rate.csv' % (output_file_path_prefix), index=False, sep="\t")
 
     return training_losses, validation_losses, lr
