@@ -209,8 +209,11 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            learning_rate=m.decay_learning_rate(no_of_training_examples)
             iterations +=1
+            if learning_rate >= param.minimumLearningRate:
+                learning_rate=m.decay_learning_rate(no_of_training_examples)
+            else:
+                learning_rate=param.minimumLearningRate
             continue
 
         logging.info(
@@ -264,6 +267,7 @@ def train_model(m, training_config):
 
         epoch_start_time = time.time()
         iterations=1
+        learning_rate=param.initialLearningRate
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
