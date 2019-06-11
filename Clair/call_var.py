@@ -742,19 +742,12 @@ def Output(
                     X[row_index, position_center, base2num[base]+4, Channel.reference]
                 )
         elif is_insertion:
-            supported_reads_count = sum(X[row_index, position_center+1, :, Channel.insert]) - sum(X[row_index, position_center+1, :, Channel.SNP])
-            # if is_SNP_Ins_multi:
-            #     supported_reads_count += (
-            #         X[row_index, position_center,   base2num[alternate_base[0]], Channel.SNP] +
-            #         X[row_index, position_center, base2num[alternate_base[0]+4], Channel.SNP]
-            #     )
+            supported_reads_count = (
+                sum(X[row_index, position_center+1, :, Channel.insert]) -
+                sum(X[row_index, position_center+1, :, Channel.SNP])
+            )
         elif is_deletion:
             supported_reads_count = sum(X[row_index, position_center+1, :, Channel.delete])
-            # if is_SNP_Del_multi:
-            #     supported_reads_count += (
-            #         X[row_index, position_center,   base2num[alternate_base[0]], Channel.SNP] +
-            #         X[row_index, position_center, base2num[alternate_base[0]]+4, Channel.SNP]
-            #     )
         elif is_insertion_and_deletion:
             supported_reads_count = (
                 sum(X[row_index, position_center+1, :, Channel.insert]) +
