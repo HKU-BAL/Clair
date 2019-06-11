@@ -137,8 +137,9 @@ def train_model(m, training_config):
     no_of_training_examples = int(dataset_size*param.trainingDatasetPercentage)
     validation_data_start_index = no_of_training_examples + 1
     no_of_validation_examples = dataset_size - validation_data_start_index
-    learning_rate_switch_count = param.maxLearningRateSwitch
+    #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
+    decay_step=int(no_of_training_examples/param.trainBatchSize)
 
     # Initialize variables
     epoch_count = 1
@@ -146,11 +147,11 @@ def train_model(m, training_config):
         epoch_count = int(model_initalization_file_path[-param.parameterOutputPlaceHolder:])+1
 
     epoch_start_time = time.time()
-    iterations=1
+    global_step=0
     training_loss_sum = 0
     validation_loss_sum = 0
     data_index = 0
-    no_of_epochs_with_current_learning_rate = 0  # Variables for learning rate decay
+    #no_of_epochs_with_current_learning_rate = 0  # Variables for learning rate decay
     x_batch = None
     y_batch = None
 
@@ -210,9 +211,9 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            iterations +=1
-            if learning_rate >= param.minimumLearningRate:
-                learning_rate=m.decay_learning_rate(no_of_training_examples)
+            global_step +=1
+            if learning_rate > param.minimumLearningRate:
+                learning_rate=m.decay_learning_rate(global_step,decay_step)
             else:
                 learning_rate=param.minimumLearningRate
             continue
@@ -267,7 +268,7 @@ def train_model(m, training_config):
         epoch_count += 1
 
         epoch_start_time = time.time()
-        iterations=1
+        global_step=0
         learning_rate=param.initialLearningRate
         training_loss_sum = 0
         validation_loss_sum = 0
