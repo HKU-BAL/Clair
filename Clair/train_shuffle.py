@@ -121,7 +121,7 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
-    lr={'learning_rate':[],'validation_loss':[]}
+    lr={'learning_rate':[],'training_loss':[]}
 
     if model_initalization_file_path != None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
@@ -189,13 +189,13 @@ def train_model(m, training_config):
         # add training loss or validation loss
         if is_with_batch_data and is_training:
             training_loss_sum += m.trainLossRTVal
+            lr['training_loss'].append(m.trainLossRTVal)
+            lr['learning_rate'].append(learning_rate)
             if summary_writer != None:
                 summary = m.trainSummaryRTVal
                 summary_writer.add_summary(summary, epoch_count)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
-            lr['validation_loss'].append(m.getLossLossRTVal)
-            lr['learning_rate'].append(learning_rate)
 
             base_change_loss_sum += m.base_change_loss
             genotype_loss_sum += m.genotype_loss
@@ -210,10 +210,10 @@ def train_model(m, training_config):
             x_batch = next_x_batch
             y_batch = next_y_batch
             global_step +=1
-            if learning_rate > param.minimumLearningRate:
+            if m.decay_learning_rate(global_step,decay_step) > param.minimumLearningRate:
                 learning_rate=m.decay_learning_rate(global_step,decay_step)
             else:
-                learning_rate=param.minimumLearningRate
+                learning_rate=param.initialLearningRate
             continue
 
         logging.info(
@@ -240,6 +240,8 @@ def train_model(m, training_config):
             m.save_parameters(os.path.abspath(parameter_output_path % epoch_count))
 
         # Adaptive learning rate decay
+        if is_validation_losses_keep_increasing(validation_losses):
+            break
         """no_of_epochs_with_current_learning_rate += 1
 
         need_learning_rate_update = (
@@ -263,11 +265,12 @@ def train_model(m, training_config):
             no_of_epochs_with_current_learning_rate = 0"""
 
         # variables update per epoch
+        learningrate = pd.DataFrame(lr)
+        learningrate.to_csv('learning_rate.txt',index=False,sep=',')
         epoch_count += 1
 
         epoch_start_time = time.time()
         global_step=0
-        learning_rate=param.initialLearningRate
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
@@ -280,6 +283,7 @@ def train_model(m, training_config):
         indel_length_loss_sum_2 = 0
         l2_loss_sum = 0
 
+
         # shuffle data on each epoch
         tensor_block_index_list = shuffle_first_n_items(tensor_block_index_list, validation_start_block)
         logging.info("[INFO] Shuffled: " + ' '.join(
@@ -287,10 +291,7 @@ def train_model(m, training_config):
         ))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
-    lr=pd.DataFrame(lr)
-    lr.to_csv('%s/learning_rate.csv' % (output_file_path_prefix), index=False, sep="\t")
-
-    return training_losses, validation_losses, lr
+    return training_losses, validation_losses, learningrate
 
 
 if __name__ == "__main__":
