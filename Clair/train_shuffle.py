@@ -121,7 +121,7 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
-    lr={'learning_rate':[],'validation_loss':[],'iterations':[]}
+    lr={'learning_rate':[],'validation_loss':[]}
 
     if model_initalization_file_path != None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
@@ -196,7 +196,6 @@ def train_model(m, training_config):
             validation_loss_sum += m.getLossLossRTVal
             lr['validation_loss'].append(m.getLossLossRTVal)
             lr['learning_rate'].append(learning_rate)
-            lr['iterations'].append(iterations)
 
             base_change_loss_sum += m.base_change_loss
             genotype_loss_sum += m.genotype_loss
@@ -205,7 +204,6 @@ def train_model(m, training_config):
             l2_loss_sum += m.l2_loss
 
         data_index += batch_size
-        logging.info("[INFO] learning rate is: %g" %(learning_rate))
 
         # if not go through whole dataset yet (have next x_batch and y_batch data), continue the process
         if next_x_batch is not None and next_y_batch is not None:
@@ -367,7 +365,7 @@ if __name__ == "__main__":
     # show the parameter set with the smallest validation loss
     validation_losses.sort()
     best_validation_epoch = validation_losses[0][1]
-    best_learning_rate=learning_rates[learning_rates['iterations']==learning_rates['iterations'].min()]['learning rate'].item()
+    best_learning_rate=learning_rates[learning_rates['validation_loss']==learning_rates['validation_loss'].min()]['learning rate'].item()
     logging.info("[INFO] Best validation loss at epoch: %d" % best_validation_epoch)
     logging.info("[INFO] Best learning rate: %g" % (best_learning_rate))
 

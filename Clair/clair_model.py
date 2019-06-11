@@ -1073,7 +1073,7 @@ class Clair(object):
         """
         Decay the learning rate by the predefined decay rate
         """
-        self.learning_rate_value = self.learning_rate_value*self.learning_rate_decay_rate**(-global_step/decay_step)
+        self.learning_rate_value = self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step)
         return self.learning_rate_value
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
