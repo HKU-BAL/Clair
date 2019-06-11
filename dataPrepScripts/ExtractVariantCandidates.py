@@ -268,7 +268,7 @@ def make_candidates(args):
 
     tree = interval_tree_map_from(bed_file_path=bed_file_path)
     if is_bed_file_given and ctg_name not in tree:
-        print >> sys.stderr, "[ERROR] ctgName not exists in bed file ({}).".format(bed_file_path)
+        print >> sys.stderr, "[ERROR] ctg_name({}) not exists in bed file({}).".format(ctg_name, bed_file_path)
         sys.exit(1)
 
     samtools_view_process = subprocess.Popen(
