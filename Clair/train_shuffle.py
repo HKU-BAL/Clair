@@ -82,7 +82,7 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
     validation_batch_size = param.predictBatchSize
 
     if data_index >= dataset_size:
-        return None, None, 0
+        return None, None, 0, param.initialLearningRate, 0
 
     # calculate new batch size according to dataset index
     # train: 0 - validation_data_start_index - 1, validation: validation_data_start_index - dataset_size
@@ -176,7 +176,7 @@ def train_model(m, training_config):
         # threads for either train or validation
         thread_pool = []
         if is_with_batch_data and is_training:
-            thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch, True)))
+            thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch, learning_rate,True)))
         elif is_with_batch_data and is_validation:
             thread_pool.append(Thread(target=m.get_loss, args=(x_batch, y_batch, True)))
         for t in thread_pool:
@@ -247,7 +247,7 @@ def train_model(m, training_config):
         # Early stop
         if is_validation_losses_keep_increasing(validation_losses):
             learningrate = pd.DataFrame(lr)
-            learningrate.to_csv('learning_rate{}.txt'.formart(epoch_count), index=False, sep=',')
+            learningrate.to_csv('learning_rate{}.txt'.format(epoch_count), index=False, sep=',')
             break
         """no_of_epochs_with_current_learning_rate += 1
 
@@ -273,7 +273,7 @@ def train_model(m, training_config):
 
         # variables update per epoch
         learningrate = pd.DataFrame(lr)
-        learningrate.to_csv('learning_rate{}.txt'.formart(epoch_count),index=False,sep=',')
+        learningrate.to_csv('learning_rate{}.txt'.format(epoch_count),index=False,sep=',')
         learning_rate=param.initialLearningRate
         epoch_count += 1
 
