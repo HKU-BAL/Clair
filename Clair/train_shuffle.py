@@ -74,7 +74,7 @@ def shuffle_first_n_items(array, n):
     return np.append(a1, a2)
 
 
-def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list):
+def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list,global_step,decay_step):
     dataset_size = dataset_info["dataset_size"]
     x_array_compressed = dataset_info["x_array_compressed"]
     y_array_compressed = dataset_info["y_array_compressed"]
@@ -106,7 +106,13 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
     if x_num != y_num or x_end_flag != y_end_flag:
         sys.exit("Inconsistency between decompressed arrays: %d/%d" % (x_num, y_num))
 
-    return x_batch, y_batch, x_num
+    #decrease learning rate per iteration
+    if m.decay_learning_rate(global_step,decay_step) > param.minimumLearningRate:
+        learning_rate=m.decay_learning_rate(global_step,decay_step)
+    else:
+        learning_rate=param.minimumLearningRate
+    global_step+=1
+    return x_batch, y_batch, x_num, learning_rate, global_step
 
 
 def train_model(m, training_config):
@@ -140,6 +146,7 @@ def train_model(m, training_config):
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
     decay_step=int(no_of_training_examples/param.trainBatchSize)
+
 
     # Initialize variables
     epoch_count = 1
@@ -175,11 +182,13 @@ def train_model(m, training_config):
         for t in thread_pool:
             t.start()
 
-        next_x_batch, next_y_batch, batch_size = new_mini_batch(
+        next_x_batch, next_y_batch, batch_size, learning_rate, global_step= new_mini_batch(
             data_index=data_index,
             validation_data_start_index=validation_data_start_index,
             dataset_info=dataset_info,
-            tensor_block_index_list=tensor_block_index_list
+            tensor_block_index_list=tensor_block_index_list,
+            global_step=global_step,
+            decay_step=decay_step
         )
 
         # wait until loaded next mini batch & finished training/validation with current mini batch
@@ -209,11 +218,6 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            global_step +=1
-            if m.decay_learning_rate(global_step,decay_step) > param.minimumLearningRate:
-                learning_rate=m.decay_learning_rate(global_step,decay_step)
-            else:
-                learning_rate=param.initialLearningRate
             continue
 
         logging.info(
@@ -240,7 +244,10 @@ def train_model(m, training_config):
             m.save_parameters(os.path.abspath(parameter_output_path % epoch_count))
 
         # Adaptive learning rate decay
+        # Early stop
         if is_validation_losses_keep_increasing(validation_losses):
+            learningrate = pd.DataFrame(lr)
+            learningrate.to_csv('learning_rate{}.txt'.formart(epoch_count), index=False, sep=',')
             break
         """no_of_epochs_with_current_learning_rate += 1
 
@@ -266,7 +273,8 @@ def train_model(m, training_config):
 
         # variables update per epoch
         learningrate = pd.DataFrame(lr)
-        learningrate.to_csv('learning_rate.txt',index=False,sep=',')
+        learningrate.to_csv('learning_rate{}.txt'.formart(epoch_count),index=False,sep=',')
+        learning_rate=param.initialLearningRate
         epoch_count += 1
 
         epoch_start_time = time.time()
