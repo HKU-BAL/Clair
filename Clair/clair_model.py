@@ -364,6 +364,10 @@ class Clair(object):
             # first layer, X_placeholder
             self.layers.append(self.X_placeholder)
 
+            self.global_step_placeholder=tf.placeholder(
+                dtype=tf.int64,shape=[],name='global_step'
+            )
+
             self.learning_rate_placeholder = tf.placeholder(
                 dtype=self.float_type, shape=[], name='learning_rate_placeholder'
             )
@@ -884,6 +888,7 @@ class Clair(object):
             self.X_placeholder: transformed_batch_X,
             self.Y_placeholder: transformed_batch_Y,
             self.learning_rate_placeholder: decay_method(global_step,decay_step),
+            self.global_step_placeholder:global_step,
             self.phase_placeholder: True,
             self.regularization_L2_lambda_placeholder: self.l2_regularization_lambda_value,
             self.task_loss_weights_placeholder: self.task_loss_weights,

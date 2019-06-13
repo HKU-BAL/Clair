@@ -171,7 +171,6 @@ def train_model(m, training_config):
         thread_pool = []
         if is_with_batch_data and is_training:
             thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch,global_step,decay_step,m.decay_learning_rate, True)))
-            global_step +=1
         elif is_with_batch_data and is_validation:
             thread_pool.append(Thread(target=m.get_loss, args=(x_batch, y_batch, True)))
         for t in thread_pool:
@@ -213,6 +212,7 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
+            global_step +=1
             continue
 
         logging.info(
