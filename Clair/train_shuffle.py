@@ -140,7 +140,7 @@ def train_model(m, training_config):
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
     decay_step=int(no_of_training_examples/param.trainBatchSize)
-    global_steps=list(range(0,decay_step))
+    global_step=0
 
 
     # Initialize variables
@@ -169,11 +169,11 @@ def train_model(m, training_config):
 
         # threads for either train or validation
         thread_pool = []
-        for global_step in global_steps:
-            if is_with_batch_data and is_training:
-                thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch,global_step,decay_step,m.decay_learning_rate, True)))
-            elif is_with_batch_data and is_validation:
-                thread_pool.append(Thread(target=m.get_loss, args=(x_batch, y_batch, True)))
+        if is_with_batch_data and is_training:
+            thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch,global_step,decay_step,m.decay_learning_rate, True)))
+            global_step +=1
+        elif is_with_batch_data and is_validation:
+            thread_pool.append(Thread(target=m.get_loss, args=(x_batch, y_batch, True)))
         for t in thread_pool:
             t.start()
 
@@ -273,6 +273,7 @@ def train_model(m, training_config):
 
         epoch_start_time = time.time()
         learning_rate=param.initialLearningRate
+        global_step=0
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
