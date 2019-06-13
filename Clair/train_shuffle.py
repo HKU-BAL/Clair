@@ -140,7 +140,7 @@ def train_model(m, training_config):
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
     decay_step=int(no_of_training_examples/param.trainBatchSize)
-    global_step=0
+    global_steps=list(range(0,decay_step))
 
 
     # Initialize variables
@@ -149,7 +149,6 @@ def train_model(m, training_config):
         epoch_count = int(model_initalization_file_path[-param.parameterOutputPlaceHolder:])+1
 
     epoch_start_time = time.time()
-    global_step=0
     training_loss_sum = 0
     validation_loss_sum = 0
     data_index = 0
@@ -170,30 +169,26 @@ def train_model(m, training_config):
 
         # threads for either train or validation
         thread_pool = []
-        if is_with_batch_data and is_training:
-            thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch,learning_rate, True)))
-        elif is_with_batch_data and is_validation:
-            thread_pool.append(Thread(target=m.get_loss, args=(x_batch, y_batch, True)))
+        for global_step in global_steps:
+            if is_with_batch_data and is_training:
+                thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch,global_step,decay_step,m.decay_learning_rate, True)))
+            elif is_with_batch_data and is_validation:
+                thread_pool.append(Thread(target=m.get_loss, args=(x_batch, y_batch, True)))
         for t in thread_pool:
             t.start()
-            global_step +=1
-            if m.decay_learning_rate(global_step,decay_step) > param.minimumLearningRate:
-                learning_rate=m.decay_learning_rate(global_step,decay_step)
-            else:
-                learning_rate=param.minimumLearningRate
 
-        next_x_batch, next_y_batch, batch_size, learning_rate, global_step= new_mini_batch(
+
+        next_x_batch, next_y_batch, batch_size= new_mini_batch(
             data_index=data_index,
             validation_data_start_index=validation_data_start_index,
             dataset_info=dataset_info,
-            tensor_block_index_list=tensor_block_index_list,
-            global_step=global_step,
-            decay_step=decay_step
+            tensor_block_index_list=tensor_block_index_list
         )
 
         # wait until loaded next mini batch & finished training/validation with current mini batch
         for t in thread_pool:
             t.join()
+
 
         # add training loss or validation loss
         if is_with_batch_data and is_training:
@@ -274,12 +269,10 @@ def train_model(m, training_config):
         # variables update per epoch
         learningrate = pd.DataFrame(lr)
         learningrate.to_csv('learning_rate{}.txt'.format(epoch_count),index=False,sep=',')
-        learning_rate=param.initialLearningRate
         epoch_count += 1
 
         epoch_start_time = time.time()
         learning_rate=param.initialLearningRate
-        global_step=0
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
