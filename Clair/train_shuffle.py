@@ -74,7 +74,7 @@ def shuffle_first_n_items(array, n):
     return np.append(a1, a2)
 
 
-def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list,global_step,decay_step):
+def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list):
     dataset_size = dataset_info["dataset_size"]
     x_array_compressed = dataset_info["x_array_compressed"]
     y_array_compressed = dataset_info["y_array_compressed"]
@@ -82,7 +82,7 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
     validation_batch_size = param.predictBatchSize
 
     if data_index >= dataset_size:
-        return None, None, 0, param.initialLearningRate, 0
+        return None, None, 0
 
     # calculate new batch size according to dataset index
     # train: 0 - validation_data_start_index - 1, validation: validation_data_start_index - dataset_size
@@ -106,13 +106,7 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
     if x_num != y_num or x_end_flag != y_end_flag:
         sys.exit("Inconsistency between decompressed arrays: %d/%d" % (x_num, y_num))
 
-    #decrease learning rate per iteration
-    if m.decay_learning_rate(global_step,decay_step) > param.minimumLearningRate:
-        learning_rate=m.decay_learning_rate(global_step,decay_step)
-    else:
-        learning_rate=param.minimumLearningRate
-    global_step+=1
-    return x_batch, y_batch, x_num, learning_rate, global_step
+    return x_batch, y_batch, x_num
 
 
 def train_model(m, training_config):
@@ -146,6 +140,7 @@ def train_model(m, training_config):
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
     decay_step=int(no_of_training_examples/param.trainBatchSize)
+    global_step=0
 
 
     # Initialize variables
@@ -176,11 +171,16 @@ def train_model(m, training_config):
         # threads for either train or validation
         thread_pool = []
         if is_with_batch_data and is_training:
-            thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch, learning_rate,True)))
+            thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch,learning_rate, True)))
         elif is_with_batch_data and is_validation:
             thread_pool.append(Thread(target=m.get_loss, args=(x_batch, y_batch, True)))
         for t in thread_pool:
             t.start()
+            global_step +=1
+            if m.decay_learning_rate(global_step,decay_step) > param.minimumLearningRate:
+                learning_rate=m.decay_learning_rate(global_step,decay_step)
+            else:
+                learning_rate=param.minimumLearningRate
 
         next_x_batch, next_y_batch, batch_size, learning_rate, global_step= new_mini_batch(
             data_index=data_index,
@@ -278,6 +278,7 @@ def train_model(m, training_config):
         epoch_count += 1
 
         epoch_start_time = time.time()
+        learning_rate=param.initialLearningRate
         global_step=0
         training_loss_sum = 0
         validation_loss_sum = 0

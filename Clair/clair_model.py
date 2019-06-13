@@ -867,7 +867,7 @@ class Clair(object):
         """
         self.session.close()
 
-    def train(self, batchX, batchY, learning_rate,result_caching=False):
+    def train(self, batchX, batchY,learning_rate, result_caching=False):
         """
         Train the model in batch with input tensor batchX and truth tensor batchY, caching the results in
         self.output_cache['training_loss'] and self.output_cache['training_summary'] if result_caching is True
