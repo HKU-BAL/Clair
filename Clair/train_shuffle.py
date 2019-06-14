@@ -74,7 +74,7 @@ def shuffle_first_n_items(array, n):
     return np.append(a1, a2)
 
 
-def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list,global_step,decay_step,learning_rate):
+def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list,global_step,learning_rate_list):
     dataset_size = dataset_info["dataset_size"]
     x_array_compressed = dataset_info["x_array_compressed"]
     y_array_compressed = dataset_info["y_array_compressed"]
@@ -104,7 +104,7 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
     y_batch, y_num, y_end_flag = utils.decompress_array_with_order(
         y_array_compressed, data_index, batch_size, dataset_size, tensor_block_index_list)
     global_step +=1
-    learning_rate_value=m.decay_learning_rate(learning_rate,global_step,decay_step)
+    learning_rate_value=learning_rate_list[global_step]
     if x_num != y_num or x_end_flag != y_end_flag:
         sys.exit("Inconsistency between decompressed arrays: %d/%d" % (x_num, y_num))
 
@@ -142,6 +142,10 @@ def train_model(m, training_config):
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
     decay_step=int(no_of_training_examples/param.trainBatchSize)
+    global_step_list=list(range(0,decay_step))
+    learning_rate_list=[]
+    for i in global_step_list:
+        learning_rate_list.append(param.initialLearningRate*param.learningRateDecay**(i/decay_step))
 
     # Initialize variables
     epoch_count = 1
@@ -184,8 +188,7 @@ def train_model(m, training_config):
             dataset_info=dataset_info,
             tensor_block_index_list=tensor_block_index_list,
             global_step=global_step,
-            decay_step=decay_step,
-            learning_rate=learning_rate
+            learning_rate_list=learning_rate_list
         )
 
         # wait until loaded next mini batch & finished training/validation with current mini batch
@@ -197,7 +200,7 @@ def train_model(m, training_config):
         if is_with_batch_data and is_training:
             training_loss_sum += m.trainLossRTVal
             lr['training_loss'].append(m.trainLossRTVal)
-            lr['learning_rate'].append(m.learning_rate_value)
+            lr['learning_rate'].append(learning_rate)
             if summary_writer != None:
                 summary = m.trainSummaryRTVal
                 summary_writer.add_summary(summary, epoch_count)
@@ -216,10 +219,10 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
+            logging.info("[INFO] learning rate: %g, global_step: %d" % (learning_rate, global_step))
             global_step=next_global_step
             lr['global_step'].append(global_step)
             learning_rate=next_learning_rate
-            logging.info("[INFO] learning rate: %g, global_step: %d" %(learning_rate,global_step))
             continue
 
         logging.info(
