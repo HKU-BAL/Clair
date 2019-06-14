@@ -104,7 +104,7 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
     y_batch, y_num, y_end_flag = utils.decompress_array_with_order(
         y_array_compressed, data_index, batch_size, dataset_size, tensor_block_index_list)
     global_step +=1
-    learning_rate_value=m.decay_learning_rate(global_step,decay_step)
+    learning_rate_value=m.decay_learning_rate(decay_step)
     if x_num != y_num or x_end_flag != y_end_flag:
         sys.exit("Inconsistency between decompressed arrays: %d/%d" % (x_num, y_num))
 

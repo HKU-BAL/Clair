@@ -371,7 +371,7 @@ class Clair(object):
             )
 
             self.global_step_placeholder=tf.placeholder(
-                dtype=tf.int64,shape=[],name='global_step_placeholder'
+                dtype=self.float_type,shape=[],name='global_step_placeholder'
             )
 
             self.phase_placeholder = tf.placeholder(
