@@ -104,6 +104,7 @@ class Clair(object):
             l2_regularization_lambda=param.l2RegularizationLambda,
             l2_regularization_lambda_decay_rate=param.l2RegularizationLambdaDecay,
             tensor_transform_function=lambda X, Y, phase: (X, Y),
+            intial_global_step=param.initialGlobalStep
 
         )
 
@@ -157,6 +158,7 @@ class Clair(object):
         self.l2_regularization_lambda_value = params['l2_regularization_lambda']
         self.l2_regularization_lambda_decay_rate = params['l2_regularization_lambda_decay_rate']
         self.structure = params['structure']
+        self.global_step=params['initial_global_step']
 
         # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks,
         # which does not support tf.float64
@@ -367,6 +369,11 @@ class Clair(object):
             self.learning_rate_placeholder = tf.placeholder(
                 dtype=self.float_type, shape=[], name='learning_rate_placeholder'
             )
+
+            self.global_step_placeholder=tf.placegolder(
+                dtype=tf.int64,shape=[],name='global_step_placeholder'
+            )
+
             self.phase_placeholder = tf.placeholder(
                 dtype=tf.bool, shape=[], name='phase_placeholder'
             )
@@ -867,7 +874,7 @@ class Clair(object):
         """
         self.session.close()
 
-    def train(self, batchX, batchY, learning_rate,result_caching=False):
+    def train(self, batchX, batchY, learning_rate,global_step,result_caching=False):
         """
         Train the model in batch with input tensor batchX and truth tensor batchY, caching the results in
         self.output_cache['training_loss'] and self.output_cache['training_summary'] if result_caching is True
@@ -881,10 +888,12 @@ class Clair(object):
         #    tf.image.per_image_standardization(batchX[i])
         transformed_batch_X, transformed_batch_Y = self.tensor_transform_function(batchX, batchY, "train")
         self.learning_rate_value=learning_rate
+        self.global_step=global_step
         input_dictionary = {
             self.X_placeholder: transformed_batch_X,
             self.Y_placeholder: transformed_batch_Y,
             self.learning_rate_placeholder: self.learning_rate_value,
+            self.global_step_placeholder:self.global_step,
             self.phase_placeholder: True,
             self.regularization_L2_lambda_placeholder: self.l2_regularization_lambda_value,
             self.task_loss_weights_placeholder: self.task_loss_weights,
@@ -1070,12 +1079,12 @@ class Clair(object):
         self.learning_rate_value = learning_rate
         return self.learning_rate_value
 
-    def decay_learning_rate(self,global_step,decay_step):
+    def decay_learning_rate(self,decay_step):
         """
         Decay the learning rate by the predefined decay rate
         """
-        if self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step) > param.minimumLearningRate:
-            self.learning_rate_value = self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step)
+        if self.learning_rate_value*self.learning_rate_decay_rate**(self.global_step/decay_step) > param.minimumLearningRate:
+            self.learning_rate_value = self.learning_rate_value*self.learning_rate_decay_rate**(self.global_step/decay_step)
             return self.learning_rate_value
         else:
             self.learning_rate_value=para.minimumLearningRate

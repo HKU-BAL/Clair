@@ -123,7 +123,7 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
-    lr={'learning_rate':[],'training_loss':[]}
+    lr={'learning_rate':[],'training_loss':[],'global_step':[]}
 
     if model_initalization_file_path != None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
@@ -155,7 +155,7 @@ def train_model(m, training_config):
     #no_of_epochs_with_current_learning_rate = 0  # Variables for learning rate decay
     x_batch = None
     y_batch = None
-    global_step=0
+    global_step = param.initialGlobalStep
 
     base_change_loss_sum = 0
     genotype_loss_sum = 0
@@ -197,6 +197,7 @@ def train_model(m, training_config):
             training_loss_sum += m.trainLossRTVal
             lr['training_loss'].append(m.trainLossRTVal)
             lr['learning_rate'].append(m.learning_rate_value)
+            lr['global_step'].append(m.global_step)
             if summary_writer != None:
                 summary = m.trainSummaryRTVal
                 summary_writer.add_summary(summary, epoch_count)
