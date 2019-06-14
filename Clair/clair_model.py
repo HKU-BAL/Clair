@@ -364,10 +364,6 @@ class Clair(object):
             # first layer, X_placeholder
             self.layers.append(self.X_placeholder)
 
-            self.global_step_placeholder=tf.placeholder(
-                dtype=tf.int64,shape=[],name='global_step'
-            )
-
             self.learning_rate_placeholder = tf.placeholder(
                 dtype=self.float_type, shape=[], name='learning_rate_placeholder'
             )
@@ -871,7 +867,7 @@ class Clair(object):
         """
         self.session.close()
 
-    def train(self, batchX, batchY,global_step,decay_step,decay_method, result_caching=False):
+    def train(self, batchX, batchY, learning_rate,result_caching=False):
         """
         Train the model in batch with input tensor batchX and truth tensor batchY, caching the results in
         self.output_cache['training_loss'] and self.output_cache['training_summary'] if result_caching is True
@@ -884,11 +880,11 @@ class Clair(object):
         # for i in range(len(batchX)):
         #    tf.image.per_image_standardization(batchX[i])
         transformed_batch_X, transformed_batch_Y = self.tensor_transform_function(batchX, batchY, "train")
+        self.learning_rate_value=learning_rate
         input_dictionary = {
             self.X_placeholder: transformed_batch_X,
             self.Y_placeholder: transformed_batch_Y,
-            self.learning_rate_placeholder: decay_method(global_step,decay_step),
-            self.global_step_placeholder:global_step,
+            self.learning_rate_placeholder: self.learning_rate_value,
             self.phase_placeholder: True,
             self.regularization_L2_lambda_placeholder: self.l2_regularization_lambda_value,
             self.task_loss_weights_placeholder: self.task_loss_weights,
