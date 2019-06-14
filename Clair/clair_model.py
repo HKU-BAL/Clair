@@ -869,7 +869,7 @@ class Clair(object):
         """
         self.session.close()
 
-    def train(self, batchX, batchY, learning_rate,result_caching=False):
+    def train(self, batchX, batchY,result_caching=False):
         """
         Train the model in batch with input tensor batchX and truth tensor batchY, caching the results in
         self.output_cache['training_loss'] and self.output_cache['training_summary'] if result_caching is True
@@ -882,7 +882,6 @@ class Clair(object):
         # for i in range(len(batchX)):
         #    tf.image.per_image_standardization(batchX[i])
         transformed_batch_X, transformed_batch_Y = self.tensor_transform_function(batchX, batchY, "train")
-        self.learning_rate_value=learning_rate
         input_dictionary = {
             self.X_placeholder: transformed_batch_X,
             self.Y_placeholder: transformed_batch_Y,
@@ -1072,12 +1071,12 @@ class Clair(object):
         self.learning_rate_value = learning_rate
         return self.learning_rate_value
 
-    def decay_learning_rate(self,learning_rate_value, global_step,decay_step):
+    def decay_learning_rate(self, global_step,decay_step):
         """
         Decay the learning rate by the predefined decay rate
         """
-        if learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step) > param.minimumLearningRate:
-            self.learning_rate_value = learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step)
+        if self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step) > param.minimumLearningRate:
+            self.learning_rate_value = self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step)
             return self.learning_rate_value
         else:
             self.learning_rate_value=para.minimumLearningRate
