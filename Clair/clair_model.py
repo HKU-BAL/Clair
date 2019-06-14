@@ -1077,10 +1077,12 @@ class Clair(object):
         """
         if self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step) > param.minimumLearningRate:
             self.learning_rate_value = self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step)
-            return self.learning_rate_value
+            global_step+=1
+            return self.learning_rate_value,global_step
         else:
-            self.learning_rate_value=para.minimumLearningRate
-            return self.learning_rate_value
+            self.learning_rate_value=param.minimumLearningRate
+            global_step=0
+            return self.learning_rate_value,global_step
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
         """
