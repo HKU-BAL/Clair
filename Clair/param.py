@@ -18,7 +18,7 @@ minimumLearningRate= 1e-7
 learningRateDecay = 0.95
 maxLearningRateSwitch = 6
 trainingDatasetPercentage = 0.9
-initialGlobalStep=0.0
+initialGlobalStep=0
 
 # Clair specific
 l2RegularizationLambda = 0.005

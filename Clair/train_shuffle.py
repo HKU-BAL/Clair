@@ -104,7 +104,7 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
     y_batch, y_num, y_end_flag = utils.decompress_array_with_order(
         y_array_compressed, data_index, batch_size, dataset_size, tensor_block_index_list)
     global_step +=1
-    learning_rate_value=m.decay_learning_rate(decay_step)
+    learning_rate_value=m.decay_learning_rate(global_step,decay_step)
     if x_num != y_num or x_end_flag != y_end_flag:
         sys.exit("Inconsistency between decompressed arrays: %d/%d" % (x_num, y_num))
 
@@ -155,7 +155,7 @@ def train_model(m, training_config):
     #no_of_epochs_with_current_learning_rate = 0  # Variables for learning rate decay
     x_batch = None
     y_batch = None
-    global_step = param.initialGlobalStep
+    global_step=0
 
     base_change_loss_sum = 0
     genotype_loss_sum = 0
@@ -197,7 +197,6 @@ def train_model(m, training_config):
             training_loss_sum += m.trainLossRTVal
             lr['training_loss'].append(m.trainLossRTVal)
             lr['learning_rate'].append(m.learning_rate_value)
-            lr['global_step'].append(m.global_step)
             if summary_writer != None:
                 summary = m.trainSummaryRTVal
                 summary_writer.add_summary(summary, epoch_count)
@@ -217,7 +216,9 @@ def train_model(m, training_config):
             x_batch = next_x_batch
             y_batch = next_y_batch
             global_step=next_global_step
+            lr['global_step'].append(global_step)
             learning_rate=next_learning_rate
+            logging.info("[INFO] learning rate: %g, global_step: %d" %(m.learning_rate_value,globa_step))
             continue
 
         logging.info(
