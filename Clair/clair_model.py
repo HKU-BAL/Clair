@@ -104,7 +104,7 @@ class Clair(object):
             l2_regularization_lambda=param.l2RegularizationLambda,
             l2_regularization_lambda_decay_rate=param.l2RegularizationLambdaDecay,
             tensor_transform_function=lambda X, Y, phase: (X, Y),
-            intial_global_step=param.initialGlobalStep
+            initial_global_step=param.initialGlobalStep
 
         )
 
@@ -370,7 +370,7 @@ class Clair(object):
                 dtype=self.float_type, shape=[], name='learning_rate_placeholder'
             )
 
-            self.global_step_placeholder=tf.placegolder(
+            self.global_step_placeholder=tf.placeholder(
                 dtype=tf.int64,shape=[],name='global_step_placeholder'
             )
 
