@@ -1072,12 +1072,12 @@ class Clair(object):
         self.learning_rate_value = learning_rate
         return self.learning_rate_value
 
-    def decay_learning_rate(self,global_decay,decay_step):
+    def decay_learning_rate(self,learning_rate_value, global_step,decay_step):
         """
         Decay the learning rate by the predefined decay rate
         """
-        if self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step) > param.minimumLearningRate:
-            self.learning_rate_value = self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step)
+        if learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step) > param.minimumLearningRate:
+            self.learning_rate_value = learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step)
             return self.learning_rate_value
         else:
             self.learning_rate_value=para.minimumLearningRate
