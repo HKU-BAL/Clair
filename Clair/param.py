@@ -18,6 +18,7 @@ maximumLearningRate= 1e-3
 learningRateDecay =1.08
 maxLearningRateSwitch = 6
 trainingDatasetPercentage = 0.9
+decayStep=200000
 
 # Clair specific
 l2RegularizationLambda = 0.005
