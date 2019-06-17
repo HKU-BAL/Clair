@@ -1075,12 +1075,12 @@ class Clair(object):
         """
         Decay the learning rate by the predefined decay rate
         """
-        if self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step) > param.minimumLearningRate:
+        if self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step) <= param.maximumLearningRate:
             self.learning_rate_value = self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step)
             global_step+=1
             return self.learning_rate_value,global_step
         else:
-            self.learning_rate_value=param.minimumLearningRate
+            self.learning_rate_value=param.initialLearningRate
             global_step=0
             return self.learning_rate_value,global_step
 
