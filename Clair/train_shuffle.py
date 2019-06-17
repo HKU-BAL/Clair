@@ -279,6 +279,7 @@ def train_model(m, training_config):
         data_index = 0
         x_batch = None
         y_batch = None
+        global_step=0
 
         base_change_loss_sum = 0
         genotype_loss_sum = 0
