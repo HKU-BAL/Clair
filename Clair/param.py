@@ -15,7 +15,7 @@ trainBatchSize = 5000
 predictBatchSize = 10000
 initialLearningRate = 0.001
 minimumLearningRate= 1e-7
-learningRateDecay = 0.95
+learningRateDecay = 0.995
 maxLearningRateSwitch = 6
 trainingDatasetPercentage = 0.9
 

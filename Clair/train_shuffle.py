@@ -139,8 +139,8 @@ def train_model(m, training_config):
     no_of_validation_examples = dataset_size - validation_data_start_index
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
-    decay_step=int(no_of_training_examples/param.trainBatchSize)
-    #decay_step=int(total_number_of_batch*np.log(param.learningRateDecay)/np.log(param.minimumLearningRate/param.initialLearningRate))
+    total_number_of_batch=int(no_of_training_examples/param.trainBatchSize)
+    decay_step=int(total_number_of_batch*np.log(param.learningRateDecay)/np.log(param.minimumLearningRate/param.initialLearningRate))
 
     # Initialize variables
     epoch_count = 1
