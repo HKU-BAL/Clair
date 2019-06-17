@@ -1080,8 +1080,8 @@ class Clair(object):
             global_step+=1
             return self.learning_rate_value,global_step
         else:
-            self.learning_rate_value=param.maximumLearningRate
-            global_step +=1
+            self.learning_rate_value=param.initialLearningRate
+            global_step =0
             return self.learning_rate_value,global_step
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
