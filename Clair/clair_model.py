@@ -1071,7 +1071,7 @@ class Clair(object):
         self.learning_rate_value = learning_rate
         return self.learning_rate_value
 
-    def decay_learning_rate(self, global_step):
+    def decay_learning_rate(self, global_step,step_size):
         """
         Decay the learning rate by the predefined decay rate
         """

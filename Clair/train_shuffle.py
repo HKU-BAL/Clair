@@ -214,7 +214,7 @@ def train_model(m, training_config):
             x_batch = next_x_batch
             y_batch = next_y_batch
             logging.info("[INFO] learning rate: %g, global_step: %d" % (learning_rate, global_step))
-            learning_rate,global_step=m.decay_learning_rate(global_step)
+            learning_rate,global_step=m.decay_learning_rate(global_step,step_size)
             continue
 
         logging.info(
@@ -282,7 +282,7 @@ def train_model(m, training_config):
         x_batch = None
         y_batch = None
         global_step+=1
-        learning_rate=n.decay_learning_rate(global_step)
+        learning_rate=n.decay_learning_rate(global_step,step_size)
 
         base_change_loss_sum = 0
         genotype_loss_sum = 0
