@@ -200,7 +200,6 @@ def train_model(m, training_config):
                 summary_writer.add_summary(summary, epoch_count)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
-
             base_change_loss_sum += m.base_change_loss
             genotype_loss_sum += m.genotype_loss
             indel_length_loss_sum_1 += m.indel_length_loss_1
@@ -281,8 +280,7 @@ def train_model(m, training_config):
         data_index = 0
         x_batch = None
         y_batch = None
-        global_step+=1
-        learning_rate=n.decay_learning_rate(global_step,step_size)
+        learning_rate,global_step=m.decay_learning_rate(global_step,step_size)
 
         base_change_loss_sum = 0
         genotype_loss_sum = 0
