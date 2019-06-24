@@ -139,7 +139,9 @@ def train_model(m, training_config):
     no_of_validation_examples = dataset_size - validation_data_start_index
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
-    decay_step=param.decayStep
+    total_numbers_of_iterations=int(no_of_training_examples/param.trainBatchSize)
+    step_size=2*total_numbers_of_iterations
+    #decay_step=param.decayStep
 
     # Initialize variables
     epoch_count = 1
@@ -212,7 +214,7 @@ def train_model(m, training_config):
             x_batch = next_x_batch
             y_batch = next_y_batch
             logging.info("[INFO] learning rate: %g, global_step: %d" % (learning_rate, global_step))
-            learning_rate,global_step=m.decay_learning_rate(global_step,decay_step)
+            learning_rate,global_step=m.decay_learning_rate(global_step)
             continue
 
         logging.info(
@@ -269,18 +271,18 @@ def train_model(m, training_config):
 
         # variables update per epoch
         learningrate = pd.DataFrame(lr)
-        learningrate.to_csv('learning_rate{}.txt'.format(epoch_count),index=False,sep=',')
+        learningrate.to_csv('learning_rate.txt',index=False,sep=',')
         logging.info("[INFO] Record of the learning rates is stored.")
         epoch_count += 1
 
         epoch_start_time = time.time()
-        #learning_rate=param.initialLearningRate
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
         x_batch = None
         y_batch = None
-        #global_step=0
+        global_step+=1
+        learning_rate=n.decay_learning_rate(global_step)
 
         base_change_loss_sum = 0
         genotype_loss_sum = 0
