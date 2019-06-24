@@ -139,9 +139,9 @@ def train_model(m, training_config):
     no_of_validation_examples = dataset_size - validation_data_start_index
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
-    total_numbers_of_iterations=int(no_of_training_examples/param.trainBatchSize)
-    step_size=2*total_numbers_of_iterations
-    #decay_step=param.decayStep
+    #total_numbers_of_iterations=int(no_of_training_examples/param.trainBatchSize)
+    #step_size=2*total_numbers_of_iterations
+    decay_step=param.decayStep
 
     # Initialize variables
     epoch_count = 1
@@ -213,7 +213,7 @@ def train_model(m, training_config):
             x_batch = next_x_batch
             y_batch = next_y_batch
             logging.info("[INFO] learning rate: %g, global_step: %d" % (learning_rate, global_step))
-            learning_rate,global_step=m.decay_learning_rate(global_step,step_size)
+            learning_rate,global_step=m.decay_learning_rate(global_step,decay_step)
             continue
 
         logging.info(
@@ -280,7 +280,7 @@ def train_model(m, training_config):
         data_index = 0
         x_batch = None
         y_batch = None
-        learning_rate,global_step=m.decay_learning_rate(global_step,step_size)
+        learning_rate,global_step=m.decay_learning_rate(global_step,decay_step)
 
         base_change_loss_sum = 0
         genotype_loss_sum = 0
