@@ -155,7 +155,7 @@ def train_model(m, training_config):
     #no_of_epochs_with_current_learning_rate = 0  # Variables for learning rate decay
     x_batch = None
     y_batch = None
-    global_step=0
+    global_step=1
 
     base_change_loss_sum = 0
     genotype_loss_sum = 0
