@@ -140,7 +140,7 @@ def train_model(m, training_config):
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
     total_numbers_of_iterations=int(no_of_training_examples/param.trainBatchSize)
-    step_size=8*total_numbers_of_iterations
+    step_size=2*total_numbers_of_iterations
     decay_step=param.decayStep
 
     # Initialize variables
