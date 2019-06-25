@@ -1,5 +1,5 @@
 NUM_THREADS = 12
-maxEpoch = 10000
+maxEpoch = 40
 parameterOutputPlaceHolder = 6
 
 # Tensor related parameters, please use the same values for creating tensor, model training and variant calling
@@ -19,6 +19,7 @@ learningRateDecay =1.08
 maxLearningRateSwitch = 6
 trainingDatasetPercentage = 0.9
 decayStep=1
+stepsizeConstant=2
 
 # Clair specific
 l2RegularizationLambda = 0.005
