@@ -13,7 +13,7 @@ bloscBlockSize = 500
 # Model hyperparameters
 trainBatchSize = 5000
 predictBatchSize = 10000
-initialLearningRate = 1e-7
+initialLearningRate = 1e-10
 maximumLearningRate= 3e-3
 learningRateDecay =1.08
 maxLearningRateSwitch = 6

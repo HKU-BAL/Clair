@@ -1071,11 +1071,11 @@ class Clair(object):
         self.learning_rate_value = learning_rate
         return self.learning_rate_value
 
-    def decay_learning_rate(self, global_step,decay_step):
+    def decay_learning_rate(self, global_step,step_size):
         """
         Decay the learning rate by the predefined decay rate
         """
-
+        """
         if self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step) <= param.maximumLearningRate:
             self.learning_rate_value = self.learning_rate_value*self.learning_rate_decay_rate**(global_step/decay_step)
             global_step+=1
@@ -1092,7 +1092,7 @@ class Clair(object):
         else:
             global_step=0
         return self.learning_rate_value,global_step
-        """
+
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
         """
