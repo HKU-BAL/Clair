@@ -242,11 +242,12 @@ def train_model(m, training_config):
 
         # Adaptive learning rate decay
         # Early stop
+        """
         if is_validation_losses_keep_increasing(validation_losses):
             learningrate = pd.DataFrame(lr)
             learningrate.to_csv('learning_rate{}.txt'.format(epoch_count), index=False, sep=',')
             break
-        """no_of_epochs_with_current_learning_rate += 1
+       no_of_epochs_with_current_learning_rate += 1
 
         need_learning_rate_update = (
            (
