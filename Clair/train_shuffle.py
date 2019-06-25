@@ -139,9 +139,6 @@ def train_model(m, training_config):
     no_of_validation_examples = dataset_size - validation_data_start_index
     #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
-    total_numbers_of_iterations=int(no_of_training_examples/param.trainBatchSize)
-    step_size=param.stepsizeConstant*total_numbers_of_iterations
-    logging.info("[INFO] step_size: %d" % (step_size))
     decay_step=param.decayStep
 
     # Initialize variables
@@ -185,6 +182,10 @@ def train_model(m, training_config):
             dataset_info=dataset_info,
             tensor_block_index_list=tensor_block_index_list,
         )
+
+        total_numbers_of_iterations = int(no_of_training_examples / batch_size)
+        step_size = param.stepsizeConstant * total_numbers_of_iterations
+        logging.info("[INFO'] step_size: %d" % (step_size))
 
         # wait until loaded next mini batch & finished training/validation with current mini batch
         for t in thread_pool:
