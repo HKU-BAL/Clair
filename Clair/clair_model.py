@@ -1086,7 +1086,11 @@ class Clair(object):
         """
         cycle = np.floor(1 + global_step / (2 * step_size))
         x = np.abs(global_step / decay_step - 2 * cycle + 1)/step_size
-        self.learning_rate_value = param.initialLearningRate + (param.maximumLearningRate - param.initialLearningRate) * np.maximum(0, x)
+        if x<= 1:
+            self.learning_rate_value = param.initialLearningRate + (param.maximumLearningRate - param.initialLearningRate) * np.maximum(0, x)
+        else:
+            self.learning_rate_value = param.initialLearningRate + (
+                        param.maximumLearningRate - param.initialLearningRate) * np.maximum(0, (1-(x-1)))
         if cycle != 2:
             global_step+=1
         else:
