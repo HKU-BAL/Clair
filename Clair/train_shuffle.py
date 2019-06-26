@@ -272,7 +272,7 @@ def train_model(m, training_config):
         ))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
-    return training_losses, validation_losses, learningrate
+    return training_losses, validation_losses
 
 
 if __name__ == "__main__":
