@@ -121,7 +121,8 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
-    lr={'learning_rate':[],'training_loss':[]}
+    lr_training_loss={'learning_rate':[],'training_loss':[]}
+    lr_validation_loss={'learning_rate':[],'validation_loss':[]}
 
     if model_initalization_file_path != None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
@@ -137,9 +138,8 @@ def train_model(m, training_config):
     no_of_training_examples = int(dataset_size*param.trainingDatasetPercentage)
     validation_data_start_index = no_of_training_examples + 1
     no_of_validation_examples = dataset_size - validation_data_start_index
-    #learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
-    total_numbers_of_iterations = int(no_of_training_examples / param.trainBatchSize)
+    total_numbers_of_iterations = int(no_of_training_examples / param.trainBatchSize/2)+int(no_of_validation_examples/param.predictBatchSize/2)
     step_size = param.stepsizeConstant * total_numbers_of_iterations
     decay_step=param.decayStep
 
@@ -152,7 +152,6 @@ def train_model(m, training_config):
     training_loss_sum = 0
     validation_loss_sum = 0
     data_index = 0
-    #no_of_epochs_with_current_learning_rate = 0  # Variables for learning rate decay
     x_batch = None
     y_batch = None
     global_step=1
@@ -194,13 +193,15 @@ def train_model(m, training_config):
         # add training loss or validation loss
         if is_with_batch_data and is_training:
             training_loss_sum += m.trainLossRTVal
-            lr['training_loss'].append(m.trainLossRTVal)
-            lr['learning_rate'].append(learning_rate)
+            lr_training_loss['training_loss'].append(m.trainLossRTVal)
+            lr_training_loss['learning_rate'].append(learning_rate)
             if summary_writer != None:
                 summary = m.trainSummaryRTVal
                 summary_writer.add_summary(summary, epoch_count)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
+            lr_validation_loss['validation_loss'].append(m.getLossLossRTVal)
+            lr_validation_loss['learning_rate'].append(learning_rate)
             base_change_loss_sum += m.base_change_loss
             genotype_loss_sum += m.genotype_loss
             indel_length_loss_sum_1 += m.indel_length_loss_1
@@ -240,39 +241,13 @@ def train_model(m, training_config):
             parameter_output_path = "%s-%%0%dd" % (output_file_path_prefix, param.parameterOutputPlaceHolder)
             m.save_parameters(os.path.abspath(parameter_output_path % epoch_count))
 
-        # Adaptive learning rate decay
-        # Early stop
-        """
-        if is_validation_losses_keep_increasing(validation_losses):
-            learningrate = pd.DataFrame(lr)
-            learningrate.to_csv('learning_rate{}.txt'.format(epoch_count), index=False, sep=',')
-            break
-       no_of_epochs_with_current_learning_rate += 1
-
-        need_learning_rate_update = (
-           (
-                no_of_epochs_with_current_learning_rate >= 6 and
-                not is_last_five_epoch_approaches_minimum(validation_losses) and
-                is_validation_loss_goes_up_and_down(validation_losses)
-            ) or
-            (
-                no_of_epochs_with_current_learning_rate >= 8 and
-                is_validation_losses_keep_increasing(validation_losses)
-            )
-        )
-
-        if need_learning_rate_update:
-            learning_rate_switch_count -= 1
-            if learning_rate_switch_count == 0:
-                break
-            logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate(no_of_training_examples))
-            logging.info("[INFO] New L2 regularization lambda: %.2e" % m.decay_l2_regularization_lambda())
-            no_of_epochs_with_current_learning_rate = 0"""
-
         # variables update per epoch
         if epoch_count % (2*param.stepsizeConstant) ==0:
-            learningrate = pd.DataFrame(lr)
-            learningrate.to_csv('learning_rate_cycle{}.txt'.format(epoch_count/(2*param.stepsizeConstant)),index=False,sep=',')
+            learningrate_training_loss = pd.DataFrame(lr_training_loss)
+            learningrate_training_loss.to_csv('learning_rate_train_cycle{}.txt'.format(epoch_count/(2*param.stepsizeConstant)),index=False,sep=',')
+            learningrate_validation_loss = pd.DataFrame(lr_validation_loss)
+            learningrate_validation_loss.to_csv(
+                'learning_rate_valid_cycle{}.txt'.format(epoch_count / (2 * param.stepsizeConstant)), index=False, sep=',')
         epoch_count += 1
 
         epoch_start_time = time.time()
@@ -366,14 +341,12 @@ if __name__ == "__main__":
         summary_writer=m.get_summary_file_writer(args.olog_dir) if args.olog_dir != None else None,
     )
 
-    _training_losses, validation_losses,learning_rates = train_model(m, training_config)
+    _training_losses, validation_losses = train_model(m, training_config)
 
     # show the parameter set with the smallest validation loss
     validation_losses.sort()
     best_validation_epoch = validation_losses[0][1]
-    best_learning_rate=learning_rates[learning_rates['validation_loss']==learning_rates['validation_loss'].min()]['learning rate'].item()
     logging.info("[INFO] Best validation loss at epoch: %d" % best_validation_epoch)
-    logging.info("[INFO] Best learning rate: %g" % (best_learning_rate))
 
     # load best validation model and evaluate it
     model_file_path = "%s-%%0%dd" % (training_config["output_file_path_prefix"], param.parameterOutputPlaceHolder)
