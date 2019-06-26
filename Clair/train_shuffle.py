@@ -139,7 +139,7 @@ def train_model(m, training_config):
     validation_data_start_index = no_of_training_examples + 1
     no_of_validation_examples = dataset_size - validation_data_start_index
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
-    total_numbers_of_iterations = int(no_of_training_examples / param.trainBatchSize/2)+int(no_of_validation_examples/param.predictBatchSize/2)
+    total_numbers_of_iterations = np.ceil(no_of_training_examples / param.trainBatchSize/2)+np.ceil(no_of_validation_examples/param.predictBatchSize/2)+1
     step_size = param.stepsizeConstant * total_numbers_of_iterations
     decay_step=param.decayStep
 
