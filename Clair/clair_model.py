@@ -1071,7 +1071,7 @@ class Clair(object):
         self.learning_rate_value = learning_rate
         return self.learning_rate_value
 
-    def decay_learning_rate(self, global_step,step_size,decay_step):
+    def decay_learning_rate(self, global_step,step_size):
         """
         Decay the learning rate by the predefined decay rate
         """
@@ -1084,17 +1084,17 @@ class Clair(object):
             global_step =0
         return self.learning_rate_value,global_step
         """
-        cycle = np.floor(1 + global_step / (2 * step_size))
-        x = np.abs(global_step / decay_step - 2 * cycle + 1)/step_size
-        if x<= 1:
+        global_step+=1
+        cycle = 1 + global_step / (2 * step_size)
+        x = global_step/step_size
+        if cycle >2:
+            global_step=1
+        if x<= 1/2:
             self.learning_rate_value = param.initialLearningRate + (param.maximumLearningRate - param.initialLearningRate) * np.maximum(0, x)
         else:
             self.learning_rate_value = param.initialLearningRate + (
-                        param.maximumLearningRate - param.initialLearningRate) * np.maximum(0, (1-(x-1)))
-        if cycle != 2:
-            global_step+=1
-        else:
-            global_step=1
+                        param.maximumLearningRate - param.initialLearningRate) * np.maximum(0, (1-x))
+
         return self.learning_rate_value,global_step
 
 
