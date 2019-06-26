@@ -142,7 +142,6 @@ def train_model(m, training_config):
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
     total_numbers_of_iterations = np.ceil(no_of_training_examples / param.trainBatchSize+1)+np.ceil(no_of_validation_examples/param.predictBatchSize+1)
     step_size = param.stepsizeConstant * total_numbers_of_iterations
-    logging.info("[INFO] iterations: %d, step_size: %d" %(total_numbers_of_iterations,step_size))
 
     # Initialize variables
     epoch_count = 1
