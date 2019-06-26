@@ -111,6 +111,7 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
 
 def train_model(m, training_config):
     learning_rate = training_config["learning_rate"]
+    max_learning_rate=param.maximumLearningRate
     l2_regularization_lambda = training_config["l2_regularization_lambda"]
     output_file_path_prefix = training_config["output_file_path_prefix"]
     summary_writer = training_config["summary_writer"]
@@ -215,7 +216,7 @@ def train_model(m, training_config):
             x_batch = next_x_batch
             y_batch = next_y_batch
             logging.info("[INFO] learning rate: %g, global_step: %d" % (learning_rate, global_step))
-            learning_rate,global_step=m.decay_learning_rate(global_step,step_size)
+            learning_rate,global_step,max_learning_rate=m.decay_learning_rate(global_step,step_size,max_learning_rate)
             continue
 
         logging.info(
