@@ -163,7 +163,7 @@ def train_model(m, training_config):
     indel_length_loss_sum_2 = 0
     l2_loss_sum = 0
 
-    while epoch_count < param.maxEpoch:
+    while epoch_count <= param.maxEpoch:
         is_training = data_index < validation_data_start_index
         is_validation = data_index >= validation_data_start_index
         is_with_batch_data = x_batch is not None and y_batch is not None
@@ -215,8 +215,7 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            logging.info("[INFO] learning rate: %g, global_step: %d" % (learning_rate, global_step))
-            learning_rate,global_step,max_learning_rate=m.decay_learning_rate(global_step,step_size,max_learning_rate)
+            learning_rate,global_step,max_learning_rate=m.decay_learning_rate(global_step,step_size,max_learning_rate,"tri")
             continue
 
         logging.info(
@@ -244,11 +243,9 @@ def train_model(m, training_config):
 
         # variables update per epoch
         if epoch_count % (2*param.stepsizeConstant) ==0:
-            learningrate_training_loss = pd.DataFrame(lr_training_loss)
-            learningrate_training_loss.to_csv('learning_rate_train_cycle{}.txt'.format(epoch_count/(2*param.stepsizeConstant)),index=False,sep=',')
             learningrate_validation_loss = pd.DataFrame(lr_validation_loss)
-            learningrate_validation_loss.to_csv(
-                'learning_rate_valid_cycle{}.txt'.format(epoch_count / (2 * param.stepsizeConstant)), index=False, sep=',')
+            learningrate_validation_loss.to_csv('learning_rate_valid_cycle{}.txt'.format(epoch_count / (2 * param.stepsizeConstant)), index=False, sep=',')
+            lr_validation_loss = {'learning_rate': [], 'validation_loss': []}
         epoch_count += 1
 
         epoch_start_time = time.time()
@@ -272,6 +269,8 @@ def train_model(m, training_config):
         ))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
+    learningrate_training_loss = pd.DataFrame(lr_training_loss)
+    learningrate_training_loss.to_csv('learning_rate_train.txt', index=False, sep=',')
     return training_losses, validation_losses
 
 

@@ -1,5 +1,5 @@
 NUM_THREADS = 12
-maxEpoch = 10
+maxEpoch = 30
 parameterOutputPlaceHolder = 6
 
 # Tensor related parameters, please use the same values for creating tensor, model training and variant calling
@@ -18,7 +18,6 @@ maximumLearningRate= 3e-3
 learningRateDecay =1.08
 maxLearningRateSwitch = 6
 trainingDatasetPercentage = 0.9
-decayStep=1
 stepsizeConstant=1
 clrGamma=0.99994
 
