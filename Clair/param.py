@@ -20,6 +20,7 @@ maxLearningRateSwitch = 6
 trainingDatasetPercentage = 0.9
 decayStep=1
 stepsizeConstant=1
+clrGamma=0.99994
 
 # Clair specific
 l2RegularizationLambda = 0.005

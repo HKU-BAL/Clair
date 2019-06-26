@@ -1088,7 +1088,7 @@ class Clair(object):
         cycle = 1 + global_step / (2 * step_size)
         if cycle > 2:
             global_step = 0
-            max_lr=max_lr/2
+            max_lr=max_lr*param.clrGamma**(1)
         x = global_step / step_size
         if x<= 1:
             self.learning_rate_value = param.initialLearningRate + (max_lr - param.initialLearningRate) * np.maximum(0, x)
