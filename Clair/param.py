@@ -19,7 +19,7 @@ learningRateDecay =1.08
 maxLearningRateSwitch = 6
 trainingDatasetPercentage = 0.9
 stepsizeConstant=1
-clrGamma=0.99994
+clrGamma=0.95
 momentum=0.9
 
 # Clair specific
