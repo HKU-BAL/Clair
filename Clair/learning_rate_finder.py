@@ -32,6 +32,15 @@ def lr_finder(lr_loss):
     maximum_lr = df[df['diff'] == max(df['diff'])]['lr'].item()
     return minimum_lr, maximum_lr, df
 
+def shuffle_first_n_items(array, n):
+    if len(array) <= n:
+        np.random.shuffle(array)
+        return array
+    # pylint: disable=unbalanced-tuple-unpacking
+    a1, a2 = np.split(array, [n])
+    np.random.shuffle(a1)
+    return np.append(a1, a2)
+
 def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list):
     dataset_size = dataset_info["dataset_size"]
     x_array_compressed = dataset_info["x_array_compressed"]
@@ -95,6 +104,7 @@ def train_model(m, training_config):
     no_of_training_examples = int(dataset_size*param.trainingDatasetPercentage)
     validation_data_start_index = no_of_training_examples + 1
     no_of_validation_examples = dataset_size - validation_data_start_index
+    validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
     total_numbers_of_iterations = np.ceil(no_of_training_examples / param.trainBatchSize+1)
 
     # Initialize variables
@@ -196,7 +206,7 @@ def train_model(m, training_config):
         minimum_lr,maximum_lr,df=lr_finder(lr_loss)
         df.to_csv("lr_finder.txt" ,sep=',', index=False)
         logging.info("[INFO] the suggested min_lr: %g, the suggested max_lr: %g" %(minimum_lr,maximum_lr))
-      
+
         epoch_start_time = time.time()
         training_loss_sum = 0
         validation_loss_sum = 0
@@ -209,6 +219,12 @@ def train_model(m, training_config):
         indel_length_loss_sum_1 = 0
         indel_length_loss_sum_2 = 0
         l2_loss_sum = 0
+
+        # shuffle data on each epoch
+        tensor_block_index_list = shuffle_first_n_items(tensor_block_index_list, validation_start_block)
+        logging.info("[INFO] Shuffled: " + ' '.join(
+            [str(x) for x in np.append(tensor_block_index_list[:5], tensor_block_index_list[-5:])]
+        ))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
     return training_losses, validation_losses
