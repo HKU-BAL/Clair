@@ -189,6 +189,7 @@ def train_model(m, training_config):
             m.save_parameters(os.path.abspath(parameter_output_path % epoch_count))
 
         # End of the epoch
+        epoch_count+=1
         minimum_lr,maximum_lr=lr_finder(lr_loss)
         logging.info("[INFO] the suggested min_lr: %g, the suggested max_lr: %g" %(minimum_lr,maximum_lr))
 
