@@ -17,8 +17,11 @@ import evaluate
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 def increase_learning_rate(global_step, iterations):
+    growth_rate=np.exp(np.log(param.max_lr/param.min_lr)/iterations)
     global_step += 1
-    lr = param.min_lr * (param.max_lr/param.min_lr) ** (global_step /iterations)
+    if global_step > iterations:
+        global_step=0
+    lr = param.min_lr * growth_rate ** global_step
     return lr, global_step
 
 def lr_finder(lr_loss):
@@ -113,7 +116,7 @@ def train_model(m, training_config):
     indel_length_loss_sum_2 = 0
     l2_loss_sum = 0
 
-    while epoch_count <= 1:
+    while epoch_count <= param.lr_finder_max_epoch:
         is_training = data_index < validation_data_start_index
         is_validation = data_index >= validation_data_start_index
         is_with_batch_data = x_batch is not None and y_batch is not None
@@ -193,6 +196,19 @@ def train_model(m, training_config):
         minimum_lr,maximum_lr,df=lr_finder(lr_loss)
         df.to_csv("lr_finder.txt" ,sep=',', index=False)
         logging.info("[INFO] the suggested min_lr: %g, the suggested max_lr: %g" %(minimum_lr,maximum_lr))
+      
+        epoch_start_time = time.time()
+        training_loss_sum = 0
+        validation_loss_sum = 0
+        data_index = 0
+        x_batch = None
+        y_batch = None
+
+        base_change_loss_sum = 0
+        genotype_loss_sum = 0
+        indel_length_loss_sum_1 = 0
+        indel_length_loss_sum_2 = 0
+        l2_loss_sum = 0
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
     return training_losses, validation_losses
