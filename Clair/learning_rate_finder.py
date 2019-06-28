@@ -32,6 +32,56 @@ def lr_finder(lr_loss):
     maximum_lr = df[df['diff'] == max(df['diff'])]['lr'].item()
     return minimum_lr, maximum_lr, df
 
+logging.basicConfig(format='%(message)s', level=logging.INFO)
+
+
+def is_validation_loss_goes_up_and_down(validation_losses):
+    if len(validation_losses) <= 6:
+        return False
+
+    return (
+        validation_losses[-6][0] > validation_losses[-5][0] and
+        validation_losses[-5][0] < validation_losses[-4][0] and
+        validation_losses[-4][0] > validation_losses[-3][0] and
+        validation_losses[-3][0] < validation_losses[-2][0] and
+        validation_losses[-2][0] > validation_losses[-1][0]
+    ) or (
+        validation_losses[-6][0] < validation_losses[-5][0] and
+        validation_losses[-5][0] > validation_losses[-4][0] and
+        validation_losses[-4][0] < validation_losses[-3][0] and
+        validation_losses[-3][0] > validation_losses[-2][0] and
+        validation_losses[-2][0] < validation_losses[-1][0]
+    )
+
+
+def is_last_five_epoch_approaches_minimum(validation_losses):
+    if len(validation_losses) <= 5:
+        return True
+
+    minimum_validation_loss = min(np.asarray(validation_losses)[:, 0])
+    return (
+        validation_losses[-5][0] == minimum_validation_loss or
+        validation_losses[-4][0] == minimum_validation_loss or
+        validation_losses[-3][0] == minimum_validation_loss or
+        validation_losses[-2][0] == minimum_validation_loss or
+        validation_losses[-1][0] == minimum_validation_loss
+    )
+
+
+def is_validation_losses_keep_increasing(validation_losses):
+    if len(validation_losses) <= 6:
+        return False
+
+    minimum_validation_loss = min(np.asarray(validation_losses)[:, 0])
+    return (
+        validation_losses[-5][0] > minimum_validation_loss and
+        validation_losses[-4][0] > minimum_validation_loss and
+        validation_losses[-3][0] > minimum_validation_loss and
+        validation_losses[-2][0] > minimum_validation_loss and
+        validation_losses[-1][0] > minimum_validation_loss
+    )
+
+
 def shuffle_first_n_items(array, n):
     if len(array) <= n:
         np.random.shuffle(array)
@@ -40,6 +90,7 @@ def shuffle_first_n_items(array, n):
     a1, a2 = np.split(array, [n])
     np.random.shuffle(a1)
     return np.append(a1, a2)
+
 
 def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list):
     dataset_size = dataset_info["dataset_size"]
@@ -126,7 +177,7 @@ def train_model(m, training_config):
     indel_length_loss_sum_2 = 0
     l2_loss_sum = 0
 
-    while epoch_count <= param.lr_finder_max_epoch:
+    while epoch_count <= lr_finder_max_epoch:
         is_training = data_index < validation_data_start_index
         is_validation = data_index >= validation_data_start_index
         is_with_batch_data = x_batch is not None and y_batch is not None
@@ -201,11 +252,11 @@ def train_model(m, training_config):
             parameter_output_path = "%s-%%0%dd" % (output_file_path_prefix, param.parameterOutputPlaceHolder)
             m.save_parameters(os.path.abspath(parameter_output_path % epoch_count))
 
-        # End of the epoch
-        epoch_count+=1
+        # variables update per epoch
+        epoch_count += 1
         minimum_lr,maximum_lr,df=lr_finder(lr_loss)
-        df.to_csv("lr_finder.txt" ,sep=',', index=False)
-        logging.info("[INFO] the suggested min_lr: %g, the suggested max_lr: %g" %(minimum_lr,maximum_lr))
+        logging.info("[INFO] min_lr: %g, max_lr: %g" %(minimum_lr,maximum_lr))
+        df.to_csv("lr_finder.txt",sep=',',index=False)
 
         epoch_start_time = time.time()
         training_loss_sum = 0
@@ -219,6 +270,7 @@ def train_model(m, training_config):
         indel_length_loss_sum_1 = 0
         indel_length_loss_sum_2 = 0
         l2_loss_sum = 0
+
 
         # shuffle data on each epoch
         tensor_block_index_list = shuffle_first_n_items(tensor_block_index_list, validation_start_block)
@@ -298,3 +350,14 @@ if __name__ == "__main__":
     )
 
     _training_losses, validation_losses = train_model(m, training_config)
+
+    # show the parameter set with the smallest validation loss
+    validation_losses.sort()
+    best_validation_epoch = validation_losses[0][1]
+    logging.info("[INFO] Best validation loss at epoch: %d" % best_validation_epoch)
+
+    # load best validation model and evaluate it
+    model_file_path = "%s-%%0%dd" % (training_config["output_file_path_prefix"], param.parameterOutputPlaceHolder)
+    best_validation_model_file_path = model_file_path % best_validation_epoch
+    m.restore_parameters(os.path.abspath(best_validation_model_file_path))
+    evaluate.evaluate_model(m, dataset_info)

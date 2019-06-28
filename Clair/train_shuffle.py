@@ -17,20 +17,6 @@ import evaluate
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 
-def is_last_five_epoch_approaches_minimum(validation_losses):
-    if len(validation_losses) <= 5:
-        return True
-
-    minimum_validation_loss = min(np.asarray(validation_losses)[:, 0])
-    return (
-        validation_losses[-5][0] == minimum_validation_loss or
-        validation_losses[-4][0] == minimum_validation_loss or
-        validation_losses[-3][0] == minimum_validation_loss or
-        validation_losses[-2][0] == minimum_validation_loss or
-        validation_losses[-1][0] == minimum_validation_loss
-    )
-
-
 def is_validation_loss_goes_up_and_down(validation_losses):
     if len(validation_losses) <= 6:
         return False
@@ -47,6 +33,20 @@ def is_validation_loss_goes_up_and_down(validation_losses):
         validation_losses[-4][0] < validation_losses[-3][0] and
         validation_losses[-3][0] > validation_losses[-2][0] and
         validation_losses[-2][0] < validation_losses[-1][0]
+    )
+
+
+def is_last_five_epoch_approaches_minimum(validation_losses):
+    if len(validation_losses) <= 5:
+        return True
+
+    minimum_validation_loss = min(np.asarray(validation_losses)[:, 0])
+    return (
+        validation_losses[-5][0] == minimum_validation_loss or
+        validation_losses[-4][0] == minimum_validation_loss or
+        validation_losses[-3][0] == minimum_validation_loss or
+        validation_losses[-2][0] == minimum_validation_loss or
+        validation_losses[-1][0] == minimum_validation_loss
     )
 
 
