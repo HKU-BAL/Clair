@@ -92,7 +92,7 @@ def train_model(m, training_config):
     no_of_training_examples = int(dataset_size*param.trainingDatasetPercentage)
     validation_data_start_index = no_of_training_examples + 1
     no_of_validation_examples = dataset_size - validation_data_start_index
-    total_numbers_of_iterations = np.ceil(no_of_training_examples / param.trainBatchSize+1)+np.ceil(no_of_validation_examples/param.predictBatchSize+1)
+    total_numbers_of_iterations = np.ceil(no_of_training_examples / param.trainBatchSize+1)
 
     # Initialize variables
     epoch_count = 1
