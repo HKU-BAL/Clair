@@ -27,7 +27,7 @@ def lr_finder(lr_loss):
     df = df.dropna()
     minimum_lr = df[df['diff'] == min(df['diff'])]['lr'].item()
     maximum_lr = df[df['diff'] == max(df['diff'])]['lr'].item()
-    return minimum_lr, maximum_lr
+    return minimum_lr, maximum_lr, df
 
 def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list):
     dataset_size = dataset_info["dataset_size"]
@@ -190,7 +190,8 @@ def train_model(m, training_config):
 
         # End of the epoch
         epoch_count+=1
-        minimum_lr,maximum_lr=lr_finder(lr_loss)
+        minimum_lr,maximum_lr,df=lr_finder(lr_loss)
+        df.to_csv("lr_finder.txt" ,sep=',', index=False)
         logging.info("[INFO] the suggested min_lr: %g, the suggested max_lr: %g" %(minimum_lr,maximum_lr))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
@@ -265,14 +266,3 @@ if __name__ == "__main__":
     )
 
     _training_losses, validation_losses = train_model(m, training_config)
-
-    # show the parameter set with the smallest validation loss
-    validation_losses.sort()
-    best_validation_epoch = validation_losses[0][1]
-    logging.info("[INFO] Best validation loss at epoch: %d" % best_validation_epoch)
-
-    # load best validation model and evaluate it
-    model_file_path = "%s-%%0%dd" % (training_config["output_file_path_prefix"], param.parameterOutputPlaceHolder)
-    best_validation_model_file_path = model_file_path % best_validation_epoch
-    m.restore_parameters(os.path.abspath(best_validation_model_file_path))
-    evaluate.evaluate_model(m, dataset_info)
