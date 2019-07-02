@@ -177,7 +177,7 @@ def train_model(m, training_config):
     indel_length_loss_sum_2 = 0
     l2_loss_sum = 0
 
-    while epoch_count <= lr_finder_max_epoch:
+    while epoch_count <= param.lr_finder_max_epoch:
         is_training = data_index < validation_data_start_index
         is_validation = data_index >= validation_data_start_index
         is_with_batch_data = x_batch is not None and y_batch is not None
