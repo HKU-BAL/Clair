@@ -724,8 +724,9 @@ class Clair(object):
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
                     self.training_op = self.optimizer.apply_gradients(zip(gradients, variables))
             else:
-                self.training_op = tf.train.AdamOptimizer(
-                    learning_rate=self.learning_rate_placeholder
+                self.training_op = tf.train.MomentumOptimizer(
+                    learning_rate=self.learning_rate_placeholder,
+                    momentum=param.momentum
                 ).minimize(self.total_loss)
 
             self.init_op = tf.global_variables_initializer()
@@ -897,19 +898,27 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='train'))
 
-        loss, _, summary = self.session.run(
-            (self.loss, self.training_op, self.training_summary_op),
+        loss, _, summary, base, genotype, indel_length_1, indel_length_2 = self.session.run(
+            (self.loss, self.training_op, self.training_summary_op, self.Y),
             feed_dict=input_dictionary
         )
         # if result_caching:
         self.output_cache['training_loss'] = loss
         self.output_cache['training_summary'] = summary
+        self.output_cache['prediction_base'] = base
+        self.output_cache['prediction_genotype'] = genotype
+        self.output_cache['prediction_indel_length_1'] = indel_length_1
+        self.output_cache['prediction_indel_length_2'] = indel_length_2
 
         # Aliasing
         self.trainLossRTVal = loss
         self.trainSummaryRTVal = summary
+        self.predictBaseRTVal = self.output_cache['prediction_base']
+        self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
+        self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
+        self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
 
-        return loss, summary
+        return loss, summary, base, genotype, indel_length_1, indel_length_2
 
     def predict(self, batchX, result_caching=False):
         """
