@@ -16,6 +16,55 @@ import evaluate
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
+def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
+    samples=len(base)+len(genotype)+len(indel_length_1)+len(indel_length_2)
+    base_TP=0
+    genotype_TP=0
+    indel1_TP=0
+    indel2_TP=0
+
+    for base_change_prediction, base_change_label in zip(
+            base,
+            y_batch[:, BASE_CHANGE.y_start_index:BASE_CHANGE.y_end_index]
+    ):
+        true_label_index = np.argmax(base_change_label)
+        predict_label_index = np.argmax(base_change_prediction)
+        if true_label_index==predict_label_index:
+            base_TP+=1
+
+    for genotype_prediction, true_genotype_label in zip(
+            genotype,
+            y_batch[:, GENOTYPE.y_start_index:GENOTYPE.y_end_index]
+    ):
+        true_label_index=np.argmax(true_genotype_label)
+        predict_label_index=np.argmax(genotype_prediction)
+        if true_label_index==predict_label_index:
+            genotype_TP+=1
+
+    for indel_length_prediction_1, true_indel_length_label_1, indel_length_prediction_2, true_indel_length_label_2 in zip(
+            indel_length_1,
+            y_batch[:, VARIANT_LENGTH_1.y_start_index:VARIANT_LENGTH_1.y_end_index],
+            indel_length_2,
+            y_batch[:, VARIANT_LENGTH_2.y_start_index:VARIANT_LENGTH_2.y_end_index]
+    ):
+        true_label_index_1 = np.argmax(true_indel_length_label_1)
+        true_label_index_2 = np.argmax(true_indel_length_label_2)
+        predict_label_index_1 = np.argmax(indel_length_prediction_1)
+        predict_label_index_2 = np.argmax(indel_length_prediction_2)
+
+        if true_label_index_1 > true_label_index_2:
+            true_label_index_1, true_label_index_2 = true_label_index_2, true_label_index_1
+        if predict_label_index_1 > predict_label_index_2:
+            predict_label_index_1, predict_label_index_2 = predict_label_index_2, predict_label_index_1
+
+        if true_label_index_1==predict_label_index_1:
+            indel1_TP+=1
+        if true_label_index_2==predict_label_index_2:
+            indel2_TP+=1
+
+    acc=(base_TP+genotype_TP+indel1_TP+indel2_TP)/samples
+    return acc
+
 def increase_learning_rate(global_step, iterations):
     growth_rate=np.exp(np.log(param.max_lr/param.min_lr)/iterations)
     global_step += 1
@@ -24,12 +73,12 @@ def increase_learning_rate(global_step, iterations):
     lr = param.min_lr * growth_rate ** global_step
     return lr, global_step
 
-def lr_finder(lr_loss):
-    df = pd.DataFrame(lr_loss, columns=["lr", "loss"])
-    df['diff'] = df['loss'].diff()
+def lr_finder(lr_accuracy):
+    df = pd.DataFrame(lr_accuracy, columns=["lr", "accuracy"])
+    df['diff'] = df['accuracy'].diff()
     df = df.dropna()
-    minimum_lr = df[df['diff'] == min(df['diff'])]['lr'].item()
-    maximum_lr = df[df['diff'] == max(df['diff'])]['lr'].item()
+    minimum_lr = df[df['diff'] == max(df['diff'])]['lr'].item()
+    maximum_lr = df[df['diff'] == min(df['diff'])]['lr'].item()
     return minimum_lr, maximum_lr, df
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
@@ -139,7 +188,7 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
-    lr_loss=[]
+    lr_accuracy=[]
 
     if model_initalization_file_path != None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
@@ -185,7 +234,7 @@ def train_model(m, training_config):
         # threads for either train or validation
         thread_pool = []
         if is_with_batch_data and is_training:
-            thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch, True)))
+            thread_pool.append(Thread(target=m.lr_train, args=(x_batch, y_batch)))
         elif is_with_batch_data and is_validation:
             thread_pool.append(Thread(target=m.get_loss, args=(x_batch, y_batch, True)))
         for t in thread_pool:
@@ -207,11 +256,8 @@ def train_model(m, training_config):
 
         # add training loss or validation loss
         if is_with_batch_data and is_training:
-            training_loss_sum += m.trainLossRTVal
-            lr_loss.append((learning_rate,m.trainLossRTVal))
-            if summary_writer != None:
-                summary = m.trainSummaryRTVal
-                summary_writer.add_summary(summary, epoch_count)
+            batch_acc=accuracy(m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal, m.predictIndelLengthRTVal2, y_batch)
+            lr_accuracy.append((learning_rate,batch_acc))
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
             base_change_loss_sum += m.base_change_loss

@@ -871,6 +871,38 @@ class Clair(object):
         """
         self.session.close()
 
+    def lr_train(self, batchX, batchY):
+        transformed_batch_X, transformed_batch_Y = self.tensor_transform_function(batchX, batchY, "train")
+        input_dictionary = {
+            self.X_placeholder: transformed_batch_X,
+            self.Y_placeholder: transformed_batch_Y,
+            self.learning_rate_placeholder: self.learning_rate_value,
+            self.phase_placeholder: True,
+            self.regularization_L2_lambda_placeholder: self.l2_regularization_lambda_value,
+            self.task_loss_weights_placeholder: self.task_loss_weights,
+            self.output_base_change_entropy_weights_placeholder: self.output_base_change_entropy_weights,
+            self.output_genotype_entropy_weights_placeholder: self.output_genotype_entropy_weights,
+            self.output_indel_length_entropy_weights_placeholder_1: self.output_indel_length_entropy_weights_1,
+            self.output_indel_length_entropy_weights_placeholder_2: self.output_indel_length_entropy_weights_2,
+        }
+        input_dictionary.update(self.get_structure_dict(phase='train'))
+
+        base, genotype, indel_length_1, indel_length_2 = self.session.run(self.Y, feed_dict=input_dictionary)
+
+        self.output_cache['prediction_base'] = base
+        self.output_cache['prediction_genotype'] = genotype
+        self.output_cache['prediction_indel_length_1'] = indel_length_1
+        self.output_cache['prediction_indel_length_2'] = indel_length_2
+
+        # Aliasing
+        self.predictBaseRTVal = self.output_cache['prediction_base']
+        self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
+        self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
+        self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
+
+
+        return base, genotype, indel_length_1, indel_length_2
+
     def train(self, batchX, batchY,result_caching=False):
         """
         Train the model in batch with input tensor batchX and truth tensor batchY, caching the results in
