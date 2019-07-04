@@ -301,7 +301,7 @@ def train_model(m, training_config):
 
         # variables update per epoch
         epoch_count += 1
-        minimum_lr,maximum_lr,df=lr_finder(lr_loss)
+        minimum_lr,maximum_lr,df=lr_finder(lr_accuracy)
         logging.info("[INFO] min_lr: %g, max_lr: %g" %(minimum_lr,maximum_lr))
         df.to_csv("lr_finder.txt",sep=',',index=False)
 
