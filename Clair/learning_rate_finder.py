@@ -77,9 +77,9 @@ def increase_learning_rate(global_step, iterations):
 def lr_finder(lr_accuracy):
     df = pd.DataFrame(lr_accuracy, columns=["lr", "accuracy"])
     df['diff'] = df['accuracy'].diff()
-    df = df.dropna()
-    minimum_lr = df[df['diff'] == max(df['diff'])]['lr'].item()
-    maximum_lr = df[df['diff'] == min(df['diff'])]['lr'].item()
+    df = df.dropna().reset_index(drop=True)
+    minimum_lr = df[df['diff'] == max(df['diff'])]['lr'].sort_values(ascending=True)[0]
+    maximum_lr = df[df['diff'] == min(df['diff'])]['lr'].sort_values(ascending=False)[0]
     return minimum_lr, maximum_lr, df
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
