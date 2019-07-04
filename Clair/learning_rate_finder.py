@@ -13,6 +13,7 @@ import param
 import utils
 import clair_model as cv
 import evaluate
+from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
@@ -256,7 +257,7 @@ def train_model(m, training_config):
 
         # add training loss or validation loss
         if is_with_batch_data and is_training:
-            batch_acc=accuracy(m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal, m.predictIndelLengthRTVal2, y_batch)
+            batch_acc=accuracy(m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2, y_batch)
             lr_accuracy.append((learning_rate,batch_acc))
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal

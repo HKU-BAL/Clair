@@ -635,58 +635,58 @@ class Clair(object):
                     self.Y_placeholder, self.output_label_split, axis=1, name="label_split"
                 )
 
-                self.Y_base_change_cross_entropy = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_base_change,
-                    labels=Y_base_change_label,
-                    weights=self.output_base_change_entropy_weights_placeholder,
-                    epsilon=self.epsilon,
-                    name="Y_base_change_cross_entropy"
-                )
-                self.Y_base_change_loss = tf.reduce_sum(self.Y_base_change_cross_entropy, name="Y_base_change_loss")
-
-                self.Y_genotype_cross_entropy = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_genotype,
-                    labels=Y_genotype_label,
-                    weights=self.output_genotype_entropy_weights_placeholder,
-                    epsilon=self.epsilon,
-                    name="Y_genotype_cross_entropy"
-                )
-                self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
-
-                self.Y_indel_length_cross_entropy_1 = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_indel_length_1,
-                    labels=Y_indel_length_label_1,
-                    weights=self.output_indel_length_entropy_weights_placeholder_1,
-                    epsilon=self.epsilon,
-                    name="Y_indel_length_cross_entropy_1"
-                )
-                self.Y_indel_length_loss_1 = tf.reduce_sum(self.Y_indel_length_cross_entropy_1, name="Y_indel_length_loss_1")
-
-                self.Y_indel_length_cross_entropy_2 = Clair.weighted_cross_entropy(
-                    softmax_prediction=self.Y_indel_length_2,
-                    labels=Y_indel_length_label_2,
-                    weights=self.output_indel_length_entropy_weights_placeholder_2,
-                    epsilon=self.epsilon,
-                    name="Y_indel_length_cross_entropy_2"
-                )
-                self.Y_indel_length_loss_2 = tf.reduce_sum(self.Y_indel_length_cross_entropy_2, name="Y_indel_length_loss_2")
-
-                # self.Y_base_change_loss = Clair.focal_loss(
-                #    prediction_tensor=self.Y_base_change_logits,
-                #    target_tensor=Y_base_change_label,
+                # self.Y_base_change_cross_entropy = Clair.weighted_cross_entropy(
+                #     softmax_prediction=self.Y_base_change,
+                #     labels=Y_base_change_label,
+                #     weights=self.output_base_change_entropy_weights_placeholder,
+                #     epsilon=self.epsilon,
+                #     name="Y_base_change_cross_entropy"
                 # )
-                # self.Y_genotype_loss = Clair.focal_loss(
-                #    prediction_tensor=self.Y_genotype_logits,
-                #    target_tensor=Y_genotype_label,
+                # self.Y_base_change_loss = tf.reduce_sum(self.Y_base_change_cross_entropy, name="Y_base_change_loss")
+                #
+                # self.Y_genotype_cross_entropy = Clair.weighted_cross_entropy(
+                #     softmax_prediction=self.Y_genotype,
+                #     labels=Y_genotype_label,
+                #     weights=self.output_genotype_entropy_weights_placeholder,
+                #     epsilon=self.epsilon,
+                #     name="Y_genotype_cross_entropy"
                 # )
-                # self.Y_indel_length_loss_1 = Clair.focal_loss(
-                #    prediction_tensor=self.Y_indel_length_logits_1,
-                #    target_tensor=Y_indel_length_label_1,
+                # self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
+                #
+                # self.Y_indel_length_cross_entropy_1 = Clair.weighted_cross_entropy(
+                #     softmax_prediction=self.Y_indel_length_1,
+                #     labels=Y_indel_length_label_1,
+                #     weights=self.output_indel_length_entropy_weights_placeholder_1,
+                #     epsilon=self.epsilon,
+                #     name="Y_indel_length_cross_entropy_1"
                 # )
-                # self.Y_indel_length_loss_2 = Clair.focal_loss(
-                #    prediction_tensor=self.Y_indel_length_logits_2,
-                #    target_tensor=Y_indel_length_label_2,
+                # self.Y_indel_length_loss_1 = tf.reduce_sum(self.Y_indel_length_cross_entropy_1, name="Y_indel_length_loss_1")
+                #
+                # self.Y_indel_length_cross_entropy_2 = Clair.weighted_cross_entropy(
+                #     softmax_prediction=self.Y_indel_length_2,
+                #     labels=Y_indel_length_label_2,
+                #     weights=self.output_indel_length_entropy_weights_placeholder_2,
+                #     epsilon=self.epsilon,
+                #     name="Y_indel_length_cross_entropy_2"
                 # )
+                # self.Y_indel_length_loss_2 = tf.reduce_sum(self.Y_indel_length_cross_entropy_2, name="Y_indel_length_loss_2")
+
+                self.Y_base_change_loss = Clair.focal_loss(
+                   prediction_tensor=self.Y_base_change_logits,
+                   target_tensor=Y_base_change_label,
+                )
+                self.Y_genotype_loss = Clair.focal_loss(
+                   prediction_tensor=self.Y_genotype_logits,
+                   target_tensor=Y_genotype_label,
+                )
+                self.Y_indel_length_loss_1 = Clair.focal_loss(
+                   prediction_tensor=self.Y_indel_length_logits_1,
+                   target_tensor=Y_indel_length_label_1,
+                )
+                self.Y_indel_length_loss_2 = Clair.focal_loss(
+                   prediction_tensor=self.Y_indel_length_logits_2,
+                   target_tensor=Y_indel_length_label_2,
+                )
 
                 self.regularization_L2_loss_without_lambda = tf.add_n([
                     tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name
