@@ -889,21 +889,19 @@ class Clair(object):
 
         base, genotype, indel_length_1, indel_length_2 = self.session.run( self.Y, feed_dict=input_dictionary)
 
-        self.output_cache['training_loss'] = loss
         self.output_cache['prediction_base'] = base
         self.output_cache['prediction_genotype'] = genotype
         self.output_cache['prediction_indel_length_1'] = indel_length_1
         self.output_cache['prediction_indel_length_2'] = indel_length_2
 
         # Aliasing
-        self.trainLossRTVal = loss
         self.predictBaseRTVal = self.output_cache['prediction_base']
         self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
         self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
         self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
 
 
-        return loss, base, genotype, indel_length_1, indel_length_2
+        return base, genotype, indel_length_1, indel_length_2
 
     def train(self, batchX, batchY,result_caching=False):
         """
