@@ -261,7 +261,6 @@ def train_model(m, training_config):
             batch_acc=accuracy(m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2, y_batch)
             lr_accuracy.append((learning_rate,batch_acc))
             logging.info("[INFO] accuracy: %f" % batch_acc)
-            logging.info("[INFO] loss: %f" % m.trainLossRTVal)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
             base_change_loss_sum += m.base_change_loss

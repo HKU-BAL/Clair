@@ -887,7 +887,7 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='train'))
 
-        loss, base, genotype, indel_length_1, indel_length_2 = self.session.run((self.loss, self.Y), feed_dict=input_dictionary)
+        base, genotype, indel_length_1, indel_length_2 = self.session.run( self.Y, feed_dict=input_dictionary)
 
         self.output_cache['training_loss'] = loss
         self.output_cache['prediction_base'] = base
