@@ -19,6 +19,7 @@ logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
     samples=len(base)+len(genotype)+len(indel_length_1)+len(indel_length_2)
+    logging.info("[INFO] samples: %d" %samples)
     base_TP=0
     genotype_TP=0
     indel1_TP=0
@@ -62,7 +63,7 @@ def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
             indel1_TP+=1
         if true_label_index_2==predict_label_index_2:
             indel2_TP+=1
-
+    logging.info("[INFO] base_TP, genotype_TP, indel1_TP, indel2_TP are: %f, %f, %f, %f")
     acc=(base_TP+genotype_TP+indel1_TP+indel2_TP)/samples
     return acc
 
@@ -260,6 +261,7 @@ def train_model(m, training_config):
             batch_acc=accuracy(m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2, y_batch)
             lr_accuracy.append((learning_rate,batch_acc))
             logging.info("[INFO] accuracy: %f" % batch_acc)
+            logging.info("[INFO] loss: %f" % m.trainLossRTVal)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
             base_change_loss_sum += m.base_change_loss
@@ -274,7 +276,7 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            learning_rate,global_step=increase_learning_rate(global_step,total_numbers_of_iterations)
+            learning_rate,global_step=increase_learning_rate(global_step,total_numbers_of_iterations)x
             continue
 
         logging.info(
