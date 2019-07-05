@@ -21,7 +21,8 @@ def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
     base_samples=len(base)
     genotype_samples=len(genotype)
     indel1_samples=len(indel_length_1)
-    indel2_sampless=len(indel_length_2)
+    indel2_samples=len(indel_length_2)
+    logging.info("[INFO] sample sizes: %d, %d, %d, %d" % (base_samples, genotype_samples, indel1_samples, indel2_samples))
     base_TP=0
     genotype_TP=0
     indel1_TP=0
@@ -69,7 +70,7 @@ def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
     base_acc=base_TP/base_samples
     genotype_acc=genotype_TP/genotype_samples
     indel1_acc=indel1_TP/indel1_samples
-    indel2_acc=indel2_TP/indel2_sampless
+    indel2_acc=indel2_TP/indel2_samples
     logging.info("[INFO] base_TP, genotype_TP, indel1_TP, indel2_TP are: %d, %d, %d, %d" % (base_TP,genotype_TP,indel1_TP,indel2_TP))
     logging.info("[INFO] the corresponding accuracy are: %f, %f, %f, %f" % (base_acc, genotype_acc, indel1_acc, indel2_acc))
     acc=(base_acc+genotype_acc+indel1_acc+indel2_acc)/4
