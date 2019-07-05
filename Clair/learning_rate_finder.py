@@ -63,7 +63,7 @@ def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
             indel1_TP+=1
         if true_label_index_2==predict_label_index_2:
             indel2_TP+=1
-    logging.info("[INFO] base_TP, genotype_TP, indel1_TP, indel2_TP are: %f, %f, %f, %f")
+    logging.info("[INFO] base_TP, genotype_TP, indel1_TP, indel2_TP are: %d, %d, %d, %d" % (base_TP,genotype_TP,indel1_TP,indel2_TP))
     acc=(base_TP+genotype_TP+indel1_TP+indel2_TP)/samples
     return acc
 
