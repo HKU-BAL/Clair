@@ -22,7 +22,6 @@ def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
     genotype_samples=len(genotype)+0.0
     indel1_samples=len(indel_length_1)+0.0
     indel2_samples=len(indel_length_2)+0.0
-    logging.info("[INFO] sample sizes: %d, %d, %d, %d" % (base_samples, genotype_samples, indel1_samples, indel2_samples))
     base_TP=0.0
     genotype_TP=0.0
     indel1_TP=0.0
@@ -71,10 +70,7 @@ def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
     genotype_acc=genotype_TP/genotype_samples
     indel1_acc=indel1_TP/indel1_samples
     indel2_acc=indel2_TP/indel2_samples
-    logging.info("[INFO] base_TP, genotype_TP, indel1_TP, indel2_TP are: %d, %d, %d, %d" % (base_TP,genotype_TP,indel1_TP,indel2_TP))
-    logging.info("[INFO] the corresponding accuracy are: %f, %f, %f, %f" % (base_acc, genotype_acc, indel1_acc, indel2_acc))
     acc=(base_acc+genotype_acc+indel1_acc+indel2_acc)/4
-    logging.info("[INFO] overall accuracy: %f" % (acc))
     return acc
 
 def increase_learning_rate(global_step, iterations):
@@ -270,7 +266,6 @@ def train_model(m, training_config):
         if is_with_batch_data and is_training:
             batch_acc=accuracy(m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2, y_batch)
             lr_accuracy.append((learning_rate,batch_acc))
-            logging.info("[INFO] accuracy: %f" % batch_acc)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
             base_change_loss_sum += m.base_change_loss
