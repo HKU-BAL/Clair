@@ -887,12 +887,12 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='train'))
 
-        base, genotype, indel_length_1, indel_length_2, loss, _, summary, _extraoutput = self.session.run(
-        (self.Y, self.loss, self.training_op, self.training_summary_op),
-        feed_dict=input_dictionary)
+        base, genotype, indel_length_1, indel_length_2, loss = self.session.run(
+            (self.Y, self.loss),
+            feed_dict=input_dictionary)
 
         self.output_cache['training_loss'] = loss
-        self.output_cache['training_summary'] = summary
+        #self.output_cache['training_summary'] = summary
         self.output_cache['prediction_base'] = base
         self.output_cache['prediction_genotype'] = genotype
         self.output_cache['prediction_indel_length_1'] = indel_length_1
@@ -900,7 +900,7 @@ class Clair(object):
 
         # Aliasing
         self.trainLossRTVal = loss
-        self.trainSummaryRTVal = summary
+        #self.trainSummaryRTVal = summary
         self.predictBaseRTVal = self.output_cache['prediction_base']
         self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
         self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
