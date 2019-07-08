@@ -73,12 +73,15 @@ def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
     acc=(base_acc+genotype_acc+indel1_acc+indel2_acc)/4
     return acc
 
-def increase_learning_rate(global_step, iterations):
-    growth_rate=np.exp(np.log(param.max_lr/param.min_lr)/iterations)
+def increase_learning_rate(global_step, iterations,linear=True):
     global_step += 1
     if global_step > iterations:
         global_step=0
-    lr = param.min_lr * growth_rate ** global_step
+    if linear:
+        lr=param.min_lr+(param.max_lr-param.min_lr)*global_step/iterations
+    else:
+        growth_rate=np.exp(np.log(param.max_lr/param.min_lr)/iterations)
+        lr = param.min_lr * growth_rate ** global_step
     return lr, global_step
 
 def lr_finder(lr_accuracy):
@@ -280,7 +283,7 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            learning_rate,global_step=increase_learning_rate(global_step,total_numbers_of_iterations)
+            learning_rate,global_step=increase_learning_rate(global_step,total_numbers_of_iterations, True)
             continue
 
         logging.info(
