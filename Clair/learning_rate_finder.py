@@ -85,7 +85,7 @@ def increase_learning_rate(global_step, iterations,linear=True):
     return lr, global_step
 
 def lr_finder(lr_accuracy):
-    df = pd.DataFrame(lr_accuracy, columns=["lr", "accuracy"])
+    df = pd.DataFrame(lr_accuracy, columns=["lr", "accuracy","loss"])
     df['diff'] = df['accuracy'].diff()
     df = df.dropna().reset_index(drop=True)
     minimum_lr = df[df['diff'] == max(df['diff'])]['lr'].sort_values(ascending=True).item()
@@ -268,7 +268,7 @@ def train_model(m, training_config):
         # add training loss or validation loss
         if is_with_batch_data and is_training:
             batch_acc=accuracy(m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2, y_batch)
-            lr_accuracy.append((learning_rate,batch_acc))
+            lr_accuracy.append((learning_rate,batch_acc,m.trainLossRTVal))
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
             base_change_loss_sum += m.base_change_loss
