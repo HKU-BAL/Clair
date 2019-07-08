@@ -887,7 +887,7 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='train'))
 
-        base, genotype, indel_length_1, indel_length_2, loss, _, summary = self.session.run(
+        base, genotype, indel_length_1, indel_length_2, loss, _, summary, _extraoutput = self.session.run(
         (self.Y, self.loss, self.training_op, self.training_summary_op),
         feed_dict=input_dictionary)
 
