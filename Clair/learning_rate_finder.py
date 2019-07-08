@@ -18,15 +18,15 @@ from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
-    base_samples=len(base)
-    genotype_samples=len(genotype)
-    indel1_samples=len(indel_length_1)
-    indel2_samples=len(indel_length_2)
+    base_samples=len(base)+0.0
+    genotype_samples=len(genotype)+0.0
+    indel1_samples=len(indel_length_1)+0.0
+    indel2_samples=len(indel_length_2)+0.0
     logging.info("[INFO] sample sizes: %d, %d, %d, %d" % (base_samples, genotype_samples, indel1_samples, indel2_samples))
-    base_TP=0
-    genotype_TP=0
-    indel1_TP=0
-    indel2_TP=0
+    base_TP=0.0
+    genotype_TP=0.0
+    indel1_TP=0.0
+    indel2_TP=0.0
 
     for base_change_prediction, base_change_label in zip(
             base,
