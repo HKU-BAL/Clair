@@ -269,6 +269,9 @@ def train_model(m, training_config):
         if is_with_batch_data and is_training:
             batch_acc=accuracy(m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2, y_batch)
             lr_accuracy.append((learning_rate,batch_acc,m.trainLossRTVal))
+            if summary_writer != None:
+                summary = m.trainSummaryRTVal
+                summary_writer.add_summary(summary, epoch_count)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
             base_change_loss_sum += m.base_change_loss
