@@ -716,17 +716,17 @@ class Clair(object):
             # Include gradient clipping if RNN architectures are used
             if "RNN" in self.structure or "LSTM" in self.structure:
                 with tf.variable_scope("Training_Operation"):
-                    self.optimizer = tf.train.AdamOptimizer(
+                    self.optimizer = tf.train.MomentumOptimizer(
                         learning_rate=self.learning_rate_placeholder,
-                        #momentum=param.momentum
+                        momentum=param.momentum
                     )
                     gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
                     self.training_op = self.optimizer.apply_gradients(zip(gradients, variables))
             else:
-                self.training_op = tf.train.AdamOptimizer(
+                self.training_op = tf.train.MomentumOptimizer(
                     learning_rate=self.learning_rate_placeholder,
-                    #momentum=param.momentum
+                    momentum=param.momentum
                 ).minimize(self.total_loss)
 
             self.init_op = tf.global_variables_initializer()
