@@ -73,16 +73,6 @@ def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
     acc=(base_acc+genotype_acc+indel1_acc+indel2_acc)/4
     return acc
 
-def increase_learning_rate(global_step, iterations,linear=True):
-    global_step += 1
-    if global_step > iterations:
-        global_step=0
-    if linear:
-        lr=param.min_lr+(param.max_lr-param.min_lr)*global_step/iterations
-    else:
-        growth_rate=np.exp(np.log(param.max_lr/param.min_lr)/iterations)
-        lr = param.min_lr * growth_rate ** global_step
-    return lr, global_step
 
 def lr_finder(lr_accuracy):
     df = pd.DataFrame(lr_accuracy, columns=["lr", "accuracy","loss"])
@@ -219,6 +209,7 @@ def train_model(m, training_config):
     no_of_validation_examples = dataset_size - validation_data_start_index
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
     total_numbers_of_iterations = np.ceil(no_of_training_examples / param.trainBatchSize+1)
+    step_size = param.stepsizeConstant * total_numbers_of_iterations
 
     # Initialize variables
     epoch_count = 1
@@ -289,7 +280,8 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            learning_rate,global_step=increase_learning_rate(global_step,total_numbers_of_iterations, True)
+            learning_rate, global_step, max_learning_rate = m.decay_learning_rate(global_step, step_size,
+                                                                                  param.max_lr, "tri")
             continue
 
         logging.info(
