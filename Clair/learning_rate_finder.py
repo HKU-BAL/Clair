@@ -88,8 +88,8 @@ def lr_finder(lr_accuracy):
     df = pd.DataFrame(lr_accuracy, columns=["lr", "accuracy","loss"])
     df['diff'] = df['accuracy'].diff()
     df = df.dropna().reset_index(drop=True)
-    minimum_lr = df[df['diff'] == max(df['diff'])]['lr'].sort_values(ascending=True).item()
-    maximum_lr = df[df['diff'] == min(df['diff'])]['lr'].sort_values(ascending=False).item()
+    minimum_lr = df[df['diff'] == max(df['diff'])]['lr'].sort_values(ascending=False).item()
+    maximum_lr = df[df['diff'] == min(df['diff'])]['lr'].sort_values(ascending=True).item()
     if minimum_lr > maximum_lr:
         minimum_lr, maximum_lr = maximum_lr, minimum_lr
     return minimum_lr, maximum_lr, df
