@@ -13,8 +13,8 @@ bloscBlockSize = 500
 # Model hyperparameters
 trainBatchSize = 5000
 predictBatchSize = 10000
-initialLearningRate = 4e-4
-maximumLearningRate = 4e-2
+initialLearningRate = 1e-2
+maximumLearningRate = 1e-1
 min_lr=1e-5
 max_lr=1e0
 lr_finder_max_epoch=1
