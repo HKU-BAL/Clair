@@ -716,17 +716,17 @@ class Clair(object):
             # Include gradient clipping if RNN architectures are used
             if "RNN" in self.structure or "LSTM" in self.structure:
                 with tf.variable_scope("Training_Operation"):
-                    self.optimizer = tf.train.AdamOptimizer(
+                    self.optimizer = tf.train.MomentumOptimizer(
                         learning_rate=self.learning_rate_placeholder,
-                        #momentum=param.momentum
+                        momentum=param.momentum
                     )
                     gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
                     self.training_op = self.optimizer.apply_gradients(zip(gradients, variables))
             else:
-                self.training_op = tf.train.AdamOptimizer(
+                self.training_op = tf.train.MomentumOptimizer(
                     learning_rate=self.learning_rate_placeholder,
-                    #momentum=param.momentum
+                    momentum=param.momentum
                 ).minimize(self.total_loss)
 
             self.init_op = tf.global_variables_initializer()
@@ -774,29 +774,27 @@ class Clair(object):
 
     @staticmethod
     def focal_loss(prediction_tensor, target_tensor, alpha=0.25, gamma=2):
-        sigmoid_p = tf.nn.sigmoid(prediction_tensor)
+        softmax_p = tf.nn.softmax(prediction_tensor)
 
         # array_ops.zeros_like(tensor, dtype):
         #   create a tensor with all elements set to zero, with the same shape as tensor
-        zeros = array_ops.zeros_like(sigmoid_p, dtype=sigmoid_p.dtype)
+        zeros = array_ops.zeros_like(softmax_p, dtype=softmax_p.dtype)
 
         # For positive prediction, only need consider front part loss, back part is 0;
         # target_tensor > zeros <=> z=1, so positive coefficient = z - p.
         #
         # array_ops.where(condition, x, y):
         #   return the elements, either from x or y, depending on the condition
-        pos_p_sub = array_ops.where(target_tensor > zeros, target_tensor - sigmoid_p, zeros)
+        pos_p_sub = array_ops.where(target_tensor > zeros, target_tensor - softmax_p, zeros)
 
         # For negative prediction, only need consider back part loss, front part is 0;
         # target_tensor > zeros <=> z=1, so negative coefficient = 0.
-        neg_p_sub = array_ops.where(target_tensor > zeros, zeros, sigmoid_p)
+        neg_p_sub = array_ops.where(target_tensor > zeros, zeros, softmax_p)
         per_entry_cross_ent = -(
-            (0 + alpha) * (pos_p_sub ** gamma) * tf.log(tf.clip_by_value(0.0 + sigmoid_p, 1e-8, 1.0)) +
-            (1 - alpha) * (neg_p_sub ** gamma) * tf.log(tf.clip_by_value(1.0 - sigmoid_p, 1e-8, 1.0))
+                (pos_p_sub ** gamma) * tf.log(tf.clip_by_value(0.0 + softmax_p, 1e-8, 1.0)) +
+                (neg_p_sub ** gamma) * tf.log(tf.clip_by_value(1.0 - softmax_p, 1e-8, 1.0))
         )
         return tf.reduce_sum(per_entry_cross_ent)
-
-
 
     def init(self):
         """
