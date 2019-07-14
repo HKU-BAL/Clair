@@ -13,7 +13,6 @@ if source_no_of_flanking_bases < target_no_of_flanking_bases:
     print("[ERROR] Impossible to transform a tensor with source # of flanking bases < target # of flanking bases.")
     exit(1)
 
-
 is_source_tensor_have_strand_infomation = True
 is_target_tensor_have_strand_information = True
 if is_source_tensor_have_strand_infomation is False and is_target_tensor_have_strand_information is True:
@@ -23,7 +22,7 @@ if is_source_tensor_have_strand_infomation is False and is_target_tensor_have_st
 need_remove_strand_information = (
     is_source_tensor_have_strand_infomation is True and is_target_tensor_have_strand_information is False
 )
-
+need_ref_seq_update = source_no_of_flanking_bases != target_no_of_flanking_bases
 
 # A, C, G, T
 no_of_base_labels = 4
@@ -38,13 +37,17 @@ target_tensor_size = (target_no_of_flanking_bases * 2 + 1) * target_size_of_stra
 
 
 difference_in_number_of_flanking_bases = source_no_of_flanking_bases - target_no_of_flanking_bases
-# target_tensor_start_index is inclusive, while target_tensor_end_index is exclusive
+# target_tensor_start_index is inclusive, target_tensor_end_index is exclusive
 target_tensor_start_index = difference_in_number_of_flanking_bases * source_size_of_strand_channel * no_of_channels
 target_tensor_end_index =  source_tensor_size - target_tensor_start_index
 
+# ref_seq_start_index is inclusive, ref_seq_end_index is exclusive
+ref_seq_start_index = source_no_of_flanking_bases - target_no_of_flanking_bases
+ref_seq_end_index = source_no_of_flanking_bases + target_no_of_flanking_bases + 1
+
 for row in sys.stdin:
     columns = row.strip().split()
-    ctg_name, center, ref_seq, tensor = columns[0], columns[1], columns[2], columns[3:]
+    ctg_name, ctg_pos, ref_seq, tensor = columns[0], columns[1], columns[2], columns[3:]
 
     if len(tensor) != source_tensor_size:
         print("[ERROR] Unexpected tensor size. Expected: {}, given: {}.".format(source_tensor_size, len(tensor)))
@@ -62,5 +65,7 @@ for row in sys.stdin:
 
         tensor = tensor.flatten()
 
-    # print("%s %s %s %s" % (ctg_name, center, ref_seq, " ".join("%0.1f" % float(x) for x in tensor)))
-    print("{} {} {} {}".format(ctg_name, center, ref_seq, " ".join("%.0f" % x for x in tensor)))
+    if need_ref_seq_update:
+        ref_seq = ref_seq[ref_seq_start_index:ref_seq_end_index]
+
+    print("{} {} {} {}".format(ctg_name, ctg_pos, ref_seq, " ".join("%.0f" % x for x in tensor)))
