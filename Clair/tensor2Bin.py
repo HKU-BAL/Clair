@@ -19,6 +19,7 @@ def Convert(args, utils):
             tensor_fn=args.tensor_fn,
             var_fn=args.var_fn,
             bed_fn=args.bed_fn,
+            shuffle=args.shuffle,
             is_allow_duplicate_chr_pos=args.allow_duplicate_chr_pos
         )
 
@@ -46,6 +47,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--bin_fn', type=str, default=None,
                         help="Output a binary tensor file")
+
+    parser.add_argument('--shuffle', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Shuffle on building bin")
 
     parser.add_argument('--allow_duplicate_chr_pos', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Allow duplicate chromosome:position in tensor input")

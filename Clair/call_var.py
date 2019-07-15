@@ -51,11 +51,9 @@ def is_homo_SNP_from(prediction):
     votes = (
         (1 if is_base_change_match else 0) +
         (1 if is_genotype_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_hetero_SNP_from(prediction):
@@ -75,11 +73,9 @@ def is_hetero_SNP_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_homo_insertion_from(prediction):
@@ -93,11 +89,9 @@ def is_homo_insertion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_hetero_insertion_from(prediction):
@@ -116,11 +110,9 @@ def is_hetero_insertion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_homo_deletion_from(prediction):
@@ -134,11 +126,9 @@ def is_homo_deletion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_hetero_deletion_from(prediction):
@@ -157,11 +147,9 @@ def is_hetero_deletion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def is_insertion_and_deletion_from(prediction):
@@ -174,11 +162,9 @@ def is_insertion_and_deletion_from(prediction):
     votes = (
         (1 if is_genotype_match else 0) +
         (1 if is_base_change_match else 0) +
-        # 0
         (1 if is_variant_length_match else 0)
     )
     return votes >= 3
-    # return votes >= 2
 
 
 def homo_SNP_bases_from(base_change_probabilities):
@@ -257,8 +243,6 @@ def quality_score_from(
 ):
     sorted_base_change_probabilities = np.sort(base_change_probabilities)[::-1]
     sorted_genotype_probabilities = np.sort(genotype_probabilities)[::-1]
-    # sorted_variant_length_probabilities_1 = np.sort(variant_length_probabilities_1)[::-1]
-    # sorted_variant_length_probabilities_2 = np.sort(variant_length_probabilities_2)[::-1]
 
     return min(
         int(round(
@@ -307,6 +291,31 @@ def Run(args):
         Test(args, m, utils)
 
 
+def print_debug_message_with(
+    is_debug,
+    call_fh,
+    chromosome,
+    position,
+    base_change_probabilities,
+    genotype_probabilities,
+    variant_length_probabilities_1,
+    variant_length_probabilities_2,
+    extra_infomation_string=""
+):
+    if not is_debug:
+        return
+
+    print >> call_fh, "{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
+        chromosome,
+        position,
+        ["{:0.8f}".format(x) for x in base_change_probabilities],
+        ["{:0.8f}".format(x) for x in genotype_probabilities],
+        ["{:0.8f}".format(x) for x in variant_length_probabilities_1],
+        ["{:0.8f}".format(x) for x in variant_length_probabilities_2],
+        extra_infomation_string
+    )
+
+
 def Output(
     args,
     call_fh,
@@ -328,6 +337,7 @@ def Output(
     flanking_base_number = param.flankingBaseNum
     position_center = flanking_base_number
     no_of_rows = len(base_change_probabilities)
+    is_debug = True if args.debug is True else False
 
     for row_index in range(no_of_rows):
         variant_lengths = [
@@ -343,7 +353,7 @@ def Output(
         )
 
         is_reference = is_reference_from(prediction)
-        if not is_show_reference and is_reference:
+        if not is_debug and not is_show_reference and is_reference:
             continue
 
         is_homo_SNP = is_homo_SNP_from(prediction)
@@ -393,7 +403,18 @@ def Output(
         #    read_depth = sum(X[row_index, position_center, :, Channel.delete] + X[row_index, position_center, :, Channel.reference])
         #elif is_insertion or is_deletion or is_insertion_and_deletion:
         #    read_depth = sum(X[row_index, position_center+1, :, Channel.delete] + X[row_index, position_center+1, :, Channel.reference])
-        if read_depth <= 0:
+        if read_depth == 0:
+            print_debug_message_with(
+                is_debug,
+                call_fh,
+                chromosome,
+                position,
+                base_change_probabilities[row_index],
+                genotype_probabilities[row_index],
+                variant_length_probabilities_1[row_index],
+                variant_length_probabilities_2[row_index],
+                "Read Depth is zero"
+            )
             continue
 
         # geno type string, would changed to 1/2 later if is multi
@@ -440,6 +461,17 @@ def Output(
                 variant_length = variant_length if variant_length > 0 else 1
 
             if is_hetero_insertion and variant_length <= 0:
+                print_debug_message_with(
+                    is_debug,
+                    call_fh,
+                    chromosome,
+                    position,
+                    base_change_probabilities[row_index],
+                    genotype_probabilities[row_index],
+                    variant_length_probabilities_1[row_index],
+                    variant_length_probabilities_2[row_index],
+                    "is hetero insertion and # of insertion bases predicted is less than 0"
+                )
                 continue
 
             if variant_length_2 < variant_length_1:
@@ -521,6 +553,17 @@ def Output(
                 variant_length = variant_length if variant_length > 0 else 1
 
             if is_hetero_deletion and variant_length <= 0:
+                print_debug_message_with(
+                    is_debug,
+                    call_fh,
+                    chromosome,
+                    position,
+                    base_change_probabilities[row_index],
+                    genotype_probabilities[row_index],
+                    variant_length_probabilities_1[row_index],
+                    variant_length_probabilities_2[row_index],
+                    "is hetero deletion and # of deletion bases predicted is less than 0"
+                )
                 continue
 
             if variant_length_2 < variant_length_1:
@@ -644,6 +687,17 @@ def Output(
 
             if is_marked_as_SV:
                 # TODO: don't know what to do for this condition, yet
+                print_debug_message_with(
+                    is_debug,
+                    call_fh,
+                    chromosome,
+                    position,
+                    base_change_probabilities[row_index],
+                    genotype_probabilities[row_index],
+                    variant_length_probabilities_1[row_index],
+                    variant_length_probabilities_2[row_index],
+                    "is INS_DEL and marked as SV"
+                )
                 continue
             elif is_inferred_deletion_length:
                 reference_base = reference_sequence[position_center:position_center + inferred_delete_length + 1]
@@ -657,6 +711,17 @@ def Output(
                 reference_base[0] + alternate_base_insert + reference_base[1:]
             )
         if reference_base == "" or alternate_base == "":
+            print_debug_message_with(
+                is_debug,
+                call_fh,
+                chromosome,
+                position,
+                base_change_probabilities[row_index],
+                genotype_probabilities[row_index],
+                variant_length_probabilities_1[row_index],
+                variant_length_probabilities_2[row_index],
+                "no reference base / alternate base prediction"
+            )
             continue
 
         # allele frequency / supported reads
@@ -677,19 +742,12 @@ def Output(
                     X[row_index, position_center, base2num[base]+4, Channel.reference]
                 )
         elif is_insertion:
-            supported_reads_count = sum(X[row_index, position_center+1, :, Channel.insert]) - sum(X[row_index, position_center+1, :, Channel.SNP])
-            # if is_SNP_Ins_multi:
-            #     supported_reads_count += (
-            #         X[row_index, position_center,   base2num[alternate_base[0]], Channel.SNP] +
-            #         X[row_index, position_center, base2num[alternate_base[0]+4], Channel.SNP]
-            #     )
+            supported_reads_count = (
+                sum(X[row_index, position_center+1, :, Channel.insert]) -
+                sum(X[row_index, position_center+1, :, Channel.SNP])
+            )
         elif is_deletion:
             supported_reads_count = sum(X[row_index, position_center+1, :, Channel.delete])
-            # if is_SNP_Del_multi:
-            #     supported_reads_count += (
-            #         X[row_index, position_center,   base2num[alternate_base[0]], Channel.SNP] +
-            #         X[row_index, position_center, base2num[alternate_base[0]]+4, Channel.SNP]
-            #     )
         elif is_insertion_and_deletion:
             supported_reads_count = (
                 sum(X[row_index, position_center+1, :, Channel.insert]) +
@@ -711,19 +769,32 @@ def Output(
         else:
             information_string = ";".join(info)
 
-        print >> call_fh, "%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
-            chromosome,
-            position,
-            reference_base,
-            alternate_base,
-            quality_score,
-            filtration_value,
-            information_string,
-            genotype_string,
-            quality_score,
-            read_depth,
-            allele_frequency
-        )
+        if is_debug:
+            print_debug_message_with(
+                is_debug,
+                call_fh,
+                chromosome,
+                position,
+                base_change_probabilities[row_index],
+                genotype_probabilities[row_index],
+                variant_length_probabilities_1[row_index],
+                variant_length_probabilities_2[row_index],
+                "Normal output" if not is_reference else "Reference"
+            )
+        else:
+            print >> call_fh, "%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
+                chromosome,
+                position,
+                reference_base,
+                alternate_base,
+                quality_score,
+                filtration_value,
+                information_string,
+                genotype_string,
+                quality_score,
+                read_depth,
+                allele_frequency
+            )
 
 
 def print_vcf_header(args, call_fh):
@@ -868,6 +939,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--showRef', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Show reference calls, optional")
+
+    parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Debug mode, optional")
 
     parser.add_argument('--ref_fn', type=str, default=None,
                         help="Reference fasta file input, optional, print contig tags in the VCF header if set")

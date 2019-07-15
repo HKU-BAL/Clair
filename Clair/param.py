@@ -11,7 +11,7 @@ matrixNum = 4
 bloscBlockSize = 500
 
 # Model hyperparameters
-trainBatchSize = 5000
+trainBatchSize = 10000
 predictBatchSize = 10000
 initialLearningRate = 5e-3
 maximumLearningRate = 4e-1

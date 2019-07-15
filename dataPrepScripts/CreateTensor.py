@@ -97,9 +97,12 @@ def get_candidate_position_generator(
             continue
         if is_consider_left_edge == True:
             for i in range(position - (flanking_base_num + 1), position + (flanking_base_num + 1)):
-                begin_to_end[i] = (position + (flanking_base_num + 1), position)
+                if i not in begin_to_end:
+                    begin_to_end[i] = [(position + (flanking_base_num + 1), position)]
+                else:
+                    begin_to_end[i].append((position + (flanking_base_num + 1), position))
         elif is_consider_left_edge == False:
-            begin_to_end[position - (flanking_base_num + 1)] = (position + (flanking_base_num + 1), position)
+            begin_to_end[position - (flanking_base_num + 1)] = [(position + (flanking_base_num + 1), position)]
 
         yield position
 
@@ -346,8 +349,9 @@ def OutputAlnTensor(args):
             if c == "M" or c == "=" or c == "X":
                 for _ in xrange(advance):
                     if reference_position in begin_to_end:
-                        rEnd, rCenter = begin_to_end[reference_position]
-                        if rCenter not in active_set:
+                        for rEnd, rCenter in begin_to_end[reference_position]:
+                            if rCenter in active_set:
+                                continue
                             end_to_center[rEnd] = rCenter
                             active_set.add(rCenter)
                             center_to_alignment.setdefault(rCenter, [])
@@ -407,8 +411,9 @@ def OutputAlnTensor(args):
                             STRAND
                         ))
                     if reference_position in begin_to_end:
-                        rEnd, rCenter = begin_to_end[reference_position]
-                        if rCenter not in active_set:
+                        for rEnd, rCenter in begin_to_end[reference_position]:
+                            if rCenter in active_set:
+                                continue
                             end_to_center[rEnd] = rCenter
                             active_set.add(rCenter)
                             center_to_alignment.setdefault(rCenter, [])

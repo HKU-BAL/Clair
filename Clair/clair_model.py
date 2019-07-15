@@ -653,6 +653,7 @@ class Clair(object):
                 # )
                 # self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
                 #
+
                 # self.Y_indel_length_cross_entropy_1 = Clair.weighted_cross_entropy(
                 #     softmax_prediction=self.Y_indel_length_1,
                 #     labels=Y_indel_length_label_1,
@@ -661,7 +662,11 @@ class Clair(object):
                 #     name="Y_indel_length_cross_entropy_1"
                 # )
                 # self.Y_indel_length_loss_1 = tf.reduce_sum(self.Y_indel_length_cross_entropy_1, name="Y_indel_length_loss_1")
+
                 #
+
+
+
                 # self.Y_indel_length_cross_entropy_2 = Clair.weighted_cross_entropy(
                 #     softmax_prediction=self.Y_indel_length_2,
                 #     labels=Y_indel_length_label_2,
@@ -791,8 +796,10 @@ class Clair(object):
         # target_tensor > zeros <=> z=1, so negative coefficient = 0.
         neg_p_sub = array_ops.where(target_tensor > zeros, zeros, softmax_p)
         per_entry_cross_ent = -(
+
                 (pos_p_sub ** gamma) * tf.log(tf.clip_by_value(0.0 + softmax_p, 1e-8, 1.0)) +
                 (neg_p_sub ** gamma) * tf.log(tf.clip_by_value(1.0 - softmax_p, 1e-8, 1.0))
+
         )
         return tf.reduce_sum(per_entry_cross_ent)
 

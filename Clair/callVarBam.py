@@ -103,6 +103,8 @@ def Run(args):
     else:
         log_path = ""
 
+    debug = "--debug" if args.debug else ""
+
     if args.ctgStart != None and args.ctgEnd != None and int(args.ctgStart) <= int(args.ctgEnd):
         ctgRange = "--ctgStart %s --ctgEnd %s" % (args.ctgStart, args.ctgEnd)
     else:
@@ -144,13 +146,13 @@ def Run(args):
 
         if args.activation_only:
             c.CVInstance = subprocess.Popen(
-                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --sampleName %s --threads %d --activation_only %s --max_plot %d --parallel_level %d --workers %d --ref_fn %s %s %s" %
-                            (taskSet, CVBin, chkpnt_fn, call_fn, sampleName, numCpus, log_path, args.max_plot, args.parallel_level, args.workers, ref_fn, qual, "--fast_plotting" if args.fast_plotting else "")),
+                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --sampleName %s --threads %d --activation_only %s --max_plot %d --parallel_level %d --workers %d --ref_fn %s %s %s %s" %
+                            (taskSet, CVBin, chkpnt_fn, call_fn, sampleName, numCpus, log_path, args.max_plot, args.parallel_level, args.workers, ref_fn, qual, "--fast_plotting" if args.fast_plotting else "", debug)),
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
         else:
             c.CVInstance = subprocess.Popen(
-                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --sampleName %s --threads %d --ref_fn %s %s" %
-                            (taskSet, CVBin, chkpnt_fn, call_fn, sampleName, numCpus, ref_fn, qual)),
+                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --sampleName %s --threads %d --ref_fn %s %s %s" %
+                            (taskSet, CVBin, chkpnt_fn, call_fn, sampleName, numCpus, ref_fn, qual, debug)),
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
     except Exception as e:
         print >> sys.stderr, e
@@ -279,6 +281,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-w', '--workers', type=int, default=8,
                         help="The number of workers in plotting, default: %(default)s")
+
+    parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Debug mode, optional")
 
     args = parser.parse_args()
 
