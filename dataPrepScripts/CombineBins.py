@@ -2,6 +2,7 @@ import os
 import pickle
 import argparse
 import random
+import concurrent.futures
 from collections import namedtuple
 
 Data = namedtuple('Data', ['x', 'y', 'pos', 'total'])
@@ -29,6 +30,21 @@ def process_command():
     return parser.parse_args()
 
 
+def load_data_from_one_file_path(file_path):
+    X = []
+    Y = []
+    pos = []
+    total = 0
+
+    with open(file_path, "rb") as f:
+        total = int(pickle.load(f))
+        X = pickle.load(f)
+        Y = pickle.load(f)
+        pos = pickle.load(f)
+
+    return Data(x=X, y=Y, pos=pos, total=total)
+
+
 def load_data_from(directory_path, need_shuffle_file_paths=False):
     X = []
     Y = []
@@ -36,22 +52,30 @@ def load_data_from(directory_path, need_shuffle_file_paths=False):
     total = 0
 
     file_paths = os.listdir(directory_path)
+    file_paths.sort()
     if need_shuffle_file_paths:
         random.shuffle(file_paths)
 
+    absolute_file_paths = []
     for file_path in file_paths:
-        absolute_file_path = os.path.abspath(os.path.join(directory_path, file_path))
-        print "[INFO] Load data from: {}".format(absolute_file_path)
-        with open(absolute_file_path, "rb") as f:
-            a = int(pickle.load(f))
-            x = pickle.load(f)
-            y = pickle.load(f)
-            p = pickle.load(f)
+        absolute_file_paths.append(os.path.abspath(os.path.join(directory_path, file_path)))
+
+    for file_path in absolute_file_paths:
+        print "[INFO] file path: {}".format(file_path)
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=12) as executor:
+        for file_path, data in zip(absolute_file_paths, executor.map(load_data_from_one_file_path, absolute_file_paths)):
+            a = int(data.total)
+            x = data.x
+            y = data.y
+            p = data.pos
 
             total += a
             X += x
             Y += y
             pos += p
+
+            print "[INFO] Data loaded: {}".format(file_path)
 
     return Data(x=X, y=Y, pos=pos, total=total)
 
