@@ -6,7 +6,6 @@ import logging
 import random
 
 import numpy as np
-import pandas as pd
 from threading import Thread
 
 import param
@@ -122,8 +121,6 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
-    lr_training_loss={'learning_rate':[],'training_loss':[]}
-    lr_validation_loss={'learning_rate':[],'validation_loss':[]}
 
     if model_initalization_file_path != None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
@@ -193,15 +190,11 @@ def train_model(m, training_config):
         # add training loss or validation loss
         if is_with_batch_data and is_training:
             training_loss_sum += m.trainLossRTVal
-            lr_training_loss['training_loss'].append(m.trainLossRTVal)
-            lr_training_loss['learning_rate'].append(learning_rate)
             if summary_writer != None:
                 summary = m.trainSummaryRTVal
                 summary_writer.add_summary(summary, epoch_count)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
-            lr_validation_loss['validation_loss'].append(m.getLossLossRTVal)
-            lr_validation_loss['learning_rate'].append(learning_rate)
             base_change_loss_sum += m.base_change_loss
             genotype_loss_sum += m.genotype_loss
             indel_length_loss_sum_1 += m.indel_length_loss_1
@@ -214,7 +207,7 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            learning_rate,global_step,max_learning_rate=m.decay_learning_rate(global_step,step_size,max_learning_rate,"tri2")
+            learning_rate,global_step,max_learning_rate=m.decay_learning_rate(global_step,step_size,max_learning_rate,"tri")
             continue
 
         logging.info(
@@ -241,10 +234,6 @@ def train_model(m, training_config):
             m.save_parameters(os.path.abspath(parameter_output_path % epoch_count))
 
         # variables update per epoch
-        if epoch_count % (2*param.stepsizeConstant) ==0:
-            learningrate_validation_loss = pd.DataFrame(lr_validation_loss)
-            learningrate_validation_loss.to_csv('learning_rate_valid_cycle{}.txt'.format(epoch_count / (2 * param.stepsizeConstant)), index=False, sep=',')
-            lr_validation_loss = {'learning_rate': [], 'validation_loss': []}
         epoch_count += 1
 
         epoch_start_time = time.time()
@@ -268,8 +257,6 @@ def train_model(m, training_config):
         ))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
-    learningrate_training_loss = pd.DataFrame(lr_training_loss)
-    learningrate_training_loss.to_csv('learning_rate_train.txt', index=False, sep=',')
     return training_losses, validation_losses
 
 
