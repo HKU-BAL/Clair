@@ -12,6 +12,7 @@ import param
 import math
 from collections import defaultdict
 import multiprocessing
+from adabound import AdaBoundOptimizer
 
 from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
@@ -721,9 +722,10 @@ class Clair(object):
             # Include gradient clipping if RNN architectures are used
             if "RNN" in self.structure or "LSTM" in self.structure:
                 with tf.variable_scope("Training_Operation"):
-                    self.optimizer = tf.train.MomentumOptimizer(
+                    self.optimizer = AdaBoundOptimizer(
                         learning_rate=self.learning_rate_placeholder,
-                        momentum=param.momentum
+                        #momentum=param.momentum
+                        final_lr=param.maximumLearningRate
                     )
                     gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
@@ -731,7 +733,8 @@ class Clair(object):
             else:
                 self.training_op = tf.train.MomentumOptimizer(
                     learning_rate=self.learning_rate_placeholder,
-                    momentum=param.momentum
+                    #momentum=param.momentum
+                    final_lr=param.maximumLearningRate
                 ).minimize(self.total_loss)
 
             self.init_op = tf.global_variables_initializer()

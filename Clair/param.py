@@ -1,5 +1,5 @@
 NUM_THREADS = 12
-maxEpoch = 40
+maxEpoch = 30
 parameterOutputPlaceHolder = 6
 
 # Tensor related parameters, please use the same values for creating tensor, model training and variant calling
@@ -14,7 +14,7 @@ bloscBlockSize = 500
 trainBatchSize = 10000
 predictBatchSize = 10000
 initialLearningRate = 1e-4
-maximumLearningRate = 3e-3
+maximumLearningRate = 3e-2
 min_lr=1e-6
 max_lr=1e-1
 lr_finder_max_epoch=1
