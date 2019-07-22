@@ -10,58 +10,10 @@ from threading import Thread
 
 import param
 import utils
-import clair_model as cv
+import clair_model_clr as cv
 import evaluate
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
-
-
-def is_last_five_epoch_approaches_minimum(validation_losses):
-    if len(validation_losses) <= 5:
-        return True
-
-    minimum_validation_loss = min(np.asarray(validation_losses)[:, 0])
-    return (
-        validation_losses[-5][0] == minimum_validation_loss or
-        validation_losses[-4][0] == minimum_validation_loss or
-        validation_losses[-3][0] == minimum_validation_loss or
-        validation_losses[-2][0] == minimum_validation_loss or
-        validation_losses[-1][0] == minimum_validation_loss
-    )
-
-
-def is_validation_loss_goes_up_and_down(validation_losses):
-    if len(validation_losses) <= 6:
-        return False
-
-    return (
-        validation_losses[-6][0] > validation_losses[-5][0] and
-        validation_losses[-5][0] < validation_losses[-4][0] and
-        validation_losses[-4][0] > validation_losses[-3][0] and
-        validation_losses[-3][0] < validation_losses[-2][0] and
-        validation_losses[-2][0] > validation_losses[-1][0]
-    ) or (
-        validation_losses[-6][0] < validation_losses[-5][0] and
-        validation_losses[-5][0] > validation_losses[-4][0] and
-        validation_losses[-4][0] < validation_losses[-3][0] and
-        validation_losses[-3][0] > validation_losses[-2][0] and
-        validation_losses[-2][0] < validation_losses[-1][0]
-    )
-
-
-def is_validation_losses_keep_increasing(validation_losses):
-    if len(validation_losses) <= 6:
-        return False
-
-    minimum_validation_loss = min(np.asarray(validation_losses)[:, 0])
-    return (
-        validation_losses[-5][0] > minimum_validation_loss and
-        validation_losses[-4][0] > minimum_validation_loss and
-        validation_losses[-3][0] > minimum_validation_loss and
-        validation_losses[-2][0] > minimum_validation_loss and
-        validation_losses[-1][0] > minimum_validation_loss
-    )
-
 
 def shuffle_first_n_items(array, n):
     if len(array) <= n:
@@ -110,6 +62,7 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
 
 def train_model(m, training_config):
     learning_rate = training_config["learning_rate"]
+    max_learning_rate=param.maximumLearningRate
     l2_regularization_lambda = training_config["l2_regularization_lambda"]
     output_file_path_prefix = training_config["output_file_path_prefix"]
     summary_writer = training_config["summary_writer"]
@@ -135,8 +88,9 @@ def train_model(m, training_config):
     no_of_training_examples = int(dataset_size*param.trainingDatasetPercentage)
     validation_data_start_index = no_of_training_examples + 1
     no_of_validation_examples = dataset_size - validation_data_start_index
-    learning_rate_switch_count = param.maxLearningRateSwitch
     validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
+    total_numbers_of_iterations = np.ceil(no_of_training_examples / param.trainBatchSize+1)+np.ceil(no_of_validation_examples/param.predictBatchSize+1)
+    step_size = param.stepsizeConstant * total_numbers_of_iterations
 
     # Initialize variables
     epoch_count = 1
@@ -147,9 +101,9 @@ def train_model(m, training_config):
     training_loss_sum = 0
     validation_loss_sum = 0
     data_index = 0
-    no_of_epochs_with_current_learning_rate = 0  # Variables for learning rate decay
     x_batch = None
     y_batch = None
+    global_step=0
 
     base_change_loss_sum = 0
     genotype_loss_sum = 0
@@ -157,7 +111,7 @@ def train_model(m, training_config):
     indel_length_loss_sum_2 = 0
     l2_loss_sum = 0
 
-    while epoch_count < param.maxEpoch:
+    while epoch_count <= param.maxEpoch:
         is_training = data_index < validation_data_start_index
         is_validation = data_index >= validation_data_start_index
         is_with_batch_data = x_batch is not None and y_batch is not None
@@ -171,16 +125,19 @@ def train_model(m, training_config):
         for t in thread_pool:
             t.start()
 
-        next_x_batch, next_y_batch, batch_size = new_mini_batch(
+
+        next_x_batch, next_y_batch, batch_size= new_mini_batch(
             data_index=data_index,
             validation_data_start_index=validation_data_start_index,
             dataset_info=dataset_info,
-            tensor_block_index_list=tensor_block_index_list
+            tensor_block_index_list=tensor_block_index_list,
         )
+
 
         # wait until loaded next mini batch & finished training/validation with current mini batch
         for t in thread_pool:
             t.join()
+
 
         # add training loss or validation loss
         if is_with_batch_data and is_training:
@@ -190,7 +147,6 @@ def train_model(m, training_config):
                 summary_writer.add_summary(summary, epoch_count)
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
-
             base_change_loss_sum += m.base_change_loss
             genotype_loss_sum += m.genotype_loss
             indel_length_loss_sum_1 += m.indel_length_loss_1
@@ -203,6 +159,7 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
+            learning_rate,global_step,max_learning_rate=m.decay_learning_rate(global_step,step_size,max_learning_rate,"exp")
             continue
 
         logging.info(
@@ -228,29 +185,6 @@ def train_model(m, training_config):
             parameter_output_path = "%s-%%0%dd" % (output_file_path_prefix, param.parameterOutputPlaceHolder)
             m.save_parameters(os.path.abspath(parameter_output_path % epoch_count))
 
-        # Adaptive learning rate decay
-        no_of_epochs_with_current_learning_rate += 1
-
-        need_learning_rate_update = (
-            (
-                no_of_epochs_with_current_learning_rate >= 6 and
-                not is_last_five_epoch_approaches_minimum(validation_losses) and
-                is_validation_loss_goes_up_and_down(validation_losses)
-            ) or
-            (
-                no_of_epochs_with_current_learning_rate >= 8 and
-                is_validation_losses_keep_increasing(validation_losses)
-            )
-        )
-
-        if need_learning_rate_update:
-            learning_rate_switch_count -= 1
-            if learning_rate_switch_count == 0:
-                break
-            logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate())
-            logging.info("[INFO] New L2 regularization lambda: %.2e" % m.decay_l2_regularization_lambda())
-            no_of_epochs_with_current_learning_rate = 0
-
         # variables update per epoch
         epoch_count += 1
 
@@ -267,6 +201,7 @@ def train_model(m, training_config):
         indel_length_loss_sum_2 = 0
         l2_loss_sum = 0
 
+
         # shuffle data on each epoch
         tensor_block_index_list = shuffle_first_n_items(tensor_block_index_list, validation_start_block)
         logging.info("[INFO] Shuffled: " + ' '.join(
@@ -274,7 +209,6 @@ def train_model(m, training_config):
         ))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
-
     return training_losses, validation_losses
 
 

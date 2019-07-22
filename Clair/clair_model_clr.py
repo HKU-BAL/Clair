@@ -12,6 +12,7 @@ import param
 import math
 from collections import defaultdict
 import multiprocessing
+from adabound import AdaBoundOptimizer
 
 from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
@@ -19,29 +20,37 @@ from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 class Clair(object):
     """
     Modification of Clairvoyante v3
+
     Keywords arguments:
+
     float_type: The type of float to be used for tensorflow, default tf.float64
     input_shape: Shpae of the input tensor, a tuple or list of 3 integers
+
     task_loss_weights:
         The weights of different tasks in the calculation of total loss, list of 5 integers in order
         (base_change, genotype, indel length, L2 regularization)
     structure: The name of the structure, supporting "FC_L3_narrow_legacy_0.1, 2BiLST, CNN1D_L6, Res1D_L9M"
+
     output_base_change_shape: The number of classes in the ouput of base change (alternate base) prediction
     output_genotype_shape: The number of classes in the ouput of genotype prediction
     output_indel_length_shape_1: The number of output values in the output of indel length prediction 1
     output_indel_length_shape_2: The number of output values in the output of indel length prediction 2
+
     output_weight_enabled: True enables per class weights speficied in output_*_entropy_weights (Slower)
     output_base_change_entropy_weights:
         A list of (output_base_change_shape) integers specifying the weights of different classes in
         the calculation of entropy loss (Only used when output_weight_enabled is set to True)
     output_genotype_entropy_weights: similar to output_base_change_entropy_weights
+
     L1_num_units: Number of units in L1
+
     tensor_transform_function:
         the function (callable) for transforming the input tensors to match the model, takes in
         X_tensor, Y_tensor, and stage text ("train" or "predict") and
         return the pair (transformed_X, transformed_Y)
         i.e. type: tensor -> tensor -> str -> (tensor, tensor)
         default: lambda X, Y, phase: (X, Y)  (identity ignoring stage text), which is equivalent to def f(X, Y, phase): return (X, Y)
+
     """
     COLORS_RGB = dict(
         RED=[1.0, 0.0, 0.0],
@@ -96,6 +105,7 @@ class Clair(object):
             l2_regularization_lambda=param.l2RegularizationLambda,
             l2_regularization_lambda_decay_rate=param.l2RegularizationLambdaDecay,
             tensor_transform_function=lambda X, Y, phase: (X, Y)
+
         )
 
         # Getting other parameters from the param.py file
@@ -193,6 +203,7 @@ class Clair(object):
     def get_structure_dict(self, phase='train'):
         """
         A function for getting the appropriate values for placeholders, based on whether the phase is "train" or not
+
         Return:
             A dictionary containing values for the placeholders
         """
@@ -219,6 +230,7 @@ class Clair(object):
         Specify a slice dense layer, which unpacks along the specified dimension and connects each position to another layer by full connections
         e.g. A tensor of shape [4, 5] would be unpacked to 4 tensors with shape [5], and each of the tensor with shape [5] is fully connected
              to another tensor with [units], and restacked to give a tensor with output shape [4, units]
+
         inputs: The input tensor
         units: The number of units for each position
         slice_dimension: The index of the dimension to be sliced, following the order of tensor.shape
@@ -238,9 +250,11 @@ class Clair(object):
     def weighted_cross_entropy(softmax_prediction, labels, weights, epsilon, name):
         """
         Compute cross entropy with per class weights
+
         softmax_prediction: The softmaxed tensor produced by the model, should have shape (batch, number of output classes)
         labels: The output labels in one-hot encoding
         weights: The weights for each class, must have same shape as the number of classes in the output, i.e. the output shape
+
         Return:
             Tensor representing the weighted cross entropy, having shape of (batch size, )
         """
@@ -257,12 +271,14 @@ class Clair(object):
     def adaptive_LSTM_layer(inputs, num_units, name="adaptive_LSTM", direction="bidirectional", num_layers=1, cudnn_gpu_available=False):
         """
         A wrapper function for selecting the appropriate LSTM layer to use depending on whether cudnn compatible gpu is available
+
         Args:
             inputs: Tensor, The input tensor to the LSTM layer, time-major (i.e. in shape (time-steps, batch, sequence))
             num_units: int, The number of units in each direction (i.e. will have a total of 2 * num_units outputs for bidirectional LSTM)
             direction: str, "bidirectional" for bidirectional LSTM, unidirectional otherwise
             num_layers: int, the number of layers stacked together, each having the same number of units
             cudnn_gpu_available: bool, if True, the Cudnn enabled version will be used, otherwise, a compatible version is used
+
         Return: (outputs, output_states)
             outputs: Tensor, containing the output of the LSTM
             output_states: A tuple of two Tensors for bidirectional LSTM, the first one being the final state for the forward LSTM, and the second one is backward
@@ -352,6 +368,8 @@ class Clair(object):
             self.learning_rate_placeholder = tf.placeholder(
                 dtype=self.float_type, shape=[], name='learning_rate_placeholder'
             )
+
+
             self.phase_placeholder = tf.placeholder(
                 dtype=tf.bool, shape=[], name='phase_placeholder'
             )
@@ -626,7 +644,7 @@ class Clair(object):
                 #     name="Y_base_change_cross_entropy"
                 # )
                 # self.Y_base_change_loss = tf.reduce_sum(self.Y_base_change_cross_entropy, name="Y_base_change_loss")
-
+                #
                 # self.Y_genotype_cross_entropy = Clair.weighted_cross_entropy(
                 #     softmax_prediction=self.Y_genotype,
                 #     labels=Y_genotype_label,
@@ -635,6 +653,7 @@ class Clair(object):
                 #     name="Y_genotype_cross_entropy"
                 # )
                 # self.Y_genotype_loss = tf.reduce_sum(self.Y_genotype_cross_entropy, name="Y_genotype_loss")
+                #
 
                 # self.Y_indel_length_cross_entropy_1 = Clair.weighted_cross_entropy(
                 #     softmax_prediction=self.Y_indel_length_1,
@@ -644,6 +663,10 @@ class Clair(object):
                 #     name="Y_indel_length_cross_entropy_1"
                 # )
                 # self.Y_indel_length_loss_1 = tf.reduce_sum(self.Y_indel_length_cross_entropy_1, name="Y_indel_length_loss_1")
+
+                #
+
+
 
                 # self.Y_indel_length_cross_entropy_2 = Clair.weighted_cross_entropy(
                 #     softmax_prediction=self.Y_indel_length_2,
@@ -699,15 +722,18 @@ class Clair(object):
             # Include gradient clipping if RNN architectures are used
             if "RNN" in self.structure or "LSTM" in self.structure:
                 with tf.variable_scope("Training_Operation"):
-                    self.optimizer = tf.train.AdamOptimizer(
-                        learning_rate=self.learning_rate_placeholder
+                    self.optimizer = tf.train.MomentumOptimizer(
+                        learning_rate=self.learning_rate_placeholder,
+                        momentum=param.momentum
+
                     )
                     gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
                     self.training_op = self.optimizer.apply_gradients(zip(gradients, variables))
             else:
-                self.training_op = tf.train.AdamOptimizer(
-                    learning_rate=self.learning_rate_placeholder
+                self.training_op = tf.train.MomentumOptimizer(
+                    learning_rate=self.learning_rate_placeholder,
+                    momentum=param.momentum
                 ).minimize(self.total_loss)
 
             self.init_op = tf.global_variables_initializer()
@@ -772,12 +798,12 @@ class Clair(object):
         # target_tensor > zeros <=> z=1, so negative coefficient = 0.
         neg_p_sub = array_ops.where(target_tensor > zeros, zeros, softmax_p)
         per_entry_cross_ent = -(
-            (pos_p_sub ** gamma) * tf.log(tf.clip_by_value(0.0 + softmax_p, 1e-8, 1.0)) +
-            (neg_p_sub ** gamma) * tf.log(tf.clip_by_value(1.0 - softmax_p, 1e-8, 1.0))
+
+                (pos_p_sub ** gamma) * tf.log(tf.clip_by_value(0.0 + softmax_p, 1e-8, 1.0)) +
+                (neg_p_sub ** gamma) * tf.log(tf.clip_by_value(1.0 - softmax_p, 1e-8, 1.0))
+
         )
         return tf.reduce_sum(per_entry_cross_ent)
-
-
 
     def init(self):
         """
@@ -821,6 +847,7 @@ class Clair(object):
         """
         A general function processing tensors if they have larger dimension than the target ndim, calling the apply_function for each sliced tensor and
         group the output in a list
+
         Arguments:
             tensor: Numpy Array, the tensor to be processed
             apply_function: a function to be called for a tensor with the target_ndim
@@ -830,6 +857,7 @@ class Clair(object):
             last_first: bool, expand the last dimension first
             sparator: str, for appending when each dimension is processed
             *args, **kwargs: other arguments to be passed to the function "apply_function"
+
         Returns:
             A list containing all the results from apply_function(sliced_tensor)
         """
@@ -850,11 +878,50 @@ class Clair(object):
         """
         self.session.close()
 
-    def train(self, batchX, batchY, result_caching=False):
+    def lr_train(self, batchX, batchY):
+        transformed_batch_X, transformed_batch_Y = self.tensor_transform_function(batchX, batchY, "train")
+        input_dictionary = {
+            self.X_placeholder: transformed_batch_X,
+            self.Y_placeholder: transformed_batch_Y,
+            self.learning_rate_placeholder: self.learning_rate_value,
+            self.phase_placeholder: True,
+            self.regularization_L2_lambda_placeholder: self.l2_regularization_lambda_value,
+            self.task_loss_weights_placeholder: self.task_loss_weights,
+            self.output_base_change_entropy_weights_placeholder: self.output_base_change_entropy_weights,
+            self.output_genotype_entropy_weights_placeholder: self.output_genotype_entropy_weights,
+            self.output_indel_length_entropy_weights_placeholder_1: self.output_indel_length_entropy_weights_1,
+            self.output_indel_length_entropy_weights_placeholder_2: self.output_indel_length_entropy_weights_2,
+        }
+        input_dictionary.update(self.get_structure_dict(phase='train'))
+
+        (base, genotype, indel_length_1, indel_length_2), loss, _, summary = self.session.run(
+            (self.Y, self.loss, self.training_op, self.training_summary_op),
+            feed_dict=input_dictionary)
+
+        self.output_cache['training_loss'] = loss
+        self.output_cache['training_summary'] = summary
+        self.output_cache['prediction_base'] = base
+        self.output_cache['prediction_genotype'] = genotype
+        self.output_cache['prediction_indel_length_1'] = indel_length_1
+        self.output_cache['prediction_indel_length_2'] = indel_length_2
+
+        # Aliasing
+        self.trainLossRTVal = loss
+        self.trainSummaryRTVal = summary
+        self.predictBaseRTVal = self.output_cache['prediction_base']
+        self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
+        self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
+        self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
+
+
+        return base, genotype, indel_length_1, indel_length_2, loss
+
+    def train(self, batchX, batchY,result_caching=False):
         """
         Train the model in batch with input tensor batchX and truth tensor batchY, caching the results in
         self.output_cache['training_loss'] and self.output_cache['training_summary'] if result_caching is True
         The tensor transform function is applied prior to training
+
         Returns:
             loss: The loss value from the batch
             summary: The tf.summary of the training
@@ -888,6 +955,7 @@ class Clair(object):
         self.trainLossRTVal = loss
         self.trainSummaryRTVal = summary
 
+
         return loss, summary
 
     def predict(self, batchX, result_caching=False):
@@ -899,6 +967,7 @@ class Clair(object):
         self.output_cache['prediction_indel_length_2']
         if result_caching is True
         The tensor transform function is applied prior to prediction
+
         Returns:
             base, genotype, indel_length_1, indel_length_2: The four predictions from the model in batch
         """
@@ -935,6 +1004,7 @@ class Clair(object):
         Getting the loss using model in batch with input tensor batchX and truth tensor batchY, caching the results in
         self.output_cache['prediction_loss'] if result_caching is True
         The tensor transform function is applied prior to getting loss
+
         Returns:
             loss: The loss value for this batch
         """
@@ -991,6 +1061,7 @@ class Clair(object):
     def get_variable_objects(self, regular_expression):
         """
         Get all variable objects from the graph matching the regular expression
+
         Returns:
             variable_list: list of tf variable objects
         """
@@ -1006,6 +1077,7 @@ class Clair(object):
     def get_operation_objects(self, regular_expression, exclude_expression=".*(grad|tags|Adam).*"):
         """
         Get all operation objects from the graph matching the regular expression, but not the exclude_expression
+
         Returns:
             operation_list: list of tf operation objects
         """
@@ -1022,6 +1094,7 @@ class Clair(object):
     def get_summary_file_writer(self, logs_path):
         """
         Generate a new tf summary File writer with the specified log path
+
         returns: A tf.summary.FileWriter object
         """
         # if hasattr(self, "current_summary_writer"):
@@ -1033,6 +1106,7 @@ class Clair(object):
     def set_task_loss_weights(self, task_loss_weights=[1, 1, 1, 1, 1]):
         """
         Assign a set new task loss weights for training
+
         Arguments:
             task_loss_weights: A list of numbers specifying the weights to the tasks
         """
@@ -1045,12 +1119,26 @@ class Clair(object):
         self.learning_rate_value = learning_rate
         return self.learning_rate_value
 
-    def decay_learning_rate(self):
+    def decay_learning_rate(self, global_step,step_size,max_lr,mode="tri"):
         """
         Decay the learning rate by the predefined decay rate
         """
-        self.learning_rate_value = self.learning_rate_value * self.learning_rate_decay_rate
-        return self.learning_rate_value
+        global_step+=1
+        cycle = 1 + global_step / (2 * step_size)
+        if cycle > 2:
+            global_step = 0
+            if mode == "exp":
+                max_lr=max_lr*param.clrGamma**(1)
+            elif mode == "tri2":
+                max_lr=max_lr/2
+        x = global_step / step_size
+        if x<= 1:
+            self.learning_rate_value = param.initialLearningRate + (max_lr - param.initialLearningRate) * np.maximum(0, x)
+        else:
+            self.learning_rate_value = param.initialLearningRate + (max_lr - param.initialLearningRate) * np.maximum(0, (2-x))
+
+        return self.learning_rate_value,global_step, max_lr
+
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
         """
@@ -1079,6 +1167,7 @@ class Clair(object):
     def pretty_print_np_tensor(tensor, element_separator='\t'):
         """
         Print a numpy array (tensor) formatted with [], new lines and the element_separator
+
         Returns:
             A string containing the formatted tensor
         """
@@ -1105,6 +1194,7 @@ class Clair(object):
 class FunctionCallConsumer(multiprocessing.Process):
     """
     A class implementing thread safe consumer which does a function call for each task
+
     Init Arguments:
         target_function: callable, when a task is obtained from the task_queue, the fucntion is called in the args and kwargs from the queue
         task_queue: the task queue, recommend using multiprocessing.JoinableQueue(), each object put into this queue should be a tuple of size 3:
