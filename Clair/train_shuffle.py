@@ -207,7 +207,7 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            learning_rate,global_step,max_learning_rate=m.decay_learning_rate(global_step,step_size,max_learning_rate,"tri")
+            learning_rate,global_step,max_learning_rate=m.decay_learning_rate(global_step,step_size,max_learning_rate,"exp")
             continue
 
         logging.info(
