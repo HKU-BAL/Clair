@@ -725,7 +725,7 @@ class Clair(object):
                     self.optimizer = AdaBoundOptimizer(
                         learning_rate=self.learning_rate_placeholder,
                         #momentum=param.momentum
-                        final_lr=self.max_lr
+                        final_lr=param.maximumLearningRate
                     )
                     gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
@@ -734,7 +734,7 @@ class Clair(object):
                 self.training_op = tf.train.MomentumOptimizer(
                     learning_rate=self.learning_rate_placeholder,
                     #momentum=param.momentum
-                    final_lr=self.max_lr
+                    final_lr=param.maximumLearningRate
                 ).minimize(self.total_loss)
 
             self.init_op = tf.global_variables_initializer()
@@ -1142,7 +1142,6 @@ class Clair(object):
             elif mode == "tri2":
                 max_lr=max_lr/2
         x = global_step / step_size
-        self.max_lr=max_lr
         if x<= 1:
             self.learning_rate_value = param.initialLearningRate + (max_lr - param.initialLearningRate) * np.maximum(0, x)
         else:
