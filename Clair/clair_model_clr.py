@@ -12,7 +12,6 @@ import param
 import math
 from collections import defaultdict
 import multiprocessing
-from adabound import AdaBoundOptimizer
 
 from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 

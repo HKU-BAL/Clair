@@ -10,7 +10,7 @@ from threading import Thread
 
 import param
 import utils
-import clair_model_clr as cv
+import clair_model as cv
 import evaluate
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
@@ -159,7 +159,7 @@ def train_model(m, training_config):
         if next_x_batch is not None and next_y_batch is not None:
             x_batch = next_x_batch
             y_batch = next_y_batch
-            learning_rate,global_step,max_learning_rate=m.decay_learning_rate(global_step,step_size,max_learning_rate,"exp")
+            learning_rate,global_step,max_learning_rate=m.clr(global_step,step_size,max_learning_rate,"exp")
             continue
 
         logging.info(
@@ -262,7 +262,7 @@ if __name__ == "__main__":
     logging.info("[INFO] Initializing")
     utils.setup_environment()
     m = cv.Clair()
-    m.init()
+    m.init(optimizer="SGDM")
 
     dataset_info = utils.dataset_info_from(
         binary_file_path=args.bin_fn,

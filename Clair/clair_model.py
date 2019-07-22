@@ -95,7 +95,8 @@ class Clair(object):
             learning_rate_decay=param.learningRateDecay,
             l2_regularization_lambda=param.l2RegularizationLambda,
             l2_regularization_lambda_decay_rate=param.l2RegularizationLambdaDecay,
-            tensor_transform_function=lambda X, Y, phase: (X, Y)
+            tensor_transform_function=lambda X, Y, phase: (X, Y),
+            optimizer="Adam"
         )
 
         # Getting other parameters from the param.py file
@@ -148,6 +149,7 @@ class Clair(object):
         self.l2_regularization_lambda_value = params['l2_regularization_lambda']
         self.l2_regularization_lambda_decay_rate = params['l2_regularization_lambda_decay_rate']
         self.structure = params['structure']
+        self.optimizer_name=params['optimizer']
 
         # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks,
         # which does not support tf.float64
@@ -699,16 +701,26 @@ class Clair(object):
             # Include gradient clipping if RNN architectures are used
             if "RNN" in self.structure or "LSTM" in self.structure:
                 with tf.variable_scope("Training_Operation"):
-                    self.optimizer = tf.train.AdamOptimizer(
+                    if self.optimizer_name == "Adam":
+                        self.optimizer = tf.train.AdamOptimizer(
                         learning_rate=self.learning_rate_placeholder
                     )
+                    elif self.optimizer_name == "SGDM":
+                        self.optimizer=tf.train.MomentumOptimizer(
+                            learning_rate=self.learning_rate_placeholder,
+                            momentum=param.momentum)
                     gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
                     self.training_op = self.optimizer.apply_gradients(zip(gradients, variables))
             else:
-                self.training_op = tf.train.AdamOptimizer(
+                if self.optimizer_name == "Adam":
+                    self.training_op = tf.train.AdamOptimizer(
                     learning_rate=self.learning_rate_placeholder
-                ).minimize(self.total_loss)
+                    ).minimize(self.total_loss)
+                elif self.optimizer_name == "SGDM":
+                    self.optimizer = tf.train.MomentumOptimizer(
+                        learning_rate=self.learning_rate_placeholder,
+                        momentum=param.momentum).minimize(self.total_loss)
 
             self.init_op = tf.global_variables_initializer()
 
@@ -1051,6 +1063,25 @@ class Clair(object):
         """
         self.learning_rate_value = self.learning_rate_value * self.learning_rate_decay_rate
         return self.learning_rate_value
+
+    def clr(self, global_step, step_size, max_lr, mode="tri"):
+        """
+        Cyclical Learning Rate
+        """
+        global_step += 1
+        cycle = 1 + global_step / (2 * step_size)
+        if cycle > 2:
+            global_step = 0
+            if mode == "exp":
+                max_lr = max_lr * param.clrGamma ** (1)
+            elif mode == "tri2":
+                max_lr = max_lr / 2
+        x = global_step / step_size
+        if x <= 1:
+            self.learning_rate_value = param.initialLearningRate + (max_lr - param.initialLearningRate) * np.maximum(0,x)
+        else:
+            self.learning_rate_value = param.initialLearningRate + (max_lr - param.initialLearningRate) * np.maximum(0,(2 - x))
+        return self.learning_rate_value, global_step, max_lr
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
         """
