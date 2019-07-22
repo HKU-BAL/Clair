@@ -328,7 +328,7 @@ if __name__ == "__main__":
     logging.info("[INFO] Initializing")
     utils.setup_environment()
     m = cv.Clair()
-    m.init(optimizer="Adam")
+    m.init()
 
     dataset_info = utils.dataset_info_from(
         binary_file_path=args.bin_fn,
