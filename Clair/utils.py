@@ -186,7 +186,7 @@ def UnpackATensorRecord(a, b, c, *d):
 
 def GetTensor(tensor_fn, num):
     if tensor_fn != "PIPE":
-        f = subprocess.Popen(shlex.split("gzip -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         fo = f.stdout
     else:
         fo = sys.stdin
@@ -231,7 +231,7 @@ def GetTensor(tensor_fn, num):
 def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
     tree = {}
     if bed_fn != None:
-        f = subprocess.Popen(shlex.split("gzip -fdc %s" % (bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         for row in f.stdout:
             row = row.split()
             name = row[0]
@@ -247,7 +247,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
 
     Y = {}
     if var_fn != None:
-        f = subprocess.Popen(shlex.split("gzip -fdc %s" % (var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         for row in f.stdout:
             row = row.split()
             ctg_name = row[0]
@@ -311,7 +311,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
         f.wait()
 
     X = {}
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
     total = 0
     mat = np.empty(((2*param.flankingBaseNum+1)*param.matrixRow*param.matrixNum), dtype=np.float32)
     for row in f.stdout:

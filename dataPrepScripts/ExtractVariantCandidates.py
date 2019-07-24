@@ -28,7 +28,7 @@ def variants_map_from(variant_file_path):
         return {}
 
     variants_map = {}
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (variant_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess.Popen(shlex.split("pigz -fdc %s" % (variant_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
 
     while True:
         row = f.stdout.readline()
@@ -144,15 +144,15 @@ def interval_tree_map_from(bed_file_path):
     if bed_file_path is None:
         return interval_tree_map
 
-    gzip_process = subprocess.Popen(
-        shlex.split("gzip -fdc %s" % (bed_file_path)),
+    pigz_process = subprocess.Popen(
+        shlex.split("pigz -fdc %s" % (bed_file_path)),
         stdout=subprocess.PIPE,
         bufsize=8388608
     )
 
     while True:
-        row = gzip_process.stdout.readline()
-        is_finish_reading_output = row == '' and gzip_process.poll() is not None
+        row = pigz_process.stdout.readline()
+        is_finish_reading_output = row == '' and pigz_process.poll() is not None
         if is_finish_reading_output:
             break
 
@@ -170,8 +170,8 @@ def interval_tree_map_from(bed_file_path):
 
             interval_tree_map[ctg_name].addi(ctg_start, ctg_end)
 
-    gzip_process.stdout.close()
-    gzip_process.wait()
+    pigz_process.stdout.close()
+    pigz_process.wait()
 
     return interval_tree_map
 
@@ -282,7 +282,7 @@ def make_candidates(args):
     else:
         can_fpo = open(candidate_output_path, "wb")
         can_fp = subprocess.Popen(
-            shlex.split("gzip -c"), stdin=subprocess.PIPE, stdout=can_fpo, stderr=sys.stderr, bufsize=8388608
+            shlex.split("pigz -c"), stdin=subprocess.PIPE, stdout=can_fpo, stderr=sys.stderr, bufsize=8388608
         )
 
     pileup = defaultdict(lambda: {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})

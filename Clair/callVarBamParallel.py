@@ -65,7 +65,7 @@ def Run(args):
 
     tree = {}
     if bed_fn != None:
-        bed_fp = subprocess.Popen(shlex.split("gzip -fdc %s" % (bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+        bed_fp = subprocess.Popen(shlex.split("pigz -fdc %s" % (bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         for row in bed_fp.stdout:
             row = row.strip().split()
             name = row[0]
