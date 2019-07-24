@@ -1,5 +1,5 @@
 import os
-import pickle
+import cPickle
 import argparse
 import random
 import concurrent.futures
@@ -37,10 +37,10 @@ def load_data_from_one_file_path(file_path):
     total = 0
 
     with open(file_path, "rb") as f:
-        total = int(pickle.load(f))
-        X = pickle.load(f)
-        Y = pickle.load(f)
-        pos = pickle.load(f)
+        total = int(cPickle.load(f))
+        X = cPickle.load(f)
+        Y = cPickle.load(f)
+        pos = cPickle.load(f)
 
     return Data(x=X, y=Y, pos=pos, total=total)
 
@@ -83,10 +83,10 @@ def load_data_from(directory_path, need_shuffle_file_paths=False):
 def output_data(dst, data):
     print "[INFO] Output: {}".format(os.path.abspath(dst))
     with open(dst, "wb") as f:
-        pickle.dump(data.total, f)
-        pickle.dump(data.x, f)
-        pickle.dump(data.y, f)
-        pickle.dump(data.pos, f)
+        cPickle.dump(data.total, f, protocol=cPickle.HIGHEST_PROTOCOL)
+        cPickle.dump(data.x, f, protocol=cPickle.HIGHEST_PROTOCOL)
+        cPickle.dump(data.y, f, protocol=cPickle.HIGHEST_PROTOCOL)
+        cPickle.dump(data.pos, f, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == "__main__":

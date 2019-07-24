@@ -1,7 +1,7 @@
 import sys
 import argparse
 import logging
-import pickle
+import cPickle
 import param
 import utils
 logging.basicConfig(format='%(message)s', level=logging.INFO)
@@ -25,10 +25,10 @@ def Convert(args, utils):
 
     logging.info("Writing to binary ...")
     fh = open(args.bin_fn, "wb")
-    pickle.dump(total, fh)
-    pickle.dump(XArrayCompressed, fh)
-    pickle.dump(YArrayCompressed, fh)
-    pickle.dump(posArrayCompressed, fh)
+    cPickle.dump(total, fh, protocol=cPickle.HIGHEST_PROTOCOL)
+    cPickle.dump(XArrayCompressed, fh, protocol=cPickle.HIGHEST_PROTOCOL)
+    cPickle.dump(YArrayCompressed, fh, protocol=cPickle.HIGHEST_PROTOCOL)
+    cPickle.dump(posArrayCompressed, fh, protocol=cPickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == "__main__":

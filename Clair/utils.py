@@ -4,7 +4,7 @@ import gc
 import shlex
 import subprocess
 import logging
-import pickle
+import cPickle
 import numpy as np
 
 import intervaltree
@@ -465,10 +465,10 @@ def dataset_info_from(binary_file_path, tensor_file_path=None, variant_file_path
     if binary_file_path != None:
         logging.info("[INFO] Loading compressed data from binary file path")
         with open(binary_file_path, "rb") as fh:
-            dataset_size = pickle.load(fh)
-            x_array_compressed = pickle.load(fh)
-            y_array_compressed = pickle.load(fh)
-            position_array_compressed = pickle.load(fh)
+            dataset_size = cPickle.load(fh)
+            x_array_compressed = cPickle.load(fh)
+            y_array_compressed = cPickle.load(fh)
+            position_array_compressed = cPickle.load(fh)
     else:
         logging.info("[INFO] Loading compressed data from utils get training array")
         dataset_size, x_array_compressed, y_array_compressed, position_array_compressed = \
