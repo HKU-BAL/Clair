@@ -176,8 +176,12 @@ def genotype_string_from(genotype):
 def SetupEnv():
     os.environ["CXX"] = "g++"
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    blosc.set_nthreads(2)
+    blosc.set_nthreads(4)
     gc.enable()
+
+
+def blosc_pack_array(array):
+    return blosc.pack_array(array, cname='lz4hc', clevel=9, shuffle=blosc.NOSHUFFLE)
 
 
 def UnpackATensorRecord(a, b, c, *d):
@@ -396,9 +400,9 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
 
         count += 1
         if count == param.bloscBlockSize:
-            XArrayCompressed.append(blosc.pack_array(np.array(XArray), cname='lz4hc'))
-            YArrayCompressed.append(blosc.pack_array(np.array(YArray), cname='lz4hc'))
-            posArrayCompressed.append(blosc.pack_array(np.array(posArray), cname='lz4hc'))
+            XArrayCompressed.append(blosc_pack_array(np.array(XArray)))
+            YArrayCompressed.append(blosc_pack_array(np.array(YArray)))
+            posArrayCompressed.append(blosc_pack_array(np.array(posArray)))
             XArray = []
             YArray = []
             posArray = []
@@ -406,9 +410,9 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
         if total % 50000 == 0:
             print >> sys.stderr, "Compressed %d/%d tensor" % (total, len(allPos))
     if count > 0:
-        XArrayCompressed.append(blosc.pack_array(np.array(XArray), cname='lz4hc'))
-        YArrayCompressed.append(blosc.pack_array(np.array(YArray), cname='lz4hc'))
-        posArrayCompressed.append(blosc.pack_array(np.array(posArray), cname='lz4hc'))
+        XArrayCompressed.append(blosc_pack_array(np.array(XArray)))
+        YArrayCompressed.append(blosc_pack_array(np.array(YArray)))
+        posArrayCompressed.append(blosc_pack_array(np.array(posArray)))
 
     return total, XArrayCompressed, YArrayCompressed, posArrayCompressed
 
