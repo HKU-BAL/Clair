@@ -80,13 +80,17 @@ def load_data_from(directory_path, need_shuffle_file_paths=False):
     return Data(x=X, y=Y, pos=pos, total=total)
 
 
+def pickle_dump(obj, file):
+    return cPickle.dump(obj, file, protocol=cPickle.HIGHEST_PROTOCOL)
+
+
 def output_data(dst, data):
     print "[INFO] Output: {}".format(os.path.abspath(dst))
     with open(dst, "wb") as f:
-        cPickle.dump(data.total, f, protocol=cPickle.HIGHEST_PROTOCOL)
-        cPickle.dump(data.x, f, protocol=cPickle.HIGHEST_PROTOCOL)
-        cPickle.dump(data.y, f, protocol=cPickle.HIGHEST_PROTOCOL)
-        cPickle.dump(data.pos, f, protocol=cPickle.HIGHEST_PROTOCOL)
+        pickle_dump(data.total, f)
+        pickle_dump(data.x, f)
+        pickle_dump(data.y, f)
+        pickle_dump(data.pos, f)
 
 
 if __name__ == "__main__":
