@@ -17,14 +17,11 @@ from utils import BaseChange, base_change_label_from, Genotype, genotype_string_
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
-v1Type2Name = dict(zip((0, 1, 2, 3, 4), ('HET', 'HOM', 'INS', 'DEL', 'REF')))
-v2Zygosity2Name = dict(zip((0, 1), ('HET', 'HOM')))
-v2Type2Name = dict(zip((0, 1, 2, 3), ('REF', 'SNP', 'INS', 'DEL')))
-v2Length2Name = dict(zip((0, 1, 2, 3, 4, 5), ('0', '1', '2', '3', '4', '4+')))
 minimum_variant_length_that_need_infer = VariantLength.max
 inferred_indel_length_minimum_allele_frequency = 0.125
 
 Predictions = namedtuple('Predictions', ['base_change', 'genotype', 'variant_lengths'])
+flanking_base_number = param.flankingBaseNum
 
 
 class Channel(IntEnum):
@@ -316,6 +313,93 @@ def print_debug_message_with(
     )
 
 
+def no_of_insertion_bases_from(is_homo_insertion, is_hetero_insertion, variant_lengths):
+    """
+    return # of insertion bases and # of insertion bases 1 and 2
+    """
+
+    variant_length, variant_length_1, variant_length_2 = -1, -1, -1
+    if is_homo_insertion:
+        variant_length_1 = 1 if variant_lengths[0] <= 0 else variant_lengths[0]
+        variant_length_2 = 1 if variant_lengths[1] <= 0 else variant_lengths[1]
+        variant_length = min(variant_length_1, variant_length_2)
+    elif is_hetero_insertion:
+        variant_length_1 = 0 if variant_lengths[0] <= 0 else variant_lengths[0]
+        variant_length_2 = 0 if variant_lengths[1] <= 0 else variant_lengths[1]
+        variant_length = max(variant_length_1, variant_length_2)
+
+    if variant_length_2 < variant_length_1:
+        variant_length_1, variant_length_2 = variant_length_2, variant_length_1
+
+    return variant_length, variant_length_1, variant_length_2
+
+
+def no_of_deletion_bases_from(is_homo_deletion, is_hetero_deletion, variant_lengths):
+    """
+    return # of deletion bases and # of insertion bases 1 and 2
+    """
+
+    variant_length, variant_length_1, variant_length_2 = -1, -1, -1
+    if is_homo_deletion:
+        variant_length_1 = 1 if variant_lengths[0] >= 0 else -variant_lengths[0]
+        variant_length_2 = 1 if variant_lengths[1] >= 0 else -variant_lengths[1]
+        variant_length = min(variant_length_1, variant_length_2)
+    elif is_hetero_deletion:
+        variant_length_1 = 0 if variant_lengths[0] >= 0 else -variant_lengths[0]
+        variant_length_2 = 0 if variant_lengths[1] >= 0 else -variant_lengths[1]
+        variant_length = max(variant_length_1, variant_length_2)
+        variant_length = variant_length if variant_length > 0 else 1
+
+    if variant_length_2 < variant_length_1:
+        variant_length_1, variant_length_2 = variant_length_2, variant_length_1
+
+    return variant_length, variant_length_1, variant_length_2
+
+
+def inferred_insertion_bases_from(tensor_input):
+    insertion_bases = ""
+    for position in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+        reference_tensor = tensor_input[position, :, Channel.reference]
+        insertion_tensor = np.copy(tensor_input[position, :, Channel.insert])
+        for base_index in range(0, 4):
+            insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
+            insertion_tensor[base_index + 4] = 0
+        if (
+            position < (flanking_base_number + minimum_variant_length_that_need_infer) or
+            sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
+        ):
+            insertion_bases += num2base[np.argmax(insertion_tensor) % 4]
+        else:
+            break
+    return insertion_bases
+
+
+def inferred_deletion_length_from(tensor_input):
+    deletion_length = 0
+    for position in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+        reference_tensor = tensor_input[position, :, Channel.reference]
+        deletion_tensor = tensor_input[position, :, Channel.delete]
+        if (
+            position < (flanking_base_number + minimum_variant_length_that_need_infer) or
+            sum(deletion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
+        ):
+            deletion_length += 1
+        else:
+            break
+    return deletion_length
+
+
+def insertion_bases_from(tensor_input, variant_length):
+    insertion_bases = ""
+    for position in range(flanking_base_number + 1, flanking_base_number + variant_length + 1):
+        insertion_tensor = np.copy(tensor_input[position, :, Channel.insert])
+        for base_index in range(0, 4):
+            insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
+            insertion_tensor[base_index + 4] = 0
+        insertion_bases += num2base[np.argmax(insertion_tensor) % 4]
+    return insertion_bases
+
+
 def Output(
     args,
     call_fh,
@@ -334,7 +418,6 @@ def Output(
         )
 
     is_show_reference = args.showRef
-    flanking_base_number = param.flankingBaseNum
     position_center = flanking_base_number
     no_of_rows = len(base_change_probabilities)
     is_debug = True if args.debug is True else False
@@ -391,18 +474,8 @@ def Output(
         info = []
 
         # read depth
-        # read_depth = sum(
-        #     X[row_index, position_center, :, Channel.reference] +
-        #     X[row_index, position_center, :, Channel.SNP] +
-        #     X[row_index, position_center+1, :, Channel.insert] +
-        #     X[row_index, position_center+1, :, Channel.delete]
-        # )
-        read_depth = 0
-        read_depth = sum(X[row_index, position_center, :, Channel.delete] + X[row_index, position_center, :, Channel.reference])
-        #if is_SNP or is_reference:
-        #    read_depth = sum(X[row_index, position_center, :, Channel.delete] + X[row_index, position_center, :, Channel.reference])
-        #elif is_insertion or is_deletion or is_insertion_and_deletion:
-        #    read_depth = sum(X[row_index, position_center+1, :, Channel.delete] + X[row_index, position_center+1, :, Channel.reference])
+        read_depth = sum(X[row_index, position_center, :, Channel.delete] +
+                         X[row_index, position_center, :, Channel.reference])
         if read_depth == 0:
             print_debug_message_with(
                 is_debug,
@@ -450,15 +523,9 @@ def Output(
                 alternate_base = base1 if base1 != reference_base else base2
 
         elif is_insertion:
-            if is_homo_insertion:
-                variant_length_1 = 1 if prediction.variant_lengths[0] <= 0 else prediction.variant_lengths[0]
-                variant_length_2 = 1 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1]
-                variant_length = min(variant_length_1, variant_length_2)
-            elif is_hetero_insertion:
-                variant_length_1 = 0 if prediction.variant_lengths[0] <= 0 else prediction.variant_lengths[0]
-                variant_length_2 = 0 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1]
-                variant_length = max(variant_length_1, variant_length_2)
-                variant_length = variant_length if variant_length > 0 else 1
+            variant_length, variant_length_1, variant_length_2 = no_of_insertion_bases_from(
+                is_homo_insertion, is_hetero_insertion, variant_lengths=prediction.variant_lengths
+            )
 
             if is_hetero_insertion and variant_length <= 0:
                 print_debug_message_with(
@@ -474,34 +541,14 @@ def Output(
                 )
                 continue
 
-            if variant_length_2 < variant_length_1:
-                variant_length_1, variant_length_2 = variant_length_2, variant_length_1
-
             reference_base = reference_sequence[position_center]
 
             need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
             if need_inferred_variant_length:
-                for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
-                    reference_tensor = X[row_index, k, :, Channel.reference]
-                    insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
-                    for base_index in range(0, 4):
-                        insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
-                        insertion_tensor[base_index + 4] = 0
-                    if (
-                        k < (flanking_base_number + minimum_variant_length_that_need_infer) or
-                        sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
-                    ):
-                        inferred_indel_length += 1
-                        alternate_base += num2base[np.argmax(insertion_tensor) % 4]
-                    else:
-                        break
+                alternate_base = inferred_insertion_bases_from(tensor_input=X[row_index])
+                inferred_indel_length = len(alternate_base)
             else:
-                for k in range(flanking_base_number + 1, flanking_base_number + variant_length + 1):
-                    insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
-                    for base_index in range(0, 4):
-                        insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
-                        insertion_tensor[base_index + 4] = 0
-                    alternate_base += num2base[np.argmax(insertion_tensor) % 4]
+                alternate_base = insertion_bases_from(tensor_input=X[row_index], variant_length=variant_length)
 
             is_marked_as_SV = need_inferred_variant_length and inferred_indel_length >= flanking_base_number
             hetero_insert_base = hetero_insert_base_from(base_change_probabilities[row_index])
@@ -542,15 +589,9 @@ def Output(
                     genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
         elif is_deletion:
-            if is_homo_deletion:
-                variant_length_1 = 1 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0]
-                variant_length_2 = 1 if prediction.variant_lengths[1] >= 0 else -prediction.variant_lengths[1]
-                variant_length = min(variant_length_1, variant_length_2)
-            elif is_hetero_deletion:
-                variant_length_1 = 0 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0]
-                variant_length_2 = 0 if prediction.variant_lengths[1] >= 0 else -prediction.variant_lengths[1]
-                variant_length = max(variant_length_1, variant_length_2)
-                variant_length = variant_length if variant_length > 0 else 1
+            variant_length, variant_length_1, variant_length_2 = no_of_deletion_bases_from(
+                is_homo_deletion, is_hetero_deletion, variant_lengths=prediction.variant_lengths
+            )
 
             if is_hetero_deletion and variant_length <= 0:
                 print_debug_message_with(
@@ -566,23 +607,11 @@ def Output(
                 )
                 continue
 
-            if variant_length_2 < variant_length_1:
-                variant_length_1, variant_length_2 = variant_length_2, variant_length_1
-
             reference_base = reference_sequence[position_center]
 
             need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
             if need_inferred_variant_length:
-                for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
-                    reference_tensor = X[row_index, k, :, Channel.reference]
-                    deletion_tensor = X[row_index, k, :, Channel.delete]
-                    if (
-                        k < (flanking_base_number + minimum_variant_length_that_need_infer) or
-                        sum(deletion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
-                    ):
-                        inferred_indel_length += 1
-                    else:
-                        break
+                inferred_indel_length = inferred_deletion_length_from(tensor_input=X[row_index])
 
             is_marked_as_SV = need_inferred_variant_length and inferred_indel_length >= flanking_base_number
             hetero_delete_base = hetero_delete_base_from(base_change_probabilities[row_index])
@@ -646,39 +675,14 @@ def Output(
             is_inferred_deletion_length = variant_length_delete >= minimum_variant_length_that_need_infer
 
             if is_inferred_insertion_length:
-                for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
-                    reference_tensor = X[row_index, k, :, Channel.reference]
-                    insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
-                    for base_index in range(0, 4):
-                        insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
-                        insertion_tensor[base_index + 4] = 0
-                    if (
-                        k < (flanking_base_number + minimum_variant_length_that_need_infer) or
-                        sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
-                    ):
-                        inferred_insert_length += 1
-                        alternate_base_insert += num2base[np.argmax(insertion_tensor) % 4]
-                    else:
-                        break
+                alternate_base_insert = inferred_insertion_bases_from(tensor_input=X[row_index])
+                inferred_insert_length = len(alternate_base_insert)
             else:
-                for k in range(flanking_base_number + 1, flanking_base_number + variant_length_insert + 1):
-                    insertion_tensor = np.copy(X[row_index, k, :, Channel.insert])
-                    for base_index in range(0, 4):
-                        insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
-                        insertion_tensor[base_index + 4] = 0
-                    alternate_base_insert += num2base[np.argmax(insertion_tensor) % 4]
+                alternate_base_insert = insertion_bases_from(
+                    tensor_input=X[row_index], variant_length=variant_length_insert)
 
             if is_inferred_deletion_length:
-                for k in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
-                    reference_tensor = X[row_index, k, :, Channel.reference]
-                    deletion_tensor = X[row_index, k, :, Channel.delete]
-                    if (
-                        k < (flanking_base_number + minimum_variant_length_that_need_infer) or
-                        sum(deletion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
-                    ):
-                        inferred_delete_length += 1
-                    else:
-                        break
+                inferred_delete_length = inferred_deletion_length_from(tensor_input=X[row_index])
 
             is_marked_as_SV = (
                 (is_inferred_insertion_length and inferred_insert_length >= flanking_base_number) or
@@ -930,6 +934,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--call_fn', type=str, default=None,
                         help="Output variant predictions")
+
+    parser.add_argument('--bam_fn', type=str, default="bam.bam",
+                        help="BAM file input, default: %(default)s")
 
     parser.add_argument('--qual', type=int, default=None,
                         help="If set, variant with equal or higher quality will be marked PASS, or LowQual otherwise, optional")
