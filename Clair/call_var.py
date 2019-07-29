@@ -8,11 +8,13 @@ import numpy as np
 from threading import Thread
 from math import log, e
 from enum import IntEnum
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 
 import utils
 import clair_model as cv
 from utils import BaseChange, base_change_label_from, Genotype, genotype_string_from, VariantLength
+
+import pysam
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))
@@ -258,6 +260,62 @@ def filtration_value_from(quality_score_for_pass, quality_score):
     if quality_score >= quality_score_for_pass:
         return "PASS"
     return "LowQual"
+
+
+def pileup(alignment_file, contig, position_start, position_end, func):
+    """
+    Pileup using pysam
+
+    alignment_file: bam file path
+    contig: chromosome name or contig name
+    position_start: start position. 0-based. Inclusive.
+    position_end: ending position. 0-bsaed. Exclusive.
+    func: callback for pileup_column
+    """
+    samfile = pysam.AlignmentFile(
+        alignment_file,
+        mode="rb",
+    )
+    for pileup_column in samfile.pileup(
+        contig,
+        start=position_start,
+        stop=position_end,
+        flag_filter=2308,
+        min_base_quality=0,
+        max_depth=250
+    ):
+        func(pileup_column)
+    samfile.close()
+
+
+def insertion_bases_using_pysam_from(
+    alignment_file,
+    contig,
+    position_start,
+    position_end,
+    minimum_insertion_length=1,
+    maximum_insertion_length=50
+):
+    insertion_bases_dict = defaultdict(lambda: 0)
+
+    def high_order_func(pileup_column):
+        for sequence in pileup_column.get_query_sequences(mark_matches=True, mark_ends=True, add_indels=True):
+            # minimum sequence needed: A+1A, and "+" for insertion
+            if len(sequence) <= 4 or sequence[1] != "+":
+                continue
+
+            no_of_insertion_bases = 0
+            for (string_index, c) in enumerate(sequence[2:]):
+                if not c.isdigit():
+                    insertion_bases = sequence[string_index+2:].upper()
+                    break
+                no_of_insertion_bases = no_of_insertion_bases * 10 + int(c)
+
+            if minimum_insertion_length <= no_of_insertion_bases <= maximum_insertion_length:
+                insertion_bases_dict[insertion_bases] = insertion_bases_dict[insertion_bases] + 1
+    pileup(alignment_file, contig, position_start, position_end, func=high_order_func)
+
+    return max(insertion_bases_dict, key=insertion_bases_dict.get) if len(insertion_bases_dict) > 0 else ""
 
 
 def Run(args):
@@ -523,6 +581,7 @@ def Output(
                 alternate_base = base1 if base1 != reference_base else base2
 
         elif is_insertion:
+            insertion_bases = ""
             variant_length, variant_length_1, variant_length_2 = no_of_insertion_bases_from(
                 is_homo_insertion, is_hetero_insertion, variant_lengths=prediction.variant_lengths
             )
@@ -545,12 +604,22 @@ def Output(
 
             need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
             if need_inferred_variant_length:
-                alternate_base = inferred_insertion_bases_from(tensor_input=X[row_index])
-                inferred_indel_length = len(alternate_base)
+                insertion_bases = (
+                    insertion_bases_using_pysam_from(
+                        alignment_file=args.bam_fn,
+                        contig=chromosome,
+                        position_start=position,
+                        position_end=position+1,
+                        minimum_insertion_length=minimum_variant_length_that_need_infer
+                    ) or
+                    inferred_insertion_bases_from(tensor_input=X[row_index])
+                )
+                inferred_indel_length = len(insertion_bases)
             else:
-                alternate_base = insertion_bases_from(tensor_input=X[row_index], variant_length=variant_length)
+                insertion_bases = insertion_bases_from(tensor_input=X[row_index], variant_length=variant_length)
 
-            is_marked_as_SV = need_inferred_variant_length and inferred_indel_length >= flanking_base_number
+            # is_marked_as_SV = need_inferred_variant_length and inferred_indel_length >= flanking_base_number
+            is_marked_as_SV = False
             hetero_insert_base = hetero_insert_base_from(base_change_probabilities[row_index])
             is_SNP_Ins_multi = (
                 not is_marked_as_SV and
@@ -576,7 +645,7 @@ def Output(
                 alternate_base = "<INS>"
                 info.append("SVTYPE=INS")
             else:
-                alternate_base = reference_base + alternate_base
+                alternate_base = reference_base + insertion_bases
 
             if is_SNP_Ins_multi:
                 alternate_base = "{},{}".format(hetero_insert_base, alternate_base)
