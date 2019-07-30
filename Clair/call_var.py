@@ -290,8 +290,7 @@ def pileup(sam_file, contig, position_start, position_end, func):
 def insertion_bases_using_pysam_from(
     sam_file,
     contig,
-    position_start,
-    position_end,
+    position,
     minimum_insertion_length=1,
     maximum_insertion_length=maximum_variant_length_that_need_infer,
     insertion_bases_to_ignore=""
@@ -299,7 +298,7 @@ def insertion_bases_using_pysam_from(
     insertion_bases_dict = defaultdict(lambda: 0)
 
     def high_order_func(pileup_column):
-        if pileup_column.reference_pos != position_start - 1:
+        if pileup_column.reference_pos != position - 1:
             return
 
         for sequence in pileup_column.get_query_sequences(mark_matches=False, mark_ends=False, add_indels=True):
@@ -316,7 +315,7 @@ def insertion_bases_using_pysam_from(
 
             if minimum_insertion_length <= no_of_insertion_bases <= maximum_insertion_length:
                 insertion_bases_dict[insertion_bases] = insertion_bases_dict[insertion_bases] + 1
-    pileup(sam_file, contig, position_start, position_end, func=high_order_func)
+    pileup(sam_file, contig, position, position+1, func=high_order_func)
 
     return max(insertion_bases_dict, key=insertion_bases_dict.get) if len(insertion_bases_dict) > 0 else ""
 
@@ -325,15 +324,14 @@ def deletion_bases_using_pysam_from(
     sam_file,
     fasta_file,
     contig,
-    position_start,
-    position_end,
+    position,
     minimum_deletion_length=1,
     maximum_deletion_length=maximum_variant_length_that_need_infer
 ):
     deletion_bases_dict = defaultdict(lambda: 0)
 
     def high_order_func(pileup_column):
-        if pileup_column.reference_pos != position_start - 1:
+        if pileup_column.reference_pos != position - 1:
             return
 
         for sequence in pileup_column.get_query_sequences(mark_matches=False, mark_ends=False, add_indels=True):
@@ -345,14 +343,14 @@ def deletion_bases_using_pysam_from(
             for c in sequence[2:]:
                 if not c.isdigit():
                     deletion_bases = fasta_file.fetch(
-                        reference=contig, start=position_start, end=position_start+no_of_deletion_bases
+                        reference=contig, start=position, end=position + no_of_deletion_bases
                     )
                     break
                 no_of_deletion_bases = no_of_deletion_bases * 10 + int(c)
 
             if minimum_deletion_length <= no_of_deletion_bases <= maximum_deletion_length:
                 deletion_bases_dict[deletion_bases] = deletion_bases_dict[deletion_bases] + 1
-    pileup(sam_file, contig, position_start, position_end, func=high_order_func)
+    pileup(sam_file, contig, position, position+1, func=high_order_func)
 
     return max(deletion_bases_dict, key=deletion_bases_dict.get) if len(deletion_bases_dict) > 0 else ""
 
@@ -647,8 +645,7 @@ def Output(
                     insertion_bases_using_pysam_from(
                         sam_file=sam_file,
                         contig=chromosome,
-                        position_start=position,
-                        position_end=position+1,
+                        position=position,
                         minimum_insertion_length=minimum_variant_length_that_need_infer
                     ) or
                     inferred_insertion_bases_from(tensor_input=X[row_index])
@@ -715,8 +712,7 @@ def Output(
                     sam_file=sam_file,
                     fasta_file=fasta_file,
                     contig=chromosome,
-                    position_start=position,
-                    position_end=position+1,
+                    position=position,
                     minimum_deletion_length=minimum_variant_length_that_need_infer
                 )
                 length_guess = len(deletion_bases)
@@ -779,8 +775,7 @@ def Output(
                     insertion_bases_using_pysam_from(
                         sam_file=sam_file,
                         contig=chromosome,
-                        position_start=position,
-                        position_end=position+1,
+                        position=position,
                         minimum_insertion_length=minimum_variant_length_that_need_infer
                     ) or
                     inferred_insertion_bases_from(tensor_input=X[row_index])
@@ -794,8 +789,7 @@ def Output(
                     sam_file=sam_file,
                     fasta_file=fasta_file,
                     contig=chromosome,
-                    position_start=position,
-                    position_end=position+1,
+                    position=position,
                     minimum_deletion_length=minimum_variant_length_that_need_infer
                 )
 
