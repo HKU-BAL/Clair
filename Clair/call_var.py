@@ -755,9 +755,9 @@ def Output(
             if is_marked_as_SV:
                 # reference_base = reference_sequence[position_center]
                 # alternate_base = "<DEL>"
+                # info.append("SVTYPE=DEL")
                 reference_base = reference_sequence[position_center] + deletion_bases
                 alternate_base = reference_sequence[position_center]
-                info.append("SVTYPE=DEL")
             elif need_inferred_variant_length:
                 reference_base = reference_sequence[position_center:position_center + inferred_indel_length + 1]
                 alternate_base = reference_sequence[position_center]
