@@ -262,34 +262,33 @@ def filtration_value_from(quality_score_for_pass, quality_score):
     return "LowQual"
 
 
-def pileup(alignment_file, contig, position_start, position_end, func):
+def pileup(sam_file, contig, position_start, position_end, func):
     """
     Pileup using pysam
 
-    alignment_file: bam file path
+    sam_file: pysam.AlignmentFile for pileup
     contig: chromosome name or contig name
     position_start: start position. 0-based. Inclusive.
     position_end: ending position. 0-bsaed. Exclusive.
     func: callback for pileup_column
     """
-    samfile = pysam.AlignmentFile(
-        alignment_file,
-        mode="rb",
-    )
-    for pileup_column in samfile.pileup(
-        contig,
-        start=position_start,
-        stop=position_end,
-        flag_filter=2308,
-        min_base_quality=0,
-        max_depth=250
-    ):
-        func(pileup_column)
-    samfile.close()
+
+    try:
+        for pileup_column in sam_file.pileup(
+            contig,
+            start=position_start,
+            stop=position_end,
+            flag_filter=2308,
+            min_base_quality=0,
+            max_depth=250
+        ):
+            func(pileup_column)
+    except AssertionError:
+        pass
 
 
 def insertion_bases_using_pysam_from(
-    alignment_file,
+    sam_file,
     contig,
     position_start,
     position_end,
@@ -313,9 +312,48 @@ def insertion_bases_using_pysam_from(
 
             if minimum_insertion_length <= no_of_insertion_bases <= maximum_insertion_length:
                 insertion_bases_dict[insertion_bases] = insertion_bases_dict[insertion_bases] + 1
-    pileup(alignment_file, contig, position_start, position_end, func=high_order_func)
+    pileup(sam_file, contig, position_start, position_end, func=high_order_func)
 
     return max(insertion_bases_dict, key=insertion_bases_dict.get) if len(insertion_bases_dict) > 0 else ""
+
+
+def deletion_base_tuple_using_pysam_from(
+    sam_file,
+    fasta_file,
+    contig,
+    position_start,
+    position_end,
+    minimum_deletion_length=1,
+    maximum_deletion_length=50
+):
+    """
+    Return (deletion_bases, deletion_length) tuple
+    """
+    deletion_bases_dict = defaultdict(lambda: 0)
+    # reference = pysam.FastaFile(filename=fasta_file) if fasta_file else None
+
+    def high_order_func(pileup_column):
+        for sequence in pileup_column.get_query_sequences(mark_matches=False, mark_ends=False, add_indels=True):
+            # minimum sequence needed: A-1A, and "-" for deletion
+            if len(sequence) <= 4 or sequence[1] != "-":
+                continue
+
+            no_of_deletion_bases = 0
+            for c in sequence[2:]:
+                if not c.isdigit():
+                    deletion_bases = fasta_file.fetch(reference=contig, start=position_start, end=position_start+no_of_deletion_bases)
+                    # deletion_bases = sequence[string_index+2:].upper()
+                    break
+                no_of_deletion_bases = no_of_deletion_bases * 10 + int(c)
+
+            if minimum_deletion_length <= no_of_deletion_bases <= maximum_deletion_length:
+                deletion_bases_dict[deletion_bases] = deletion_bases_dict[deletion_bases] + 1
+    pileup(sam_file, contig, position_start, position_end, func=high_order_func)
+
+    deletion_bases = max(deletion_bases_dict, key=deletion_bases_dict.get) if len(deletion_bases_dict) > 0 else ""
+    # reference.close()
+
+    return (deletion_bases, len(deletion_bases))
 
 
 def Run(args):
@@ -375,7 +413,6 @@ def no_of_insertion_bases_from(is_homo_insertion, is_hetero_insertion, variant_l
     """
     return # of insertion bases and # of insertion bases 1 and 2
     """
-
     variant_length, variant_length_1, variant_length_2 = -1, -1, -1
     if is_homo_insertion:
         variant_length_1 = 1 if variant_lengths[0] <= 0 else variant_lengths[0]
@@ -396,7 +433,6 @@ def no_of_deletion_bases_from(is_homo_deletion, is_hetero_deletion, variant_leng
     """
     return # of deletion bases and # of insertion bases 1 and 2
     """
-
     variant_length, variant_length_1, variant_length_2 = -1, -1, -1
     if is_homo_deletion:
         variant_length_1 = 1 if variant_lengths[0] >= 0 else -variant_lengths[0]
@@ -467,7 +503,9 @@ def Output(
     base_change_probabilities,
     genotype_probabilities,
     variant_length_probabilities_1,
-    variant_length_probabilities_2
+    variant_length_probabilities_2,
+    sam_file,
+    fasta_file
 ):
     if len(base_change_probabilities) != batch_size:
         sys.exit(
@@ -606,7 +644,7 @@ def Output(
             if need_inferred_variant_length:
                 insertion_bases = (
                     insertion_bases_using_pysam_from(
-                        alignment_file=args.bam_fn,
+                        sam_file=sam_file,
                         contig=chromosome,
                         position_start=position,
                         position_end=position+1,
@@ -658,6 +696,7 @@ def Output(
                     genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
         elif is_deletion:
+            deletion_bases=""
             variant_length, variant_length_1, variant_length_2 = no_of_deletion_bases_from(
                 is_homo_deletion, is_hetero_deletion, variant_lengths=prediction.variant_lengths
             )
@@ -680,9 +719,18 @@ def Output(
 
             need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
             if need_inferred_variant_length:
-                inferred_indel_length = inferred_deletion_length_from(tensor_input=X[row_index])
+                deletion_bases, inferred_indel_length = deletion_base_tuple_using_pysam_from(
+                    sam_file=sam_file,
+                    fasta_file=fasta_file,
+                    contig=chromosome,
+                    position_start=position,
+                    position_end=position+1,
+                    minimum_deletion_length=minimum_variant_length_that_need_infer
+                )
+                # inferred_indel_length = inferred_deletion_length_from(tensor_input=X[row_index])
 
             is_marked_as_SV = need_inferred_variant_length and inferred_indel_length >= flanking_base_number
+            # is_marked_as_SV = False
             hetero_delete_base = hetero_delete_base_from(base_change_probabilities[row_index])
             is_SNP_Del_multi = (
                 not is_marked_as_SV and
@@ -705,8 +753,10 @@ def Output(
             )
 
             if is_marked_as_SV:
-                reference_base = reference_sequence[position_center]
-                alternate_base = "<DEL>"
+                # reference_base = reference_sequence[position_center]
+                # alternate_base = "<DEL>"
+                reference_base = reference_sequence[position_center] + deletion_bases
+                alternate_base = reference_sequence[position_center]
                 info.append("SVTYPE=DEL")
             elif need_inferred_variant_length:
                 reference_base = reference_sequence[position_center:position_center + inferred_indel_length + 1]
@@ -933,6 +983,8 @@ def log_activation(args, m, utils):
 
 def Test(args, m, utils):
     call_fh = open(args.call_fn, "w")
+    fasta_file = pysam.FastaFile(filename=args.ref_fn) if args.ref_fn else None
+    sam_file = pysam.AlignmentFile(args.bam_fn, mode="rb")
 
     print_vcf_header(args, call_fh)
 
@@ -960,7 +1012,7 @@ def Test(args, m, utils):
             threadPool = []
             if end == 0:
                 threadPool.append(Thread(target=m.predict, args=(XBatch2, True)))
-            threadPool.append(Thread(target=Output, args=(args, call_fh, num, XBatch, posBatch, base, gt, l1, l2, )))
+            threadPool.append(Thread(target=Output, args=(args, call_fh, num, XBatch, posBatch, base, gt, l1, l2, sam_file, fasta_file)))
             for t in threadPool:
                 t.start()
             if end2 == 0:
@@ -985,9 +1037,13 @@ def Test(args, m, utils):
             if terminate == 1:
                 break
     elif end2 == 1:
-        Output(args, call_fh, num2, XBatch2, posBatch2, base, gt, l1, l2)
+        Output(args, call_fh, num2, XBatch2, posBatch2, base, gt, l1, l2, sam_file, fasta_file)
 
     logging.info("Total time elapsed: %.2f s" % (time.time() - predictStart))
+
+    sam_file.close()
+    fasta_file.close()
+    call_fh.close()
 
 
 if __name__ == "__main__":
