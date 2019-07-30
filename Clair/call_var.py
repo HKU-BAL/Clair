@@ -20,6 +20,7 @@ logging.basicConfig(format='%(message)s', level=logging.INFO)
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 minimum_variant_length_that_need_infer = VariantLength.max
+maximum_variant_length_that_need_infer = 50
 inferred_indel_length_minimum_allele_frequency = 0.125
 
 Predictions = namedtuple('Predictions', ['base_change', 'genotype', 'variant_lengths'])
@@ -269,10 +270,9 @@ def pileup(sam_file, contig, position_start, position_end, func):
     sam_file: pysam.AlignmentFile for pileup
     contig: chromosome name or contig name
     position_start: start position. 0-based. Inclusive.
-    position_end: ending position. 0-bsaed. Exclusive.
+    position_end: ending position. 0-based. Exclusive.
     func: callback for pileup_column
     """
-
     try:
         for pileup_column in sam_file.pileup(
             contig,
@@ -293,14 +293,18 @@ def insertion_bases_using_pysam_from(
     position_start,
     position_end,
     minimum_insertion_length=1,
-    maximum_insertion_length=50
+    maximum_insertion_length=maximum_variant_length_that_need_infer,
+    insertion_bases_to_ignore=""
 ):
     insertion_bases_dict = defaultdict(lambda: 0)
 
     def high_order_func(pileup_column):
+        if pileup_column.reference_pos != position_start - 1:
+            return
+
         for sequence in pileup_column.get_query_sequences(mark_matches=False, mark_ends=False, add_indels=True):
             # minimum sequence needed: A+1A, and "+" for insertion
-            if len(sequence) <= 4 or sequence[1] != "+":
+            if len(sequence) < 4 or sequence[1] != "+":
                 continue
 
             no_of_insertion_bases = 0
@@ -324,14 +328,17 @@ def deletion_bases_using_pysam_from(
     position_start,
     position_end,
     minimum_deletion_length=1,
-    maximum_deletion_length=50
+    maximum_deletion_length=maximum_variant_length_that_need_infer
 ):
     deletion_bases_dict = defaultdict(lambda: 0)
 
     def high_order_func(pileup_column):
+        if pileup_column.reference_pos != position_start - 1:
+            return
+
         for sequence in pileup_column.get_query_sequences(mark_matches=False, mark_ends=False, add_indels=True):
             # minimum sequence needed: A-1A, and "-" for deletion
-            if len(sequence) <= 4 or sequence[1] != "-":
+            if len(sequence) < 4 or sequence[1] != "-":
                 continue
 
             no_of_deletion_bases = 0
@@ -425,7 +432,7 @@ def no_of_insertion_bases_from(is_homo_insertion, is_hetero_insertion, variant_l
 
 def no_of_deletion_bases_from(is_homo_deletion, is_hetero_deletion, variant_lengths):
     """
-    return # of deletion bases and # of insertion bases 1 and 2
+    return # of deletion bases and # of deletion bases 1 and 2
     """
     variant_length, variant_length_1, variant_length_2 = -1, -1, -1
     if is_homo_deletion:
