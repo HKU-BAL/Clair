@@ -298,7 +298,7 @@ def insertion_bases_using_pysam_from(
     insertion_bases_dict = defaultdict(lambda: 0)
 
     def high_order_func(pileup_column):
-        for sequence in pileup_column.get_query_sequences(mark_matches=True, mark_ends=True, add_indels=True):
+        for sequence in pileup_column.get_query_sequences(mark_matches=False, mark_ends=False, add_indels=True):
             # minimum sequence needed: A+1A, and "+" for insertion
             if len(sequence) <= 4 or sequence[1] != "+":
                 continue
@@ -317,7 +317,7 @@ def insertion_bases_using_pysam_from(
     return max(insertion_bases_dict, key=insertion_bases_dict.get) if len(insertion_bases_dict) > 0 else ""
 
 
-def deletion_base_tuple_using_pysam_from(
+def deletion_bases_using_pysam_from(
     sam_file,
     fasta_file,
     contig,
@@ -326,11 +326,7 @@ def deletion_base_tuple_using_pysam_from(
     minimum_deletion_length=1,
     maximum_deletion_length=50
 ):
-    """
-    Return (deletion_bases, deletion_length) tuple
-    """
     deletion_bases_dict = defaultdict(lambda: 0)
-    # reference = pysam.FastaFile(filename=fasta_file) if fasta_file else None
 
     def high_order_func(pileup_column):
         for sequence in pileup_column.get_query_sequences(mark_matches=False, mark_ends=False, add_indels=True):
@@ -341,8 +337,9 @@ def deletion_base_tuple_using_pysam_from(
             no_of_deletion_bases = 0
             for c in sequence[2:]:
                 if not c.isdigit():
-                    deletion_bases = fasta_file.fetch(reference=contig, start=position_start, end=position_start+no_of_deletion_bases)
-                    # deletion_bases = sequence[string_index+2:].upper()
+                    deletion_bases = fasta_file.fetch(
+                        reference=contig, start=position_start, end=position_start+no_of_deletion_bases
+                    )
                     break
                 no_of_deletion_bases = no_of_deletion_bases * 10 + int(c)
 
@@ -350,10 +347,7 @@ def deletion_base_tuple_using_pysam_from(
                 deletion_bases_dict[deletion_bases] = deletion_bases_dict[deletion_bases] + 1
     pileup(sam_file, contig, position_start, position_end, func=high_order_func)
 
-    deletion_bases = max(deletion_bases_dict, key=deletion_bases_dict.get) if len(deletion_bases_dict) > 0 else ""
-    # reference.close()
-
-    return (deletion_bases, len(deletion_bases))
+    return max(deletion_bases_dict, key=deletion_bases_dict.get) if len(deletion_bases_dict) > 0 else ""
 
 
 def Run(args):
@@ -566,7 +560,7 @@ def Output(
         filtration_value = filtration_value_from(quality_score_for_pass=args.qual, quality_score=quality_score)
 
         # Initialize other variables
-        inferred_indel_length = 0
+        length_guess = 0
         info = []
 
         # read depth
@@ -652,15 +646,12 @@ def Output(
                     ) or
                     inferred_insertion_bases_from(tensor_input=X[row_index])
                 )
-                inferred_indel_length = len(insertion_bases)
-            else:
+                length_guess = len(insertion_bases)
+            if len(insertion_bases) <= 0:
                 insertion_bases = insertion_bases_from(tensor_input=X[row_index], variant_length=variant_length)
 
-            # is_marked_as_SV = need_inferred_variant_length and inferred_indel_length >= flanking_base_number
-            is_marked_as_SV = False
             hetero_insert_base = hetero_insert_base_from(base_change_probabilities[row_index])
             is_SNP_Ins_multi = (
-                not is_marked_as_SV and
                 is_hetero_insertion and
                 (
                     prediction.base_change == BaseChange.AIns or
@@ -672,19 +663,13 @@ def Output(
                 hetero_insert_base != reference_base
             )
             is_Ins_Ins_multi = (
-                not is_marked_as_SV and
                 is_hetero_insertion and
                 prediction.base_change == BaseChange.InsIns and
                 variant_length_1 > 0 and variant_length_2 > 0 and
                 variant_length_1 != variant_length_2
             )
 
-            if is_marked_as_SV:
-                alternate_base = "<INS>"
-                info.append("SVTYPE=INS")
-            else:
-                alternate_base = reference_base + insertion_bases
-
+            alternate_base = reference_base + insertion_bases
             if is_SNP_Ins_multi:
                 alternate_base = "{},{}".format(hetero_insert_base, alternate_base)
                 genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
@@ -696,7 +681,7 @@ def Output(
                     genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
         elif is_deletion:
-            deletion_bases=""
+            deletion_bases = ""
             variant_length, variant_length_1, variant_length_2 = no_of_deletion_bases_from(
                 is_homo_deletion, is_hetero_deletion, variant_lengths=prediction.variant_lengths
             )
@@ -719,7 +704,7 @@ def Output(
 
             need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
             if need_inferred_variant_length:
-                deletion_bases, inferred_indel_length = deletion_base_tuple_using_pysam_from(
+                deletion_bases = deletion_bases_using_pysam_from(
                     sam_file=sam_file,
                     fasta_file=fasta_file,
                     contig=chromosome,
@@ -727,13 +712,11 @@ def Output(
                     position_end=position+1,
                     minimum_deletion_length=minimum_variant_length_that_need_infer
                 )
-                # inferred_indel_length = inferred_deletion_length_from(tensor_input=X[row_index])
+                length_guess = len(deletion_bases)
 
-            is_marked_as_SV = need_inferred_variant_length and inferred_indel_length >= flanking_base_number
-            # is_marked_as_SV = False
+            have_long_deletion_bases = need_inferred_variant_length and len(deletion_bases) >= flanking_base_number
             hetero_delete_base = hetero_delete_base_from(base_change_probabilities[row_index])
             is_SNP_Del_multi = (
-                not is_marked_as_SV and
                 is_hetero_deletion and
                 (
                     prediction.base_change == BaseChange.ADel or
@@ -745,21 +728,14 @@ def Output(
                 hetero_delete_base != reference_base
             )
             is_Del_Del_multi = (
-                not is_marked_as_SV and
                 is_hetero_deletion and
                 prediction.base_change == BaseChange.DelDel and
                 variant_length_1 > 0 and variant_length_2 > 0 and
                 variant_length_1 != variant_length_2
             )
 
-            if is_marked_as_SV:
-                # reference_base = reference_sequence[position_center]
-                # alternate_base = "<DEL>"
-                # info.append("SVTYPE=DEL")
+            if have_long_deletion_bases:
                 reference_base = reference_sequence[position_center] + deletion_bases
-                alternate_base = reference_sequence[position_center]
-            elif need_inferred_variant_length:
-                reference_base = reference_sequence[position_center:position_center + inferred_indel_length + 1]
                 alternate_base = reference_sequence[position_center]
             else:
                 reference_base = reference_sequence[position_center:position_center + variant_length + 1]
@@ -782,48 +758,43 @@ def Output(
                     genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
         elif is_insertion_and_deletion:
+            insertion_bases = ""
+            deletion_bases = ""
+
             variant_length_delete = 1 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0]
             variant_length_insert = 1 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1]
 
-            alternate_base_delete = ""
-            alternate_base_insert = ""
-            inferred_insert_length = 0
-            inferred_delete_length = 0
+            need_inferred_insertion_length = variant_length_insert >= minimum_variant_length_that_need_infer
+            need_inferred_deletion_length = variant_length_delete >= minimum_variant_length_that_need_infer
 
-            is_inferred_insertion_length = variant_length_insert >= minimum_variant_length_that_need_infer
-            is_inferred_deletion_length = variant_length_delete >= minimum_variant_length_that_need_infer
-
-            if is_inferred_insertion_length:
-                alternate_base_insert = inferred_insertion_bases_from(tensor_input=X[row_index])
-                inferred_insert_length = len(alternate_base_insert)
-            else:
-                alternate_base_insert = insertion_bases_from(
-                    tensor_input=X[row_index], variant_length=variant_length_insert)
-
-            if is_inferred_deletion_length:
-                inferred_delete_length = inferred_deletion_length_from(tensor_input=X[row_index])
-
-            is_marked_as_SV = (
-                (is_inferred_insertion_length and inferred_insert_length >= flanking_base_number) or
-                (is_inferred_deletion_length and inferred_delete_length >= flanking_base_number)
-            )
-
-            if is_marked_as_SV:
-                # TODO: don't know what to do for this condition, yet
-                print_debug_message_with(
-                    is_debug,
-                    call_fh,
-                    chromosome,
-                    position,
-                    base_change_probabilities[row_index],
-                    genotype_probabilities[row_index],
-                    variant_length_probabilities_1[row_index],
-                    variant_length_probabilities_2[row_index],
-                    "is INS_DEL and marked as SV"
+            if need_inferred_insertion_length:
+                insertion_bases = (
+                    insertion_bases_using_pysam_from(
+                        sam_file=sam_file,
+                        contig=chromosome,
+                        position_start=position,
+                        position_end=position+1,
+                        minimum_insertion_length=minimum_variant_length_that_need_infer
+                    ) or
+                    inferred_insertion_bases_from(tensor_input=X[row_index])
                 )
-                continue
-            elif is_inferred_deletion_length:
-                reference_base = reference_sequence[position_center:position_center + inferred_delete_length + 1]
+                length_guess = len(insertion_bases)
+            if len(insertion_bases) <= 0:
+                insertion_bases = insertion_bases_from(tensor_input=X[row_index], variant_length=variant_length_insert)
+
+            if need_inferred_deletion_length:
+                deletion_bases = deletion_bases_using_pysam_from(
+                    sam_file=sam_file,
+                    fasta_file=fasta_file,
+                    contig=chromosome,
+                    position_start=position,
+                    position_end=position+1,
+                    minimum_deletion_length=minimum_variant_length_that_need_infer
+                )
+
+            alternate_base_delete = ""
+            if need_inferred_deletion_length:
+                reference_base = reference_sequence[position_center] + deletion_bases
                 alternate_base_delete = reference_sequence[position_center]
             else:
                 reference_base = reference_sequence[position_center:position_center + variant_length_delete + 1]
@@ -831,8 +802,9 @@ def Output(
 
             alternate_base = "{},{}".format(
                 alternate_base_delete,
-                reference_base[0] + alternate_base_insert + reference_base[1:]
+                reference_base[0] + insertion_bases + reference_base[1:]
             )
+
         if reference_base == "" or alternate_base == "":
             print_debug_message_with(
                 is_debug,
@@ -882,8 +854,8 @@ def Output(
             allele_frequency = 1
 
         # if using inferred indel length, add info LENGUESS
-        if 0 < inferred_indel_length < flanking_base_number:
-            info.append("LENGUESS={}".format(inferred_indel_length))
+        if 0 < length_guess < flanking_base_number:
+            info.append("LENGUESS={}".format(length_guess))
 
         # information string
         information_string = ""
@@ -1012,7 +984,12 @@ def Test(args, m, utils):
             threadPool = []
             if end == 0:
                 threadPool.append(Thread(target=m.predict, args=(XBatch2, True)))
-            threadPool.append(Thread(target=Output, args=(args, call_fh, num, XBatch, posBatch, base, gt, l1, l2, sam_file, fasta_file)))
+            threadPool.append(
+                Thread(
+                    target=Output,
+                    args=(args, call_fh, num, XBatch, posBatch, base, gt, l1, l2, sam_file, fasta_file)
+                )
+            )
             for t in threadPool:
                 t.start()
             if end2 == 0:
