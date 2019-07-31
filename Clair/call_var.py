@@ -313,7 +313,10 @@ def insertion_bases_using_pysam_from(
                     break
                 no_of_insertion_bases = no_of_insertion_bases * 10 + int(c)
 
-            if minimum_insertion_length <= no_of_insertion_bases <= maximum_insertion_length:
+            if (
+                minimum_insertion_length <= no_of_insertion_bases <= maximum_insertion_length and
+                insertion_bases != insertion_bases_to_ignore
+            ):
                 insertion_bases_dict[insertion_bases] = insertion_bases_dict[insertion_bases] + 1
     pileup(sam_file, contig, position, position+1, func=high_order_func)
 
@@ -499,6 +502,13 @@ def insertion_bases_from(tensor_input, variant_length):
     return insertion_bases
 
 
+def maximum_insertion_length_from(variant_length):
+    if variant_length >= minimum_variant_length_that_need_infer:
+        return maximum_variant_length_that_need_infer
+    else:
+        return variant_length
+
+
 def Output(
     args,
     call_fh,
@@ -675,8 +685,7 @@ def Output(
             is_Ins_Ins_multi = (
                 is_hetero_insertion and
                 prediction.base_change == BaseChange.InsIns and
-                variant_length_1 > 0 and variant_length_2 > 0 and
-                variant_length_1 != variant_length_2
+                variant_length_1 > 0 and variant_length_2 > 0
             )
 
             alternate_base = reference_base + insertion_bases
@@ -684,7 +693,18 @@ def Output(
                 alternate_base = "{},{}".format(hetero_insert_base, alternate_base)
                 genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
             elif is_Ins_Ins_multi:
-                alternate_base_1 = alternate_base[0:len(reference_base) + variant_length_1]
+                insertion_bases_1 = (
+                    insertion_bases_using_pysam_from(
+                        sam_file=sam_file,
+                        contig=chromosome,
+                        position=position,
+                        minimum_insertion_length=variant_length_1,
+                        maximum_insertion_length=maximum_insertion_length_from(variant_length_1),
+                        insertion_bases_to_ignore=insertion_bases
+                    ) or
+                    insertion_bases[0:variant_length_1]
+                )
+                alternate_base_1 = reference_base + insertion_bases_1
                 alternate_base_2 = alternate_base
                 if alternate_base_1 != alternate_base_2:
                     alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
