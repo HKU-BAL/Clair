@@ -799,8 +799,9 @@ def Output(
                     minimum_deletion_length=minimum_variant_length_that_need_infer
                 )
 
+            have_long_deletion_bases = need_inferred_deletion_length and len(deletion_bases) >= flanking_base_number
             alternate_base_delete = ""
-            if need_inferred_deletion_length:
+            if have_long_deletion_bases:
                 reference_base = reference_sequence[position_center] + deletion_bases
                 alternate_base_delete = reference_sequence[position_center]
             else:
