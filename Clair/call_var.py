@@ -410,7 +410,10 @@ def print_debug_message_with(
 
 def no_of_insertion_bases_from(is_homo_insertion, is_hetero_insertion, variant_lengths):
     """
-    return # of insertion bases and # of insertion bases 1 and 2
+    get tuple with values:
+        - longest expected # of insertion bases to call
+        - variant length 1 for variant calling
+        - variant length 2 for variant calling
     """
     variant_length, variant_length_1, variant_length_2 = -1, -1, -1
     if is_homo_insertion:
@@ -430,7 +433,10 @@ def no_of_insertion_bases_from(is_homo_insertion, is_hetero_insertion, variant_l
 
 def no_of_deletion_bases_from(is_homo_deletion, is_hetero_deletion, variant_lengths):
     """
-    return # of deletion bases and # of deletion bases 1 and 2
+    get tuple with values:
+        - longest expected # of deletion bases to call
+        - variant length 1 for variant calling
+        - variant length 2 for variant calling
     """
     variant_length, variant_length_1, variant_length_2 = -1, -1, -1
     if is_homo_deletion:
