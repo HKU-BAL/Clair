@@ -63,7 +63,17 @@ def is_validation_losses_keep_increasing(validation_losses):
     )
 
 
-def new_mini_batch(data_index, validation_data_start_index, dataset_info):
+def shuffle_first_n_items(array, n):
+    if len(array) <= n:
+        np.random.shuffle(array)
+        return array
+    # pylint: disable=unbalanced-tuple-unpacking
+    a1, a2 = np.split(array, [n])
+    np.random.shuffle(a1)
+    return np.append(a1, a2)
+
+
+def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list):
     dataset_size = dataset_info["dataset_size"]
     x_array_compressed = dataset_info["x_array_compressed"]
     y_array_compressed = dataset_info["y_array_compressed"]
@@ -88,10 +98,10 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info):
         batch_size = validation_batch_size
 
     # extract features(x) and labels(y) for current batch
-    x_batch, x_num, x_end_flag = utils.decompress_array(
-        x_array_compressed, data_index, batch_size, dataset_size)
-    y_batch, y_num, y_end_flag = utils.decompress_array(
-        y_array_compressed, data_index, batch_size, dataset_size)
+    x_batch, x_num, x_end_flag = utils.decompress_array_with_order(
+        x_array_compressed, data_index, batch_size, dataset_size, tensor_block_index_list)
+    y_batch, y_num, y_end_flag = utils.decompress_array_with_order(
+        y_array_compressed, data_index, batch_size, dataset_size, tensor_block_index_list)
     if x_num != y_num or x_end_flag != y_end_flag:
         sys.exit("Inconsistency between decompressed arrays: %d/%d" % (x_num, y_num))
 
@@ -118,14 +128,17 @@ def train_model(m, training_config):
     logging.info("[INFO] Learning rate: %.2e" % m.set_learning_rate(learning_rate))
     logging.info("[INFO] L2 regularization lambda: %.2e" % m.set_l2_regularization_lambda(l2_regularization_lambda))
 
+    tensor_block_index_list = np.arange(int(np.ceil(float(dataset_size) / param.bloscBlockSize)), dtype=int)
+
     # Model Constants
     training_start_time = time.time()
     no_of_training_examples = int(dataset_size*param.trainingDatasetPercentage)
     validation_data_start_index = no_of_training_examples + 1
     no_of_validation_examples = dataset_size - validation_data_start_index
     learning_rate_switch_count = param.maxLearningRateSwitch
+    validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
 
-    # Variables reset per epoch
+    # Initialize variables
     epoch_count = 1
     if model_initalization_file_path != None:
         epoch_count = int(model_initalization_file_path[-param.parameterOutputPlaceHolder:])+1
@@ -137,6 +150,12 @@ def train_model(m, training_config):
     no_of_epochs_with_current_learning_rate = 0  # Variables for learning rate decay
     x_batch = None
     y_batch = None
+
+    base_change_loss_sum = 0
+    genotype_loss_sum = 0
+    indel_length_loss_sum_1 = 0
+    indel_length_loss_sum_2 = 0
+    l2_loss_sum = 0
 
     while epoch_count < param.maxEpoch:
         is_training = data_index < validation_data_start_index
@@ -155,7 +174,8 @@ def train_model(m, training_config):
         next_x_batch, next_y_batch, batch_size = new_mini_batch(
             data_index=data_index,
             validation_data_start_index=validation_data_start_index,
-            dataset_info=dataset_info
+            dataset_info=dataset_info,
+            tensor_block_index_list=tensor_block_index_list
         )
 
         # wait until loaded next mini batch & finished training/validation with current mini batch
@@ -171,6 +191,12 @@ def train_model(m, training_config):
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
 
+            base_change_loss_sum += m.base_change_loss
+            genotype_loss_sum += m.genotype_loss
+            indel_length_loss_sum_1 += m.indel_length_loss_1
+            indel_length_loss_sum_2 += m.indel_length_loss_2
+            l2_loss_sum += m.l2_loss
+
         data_index += batch_size
 
         # if not go through whole dataset yet (have next x_batch and y_batch data), continue the process
@@ -183,8 +209,16 @@ def train_model(m, training_config):
             " ".join([str(epoch_count), "Training loss:", str(training_loss_sum/no_of_training_examples)])
         )
         logging.info(
-            " ".join([str(epoch_count), "Validation loss:", str(validation_loss_sum/no_of_validation_examples)])
+            "\t".join([
+                "{} Validation loss (Total/Base/Genotype/Indel_1_2):".format(epoch_count),
+                str(validation_loss_sum/no_of_validation_examples),
+                str(base_change_loss_sum/no_of_validation_examples),
+                str(genotype_loss_sum/no_of_validation_examples),
+                str(indel_length_loss_sum_1/no_of_validation_examples),
+                str(indel_length_loss_sum_2/no_of_validation_examples)
+            ])
         )
+
         logging.info("[INFO] Epoch time elapsed: %.2f s" % (time.time() - epoch_start_time))
         training_losses.append((training_loss_sum, epoch_count))
         validation_losses.append((validation_loss_sum, epoch_count))
@@ -227,6 +261,17 @@ def train_model(m, training_config):
         x_batch = None
         y_batch = None
 
+        base_change_loss_sum = 0
+        genotype_loss_sum = 0
+        indel_length_loss_sum_1 = 0
+        indel_length_loss_sum_2 = 0
+        l2_loss_sum = 0
+
+        # shuffle data on each epoch
+        tensor_block_index_list = shuffle_first_n_items(tensor_block_index_list, validation_start_block)
+        logging.info("[INFO] Shuffled: " + ' '.join(
+            [str(x) for x in np.append(tensor_block_index_list[:5], tensor_block_index_list[-5:])]
+        ))
 
     logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
 
@@ -282,7 +327,6 @@ if __name__ == "__main__":
     # initialize
     logging.info("[INFO] Initializing")
     utils.setup_environment()
-
     m = cv.Clair()
     m.init()
 
@@ -308,8 +352,8 @@ if __name__ == "__main__":
     best_validation_epoch = validation_losses[0][1]
     logging.info("[INFO] Best validation loss at epoch: %d" % best_validation_epoch)
 
+    # load best validation model and evaluate it
     model_file_path = "%s-%%0%dd" % (training_config["output_file_path_prefix"], param.parameterOutputPlaceHolder)
     best_validation_model_file_path = model_file_path % best_validation_epoch
     m.restore_parameters(os.path.abspath(best_validation_model_file_path))
-
     evaluate.evaluate_model(m, dataset_info)
