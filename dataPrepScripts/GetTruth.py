@@ -38,7 +38,7 @@ def OutputVariant(args):
 
     if args.var_fn != "PIPE":
         var_fpo = open(var_fn, "wb")
-        var_fp = subprocess.Popen(shlex.split("pigz -c"), stdin=subprocess.PIPE,
+        var_fp = subprocess.Popen(shlex.split("gzip -c"), stdin=subprocess.PIPE,
                                   stdout=var_fpo, stderr=sys.stderr, bufsize=8388608)
     else:
         var_fp = TruthStdout(sys.stdout)
@@ -51,7 +51,7 @@ def OutputVariant(args):
                 vcf_fp = subprocess.Popen(shlex.split("tabix -f -p vcf %s %s:%s-%s" %
                                                       (vcf_fn, ctgName, ctgStart, ctgEnd)), stdout=subprocess.PIPE, bufsize=8388608)
     if tabixed == 0:
-        vcf_fp = subprocess.Popen(shlex.split("pigz -fdc %s" % (vcf_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+        vcf_fp = subprocess.Popen(shlex.split("gzip -fdc %s" % (vcf_fn)), stdout=subprocess.PIPE, bufsize=8388608)
     for row in vcf_fp.stdout:
         row = row.strip().split()
         if row[0][0] == "#":
