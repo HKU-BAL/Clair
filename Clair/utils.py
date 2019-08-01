@@ -4,7 +4,7 @@ import gc
 import shlex
 import subprocess
 import logging
-import pickle
+import cPickle
 import numpy as np
 
 import intervaltree
@@ -176,8 +176,12 @@ def genotype_string_from(genotype):
 def SetupEnv():
     os.environ["CXX"] = "g++"
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    blosc.set_nthreads(2)
+    blosc.set_nthreads(4)
     gc.enable()
+
+
+def blosc_pack_array(array):
+    return blosc.pack_array(array, cname='lz4hc', clevel=9, shuffle=blosc.NOSHUFFLE)
 
 
 def UnpackATensorRecord(a, b, c, *d):
@@ -186,7 +190,7 @@ def UnpackATensorRecord(a, b, c, *d):
 
 def GetTensor(tensor_fn, num):
     if tensor_fn != "PIPE":
-        f = subprocess.Popen(shlex.split("gzip -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         fo = f.stdout
     else:
         fo = sys.stdin
@@ -231,7 +235,7 @@ def GetTensor(tensor_fn, num):
 def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
     tree = {}
     if bed_fn != None:
-        f = subprocess.Popen(shlex.split("gzip -fdc %s" % (bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         for row in f.stdout:
             row = row.split()
             name = row[0]
@@ -247,7 +251,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
 
     Y = {}
     if var_fn != None:
-        f = subprocess.Popen(shlex.split("gzip -fdc %s" % (var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         for row in f.stdout:
             row = row.split()
             ctg_name = row[0]
@@ -311,7 +315,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
         f.wait()
 
     X = {}
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
     total = 0
     mat = np.empty(((2*param.flankingBaseNum+1)*param.matrixRow*param.matrixNum), dtype=np.float32)
     for row in f.stdout:
@@ -396,9 +400,9 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
 
         count += 1
         if count == param.bloscBlockSize:
-            XArrayCompressed.append(blosc.pack_array(np.array(XArray), cname='lz4hc'))
-            YArrayCompressed.append(blosc.pack_array(np.array(YArray), cname='lz4hc'))
-            posArrayCompressed.append(blosc.pack_array(np.array(posArray), cname='lz4hc'))
+            XArrayCompressed.append(blosc_pack_array(np.array(XArray)))
+            YArrayCompressed.append(blosc_pack_array(np.array(YArray)))
+            posArrayCompressed.append(blosc_pack_array(np.array(posArray)))
             XArray = []
             YArray = []
             posArray = []
@@ -406,9 +410,9 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
         if total % 50000 == 0:
             print >> sys.stderr, "Compressed %d/%d tensor" % (total, len(allPos))
     if count > 0:
-        XArrayCompressed.append(blosc.pack_array(np.array(XArray), cname='lz4hc'))
-        YArrayCompressed.append(blosc.pack_array(np.array(YArray), cname='lz4hc'))
-        posArrayCompressed.append(blosc.pack_array(np.array(posArray), cname='lz4hc'))
+        XArrayCompressed.append(blosc_pack_array(np.array(XArray)))
+        YArrayCompressed.append(blosc_pack_array(np.array(YArray)))
+        posArrayCompressed.append(blosc_pack_array(np.array(posArray)))
 
     return total, XArrayCompressed, YArrayCompressed, posArrayCompressed
 
@@ -465,10 +469,10 @@ def dataset_info_from(binary_file_path, tensor_file_path=None, variant_file_path
     if binary_file_path != None:
         logging.info("[INFO] Loading compressed data from binary file path")
         with open(binary_file_path, "rb") as fh:
-            dataset_size = pickle.load(fh)
-            x_array_compressed = pickle.load(fh)
-            y_array_compressed = pickle.load(fh)
-            position_array_compressed = pickle.load(fh)
+            dataset_size = cPickle.load(fh)
+            x_array_compressed = cPickle.load(fh)
+            y_array_compressed = cPickle.load(fh)
+            position_array_compressed = cPickle.load(fh)
     else:
         logging.info("[INFO] Loading compressed data from utils get training array")
         dataset_size, x_array_compressed, y_array_compressed, position_array_compressed = \

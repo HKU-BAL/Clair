@@ -84,7 +84,7 @@ def get_candidate_position_generator(
         candidate_file_path_output = sys.stdin
     else:
         candidate_file_path_process = subprocess.Popen(
-            shlex.split("gzip -fdc %s" % (candidate_file_path)), stdout=subprocess.PIPE, bufsize=8388608
+            shlex.split("pigz -fdc %s" % (candidate_file_path)), stdout=subprocess.PIPE, bufsize=8388608
         )
         candidate_file_path_output = candidate_file_path_process.stdout
 
@@ -291,7 +291,7 @@ def OutputAlnTensor(args):
     if args.tensor_fn != "PIPE":
         tensor_fpo = open(args.tensor_fn, "wb")
         tensor_fp = subprocess.Popen(
-            shlex.split("gzip -c"), stdin=subprocess.PIPE, stdout=tensor_fpo, stderr=sys.stderr, bufsize=8388608
+            shlex.split("pigz -c"), stdin=subprocess.PIPE, stdout=tensor_fpo, stderr=sys.stderr, bufsize=8388608
         )
     else:
         tensor_fp = TensorStdout(sys.stdout)

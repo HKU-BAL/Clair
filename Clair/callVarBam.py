@@ -146,13 +146,13 @@ def Run(args):
 
         if args.activation_only:
             c.CVInstance = subprocess.Popen(
-                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --sampleName %s --threads %d --activation_only %s --max_plot %d --parallel_level %d --workers %d --ref_fn %s %s %s %s" %
-                            (taskSet, CVBin, chkpnt_fn, call_fn, sampleName, numCpus, log_path, args.max_plot, args.parallel_level, args.workers, ref_fn, qual, "--fast_plotting" if args.fast_plotting else "", debug)),
+                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --bam_fn %s --sampleName %s --threads %d --activation_only %s --max_plot %d --parallel_level %d --workers %d --ref_fn %s %s %s %s" %
+                            (taskSet, CVBin, chkpnt_fn, call_fn, bam_fn, sampleName, numCpus, log_path, args.max_plot, args.parallel_level, args.workers, ref_fn, qual, "--fast_plotting" if args.fast_plotting else "", debug)),
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
         else:
             c.CVInstance = subprocess.Popen(
-                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --sampleName %s --threads %d --ref_fn %s %s %s" %
-                            (taskSet, CVBin, chkpnt_fn, call_fn, sampleName, numCpus, ref_fn, qual, debug)),
+                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --bam_fn %s --sampleName %s --threads %d --ref_fn %s %s %s" %
+                            (taskSet, CVBin, chkpnt_fn, call_fn, bam_fn, sampleName, numCpus, ref_fn, qual, debug)),
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
     except Exception as e:
         print >> sys.stderr, e

@@ -1,18 +1,19 @@
 import sys
 import argparse
 import logging
-import pickle
+import cPickle
 import param
 import utils
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 
+def pickle_dump(obj, file):
+    return cPickle.dump(obj, file, protocol=cPickle.HIGHEST_PROTOCOL)
+
+
 def Run(args):
     utils.SetupEnv()
-    Convert(args, utils)
 
-
-def Convert(args, utils):
     logging.info("Loading the dataset ...")
     total, XArrayCompressed, YArrayCompressed, posArrayCompressed = \
         utils.get_training_array(
@@ -25,10 +26,10 @@ def Convert(args, utils):
 
     logging.info("Writing to binary ...")
     fh = open(args.bin_fn, "wb")
-    pickle.dump(total, fh)
-    pickle.dump(XArrayCompressed, fh)
-    pickle.dump(YArrayCompressed, fh)
-    pickle.dump(posArrayCompressed, fh)
+    pickle_dump(total, fh)
+    pickle_dump(XArrayCompressed, fh)
+    pickle_dump(YArrayCompressed, fh)
+    pickle_dump(posArrayCompressed, fh)
 
 
 if __name__ == "__main__":
