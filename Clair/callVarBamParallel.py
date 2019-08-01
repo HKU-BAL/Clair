@@ -43,21 +43,10 @@ def Run(args):
     sampleName = args.sampleName
     delay = args.delay
     threads = args.tensorflowThreads
-    if args.considerleftedge:
-        considerleftedge = "--considerleftedge"
-    else:
-        considerleftedge = ""
-
-    if args.qual:
-        qual = "--qual %d" % (args.qual)
-    else:
-        qual = ""
-
-    if args.log_path:
-        log_path = "--log_path {}".format(args.log_path)
-    else:
-        log_path = ""
-
+    considerleftedge = "--considerleftedge" if args.considerleftedge else ""
+    qual = "--qual %d" % (args.qual) if args.qual else ""
+    log_path="--log_path {}".format(args.log_path) if args.log_path else ""
+    fast_plotting= "--fast_plotting" if args.fast_plotting else ""
     debug = "--debug" if args.debug else ""
 
     includingAllContigs = args.includingAllContigs
@@ -96,22 +85,23 @@ def Run(args):
             if end > chromLength:
                 end = chromLength
             output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, chromName, regionStart, end)
-            if bed_fn != None:
-                if chromName in tree:
-                    if len(tree[chromName].search(start, end)) != 0:
-                        if args.activation_only:
-                            print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --bed_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s --activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s %s" %
-                                  (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, bed_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, log_path, args.max_plot, args.parallel_level, args.workers, qual, "--fast_plotting" if args.fast_plotting else "", debug))
-                        else:
-                            print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --bed_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s %s %s" % (
-                                callVarBamBin, chkpnt_fn, ref_fn, bam_fn, bed_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, qual, debug))
+            a="python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --bed_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s" %\
+               (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, bed_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge )
+            b="python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s" %\
+              (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge )
+            c="%s --activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s %s" %\
+              (log_path, args.max_plot, args.parallel_level, args.workers, qual, fast_plotting, debug)
+            d=" %s %s %s" % (qual, debug)
+
+            if bed_fn != None and chromName in tree and len(tree[chromName].search(start, end)) != 0:
+                    if args.activation_only:
+                        print(a+c)
+                    else:
+                        print(a+d)
+            elif args.activation_only:
+                print(b+c)
             else:
-                if args.activation_only:
-                    print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s --activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s %s" %
-                          (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, log_path, args.max_plot, args.parallel_level, args.workers, qual, "--fast_plotting" if args.fast_plotting else "", debug))
-                else:
-                    print("python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s %s %s %s" %
-                          (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge, qual, debug))
+                print(b+d)
             regionStart = end
 
 
