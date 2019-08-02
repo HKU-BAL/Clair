@@ -502,7 +502,7 @@ def insertion_bases_using_tensor(tensor_input, variant_length):
     return insertion_bases
 
 
-def maximum_insertion_length_from(variant_length):
+def maximum_variant_length_from(variant_length):
     if variant_length >= minimum_variant_length_that_need_infer:
         return maximum_variant_length_that_need_infer
     else:
@@ -742,7 +742,7 @@ def Output(
                         contig=chromosome,
                         position=position,
                         minimum_insertion_length=variant_length_1,
-                        maximum_insertion_length=maximum_insertion_length_from(variant_length_1),
+                        maximum_insertion_length=maximum_variant_length_from(variant_length_1),
                         insertion_bases_to_ignore=insertion_bases
                     ) or
                     insertion_bases[0:variant_length_1]
