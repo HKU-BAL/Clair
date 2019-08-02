@@ -509,10 +509,27 @@ def maximum_variant_length_from(variant_length):
         return variant_length
 
 
-def insertion_bases_from(tensor_input, variant_length, sam_file, contig, position):
+def insertion_bases_from(
+    tensor_input,
+    variant_length,
+    sam_file,
+    contig,
+    position,
+    is_using_pysam_for_all_indel_bases_output
+):
     """
         Return (insertion_bases, insertion bases length, is_inferred) tuple
     """
+    if is_using_pysam_for_all_indel_bases_output:
+        insertion_bases = insertion_bases_using_pysam_from(
+            sam_file=sam_file,
+            contig=contig,
+            position=position,
+            minimum_insertion_length=variant_length,
+            maximum_insertion_length=maximum_variant_length_from(variant_length)
+        )
+        return insertion_bases, len(insertion_bases), False
+
     need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
     if not need_inferred_variant_length:
         insertion_bases = insertion_bases_using_tensor(tensor_input, variant_length)
@@ -532,10 +549,30 @@ def insertion_bases_from(tensor_input, variant_length, sam_file, contig, positio
         return insertion_bases, len(insertion_bases), True
 
 
-def deletion_bases_from(tensor_input, variant_length, sam_file, fasta_file, contig, position, reference_sequence):
+def deletion_bases_from(
+    tensor_input,
+    variant_length,
+    sam_file,
+    fasta_file,
+    contig,
+    position,
+    reference_sequence,
+    is_using_pysam_for_all_indel_bases_output
+):
     """
         Return (deletion_bases, deletion bases length, is_inferred) tuple
     """
+    if is_using_pysam_for_all_indel_bases_output:
+        deletion_bases = deletion_bases_using_pysam_from(
+            sam_file=sam_file,
+            fasta_file=fasta_file,
+            contig=contig,
+            position=position,
+            minimum_deletion_length=variant_length,
+            maximum_deletion_length=maximum_variant_length_from(variant_length)
+        )
+        return deletion_bases, len(deletion_bases), False
+
     deletion_bases = ""
     need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
     if need_inferred_variant_length:
@@ -578,6 +615,7 @@ def Output(
     position_center = flanking_base_number
     no_of_rows = len(base_change_probabilities)
     is_debug = True if args.debug is True else False
+    is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
 
     for row_index in range(no_of_rows):
         variant_lengths = [
@@ -703,7 +741,8 @@ def Output(
                 variant_length=variant_length,
                 sam_file=sam_file,
                 contig=chromosome,
-                position=position
+                position=position,
+                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
             )
             if insertion_length > 0:
                 reference_base = reference_sequence[position_center]
@@ -779,7 +818,8 @@ def Output(
                 fasta_file=fasta_file,
                 contig=chromosome,
                 position=position,
-                reference_sequence=reference_sequence
+                reference_sequence=reference_sequence,
+                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
             )
             if deletion_length > 0:
                 reference_base = reference_sequence[position_center] + deletion_bases
@@ -831,7 +871,8 @@ def Output(
                 variant_length=1 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1],
                 sam_file=sam_file,
                 contig=chromosome,
-                position=position
+                position=position,
+                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
             )
             deletion_bases, deletion_length, _ = deletion_bases_from(
                 tensor_input=X[row_index],
@@ -840,7 +881,8 @@ def Output(
                 fasta_file=fasta_file,
                 contig=chromosome,
                 position=position,
-                reference_sequence=reference_sequence
+                reference_sequence=reference_sequence,
+                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
             )
 
             if insertion_length > 0 and deletion_length > 0:
@@ -1120,6 +1162,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-w', '--workers', type=int, default=8,
                         help="The number of workers in plotting, default: %(default)s")
+
+    parser.add_argument('--pysam_for_all_indel_bases', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Always using pysam for outputting indel bases, optional")
 
     args = parser.parse_args()
 
