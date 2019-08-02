@@ -8,8 +8,11 @@ import subprocess
 import signal
 import gc
 import param
+from collections import namedtuple
 
 is_pypy = '__pypy__' in sys.builtin_module_names
+
+ReferenceResult = namedtuple('ReferenceResult', ['name', 'start', 'end', 'sequence', 'is_faidx_process_have_error'])
 
 
 def PypyGCCollect(signum, frame):
@@ -134,7 +137,6 @@ def get_reference_result_from(
 
     have_start_and_end_position = ctg_start != None and ctg_end != None
     if have_start_and_end_position:
-        ctg_start += 1  # Change 0-based (BED) to 1-based (VCF and samtools faidx)
         reference_start = ctg_start
         reference_end = ctg_end
         reference_start -= expand_reference_region
@@ -174,7 +176,7 @@ def get_reference_result_from(
     faidx_process.stdout.close()
     faidx_process.wait()
 
-    return dict(
+    return ReferenceResult(
         name=reference_name,
         start=reference_start,
         end=reference_end,
@@ -242,54 +244,68 @@ def get_depth_from(
 
 def OutputAlnTensor(args):
     available_slots = 10000000
-    ctg_name = args.ctgName
-    min_coverage = args.minCoverage
-
+    samtools = args.samtools
+    tensor_file_path = args.tensor_fn
+    bam_file_path = args.bam_fn
+    reference_file_path = args.ref_fn
+    candidate_file_path = args.can_fn
     dcov = args.dcov
+    is_consider_left_edge = args.considerleftedge
+    min_coverage = args.minCoverage
+    minimum_mapping_quality = args.minMQ
+    ctg_name = args.ctgName
+    ctg_start = args.ctgStart
+    ctg_end = args.ctgEnd
+
+    is_ctg_name_given = ctg_name is not None
+    is_ctg_range_given = is_ctg_name_given and ctg_start is not None and ctg_end is not None
+    if is_ctg_range_given:
+        ctg_start += 1  # Change 0-based (BED) to 1-based (VCF and samtools faidx)
+
     reference_result = get_reference_result_from(
-        ctg_name=args.ctgName,
-        ctg_start=args.ctgStart,
-        ctg_end=args.ctgEnd,
-        samtools=args.samtools,
-        reference_file_path=args.ref_fn,
+        ctg_name=ctg_name,
+        ctg_start=ctg_start,
+        ctg_end=ctg_end,
+        samtools=samtools,
+        reference_file_path=reference_file_path,
         expand_reference_region=param.expandReferenceRegion,
     )
 
-    reference_sequence = reference_result["sequence"] if reference_result is not None else ""
-    is_faidx_process_have_error = reference_result is None or reference_result["is_faidx_process_have_error"]
+    reference_sequence = reference_result.sequence if reference_result is not None else ""
+    is_faidx_process_have_error = reference_result is None or reference_result.is_faidx_process_have_error
     have_reference_sequence = reference_result is not None and len(reference_sequence) > 0
 
     if reference_result is None or is_faidx_process_have_error or not have_reference_sequence:
         print >> sys.stderr, "Failed to load reference seqeunce. Please check if the provided reference fasta %s and the ctgName %s are correct." % (
-            args.ref_fn,
-            args.ctgName
+            reference_file_path,
+            ctg_name
         )
         sys.exit(1)
 
-    reference_start = reference_result["start"]
+    reference_start = reference_result.start
     begin_to_end = {}
     candidate_position = 0
     candidate_position_generator = get_candidate_position_generator(
-        candidate_file_path=args.can_fn,
-        ctg_start=args.ctgStart,
-        ctg_end=args.ctgEnd,
-        is_consider_left_edge=args.considerleftedge,
+        candidate_file_path=candidate_file_path,
+        ctg_start=ctg_start,
+        ctg_end=ctg_end,
+        is_consider_left_edge=is_consider_left_edge,
         flanking_base_num=param.flankingBaseNum,
         begin_to_end=begin_to_end
     )
 
     samtools_view_process = get_samtools_view_process_from(
-        ctg_name=args.ctgName,
-        ctg_start=args.ctgStart,
-        ctg_end=args.ctgEnd,
-        samtools=args.samtools,
-        bam_file_path=args.bam_fn
+        ctg_name=ctg_name,
+        ctg_start=ctg_start,
+        ctg_end=ctg_end,
+        samtools=samtools,
+        bam_file_path=bam_file_path
     )
 
     center_to_alignment = {}
 
-    if args.tensor_fn != "PIPE":
-        tensor_fpo = open(args.tensor_fn, "wb")
+    if tensor_file_path != "PIPE":
+        tensor_fpo = open(tensor_file_path, "wb")
         tensor_fp = subprocess.Popen(
             shlex.split("pigz -c"), stdin=subprocess.PIPE, stdout=tensor_fpo, stderr=sys.stderr, bufsize=8388608
         )
@@ -314,7 +330,7 @@ def OutputAlnTensor(args):
         query_position = 0
         STRAND = (16 == (FLAG & 16))
 
-        if MQ < args.minMQ:
+        if MQ < minimum_mapping_quality:
             continue
 
         end_to_center = {}
@@ -365,7 +381,7 @@ def OutputAlnTensor(args):
                             reference_position,
                             0,
                             reference_sequence[reference_position -
-                                                (0 if reference_start == None else (reference_start - 1))],
+                                               (0 if reference_start == None else (reference_start - 1))],
                             SEQ[query_position],
                             STRAND
                         ))
@@ -406,7 +422,7 @@ def OutputAlnTensor(args):
                             reference_position,
                             0,
                             reference_sequence[reference_position -
-                                                (0 if reference_start == None else (reference_start - 1))],
+                                               (0 if reference_start == None else (reference_start - 1))],
                             "-",
                             STRAND
                         ))
@@ -450,7 +466,7 @@ def OutputAlnTensor(args):
 
     samtools_view_process.stdout.close()
     samtools_view_process.wait()
-    if args.tensor_fn != "PIPE":
+    if tensor_file_path != "PIPE":
         tensor_fp.stdin.close()
         tensor_fp.wait()
         tensor_fpo.close()
