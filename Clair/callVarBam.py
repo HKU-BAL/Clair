@@ -88,22 +88,12 @@ def Run(args):
     ctgName = args.ctgName
     if ctgName == None:
         sys.exit("--ctgName must be specified. You can call variants on multiple chromosomes simultaneously.")
-    if args.considerleftedge:
-        considerleftedge = "--considerleftedge"
-    else:
-        considerleftedge = ""
 
-    if args.qual:
-        qual = "--qual %d" % (args.qual)
-    else:
-        qual = ""
-
-    if args.log_path:
-        log_path = "--log_path {}".format(args.log_path)
-    else:
-        log_path = ""
-
+    considerleftedge = "--considerleftedge" if args.considerleftedge else ""
+    qual = "--qual %d" % (args.qual) if args.qual else ""
+    log_path= "--log_path {}".format(args.log_path) if args.log_path else ""
     debug = "--debug" if args.debug else ""
+    fast_plotting= "--fast_plotting" if args.fast_plotting else ""
 
     if args.ctgStart != None and args.ctgEnd != None and int(args.ctgStart) <= int(args.ctgEnd):
         ctgRange = "--ctgStart %s --ctgEnd %s" % (args.ctgStart, args.ctgEnd)
@@ -147,7 +137,7 @@ def Run(args):
         if args.activation_only:
             c.CVInstance = subprocess.Popen(
                 shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --bam_fn %s --sampleName %s --threads %d --activation_only %s --max_plot %d --parallel_level %d --workers %d --ref_fn %s %s %s %s" %
-                            (taskSet, CVBin, chkpnt_fn, call_fn, bam_fn, sampleName, numCpus, log_path, args.max_plot, args.parallel_level, args.workers, ref_fn, qual, "--fast_plotting" if args.fast_plotting else "", debug)),
+                            (taskSet, CVBin, chkpnt_fn, call_fn, bam_fn, sampleName, numCpus, log_path, args.max_plot, args.parallel_level, args.workers, ref_fn, qual, fast_plotting, debug)),
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
         else:
             c.CVInstance = subprocess.Popen(

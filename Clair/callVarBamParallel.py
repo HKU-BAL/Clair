@@ -25,29 +25,48 @@ def CheckCmdExist(cmd):
 
 def Run(args):
     basedir = os.path.dirname(__file__)
+    prefix_1=[]
+    suffix_1=[]
     if len(basedir) == 0:
         callVarBamBin = CheckFileExist("./callVarBam.py")
     else:
         callVarBamBin = CheckFileExist(basedir + "/callVarBam.py")
-    pypyBin = CheckCmdExist(args.pypy)
-    samtoolsBin = CheckCmdExist(args.samtools)
+    result.append("python %s" %(callVarBamBin))
     chkpnt_fn = CheckFileExist(args.chkpnt_fn, sfx=".meta")
-    bam_fn = CheckFileExist(args.bam_fn)
+    result.append("--chkpnt_fn %s" % (chkpnt_fn))
     ref_fn = CheckFileExist(args.ref_fn)
-    fai_fn = CheckFileExist(args.ref_fn + ".fai")
+    result.append("--ref_fn %s" % (ref_fn))
+    bam_fn = CheckFileExist(args.bam_fn)
+    result.append("--bam_fn %s" % (bam_fn))
     bed_fn = CheckFileExist(args.bed_fn) if args.bed_fn != None else None
-    vcf_fn = "--vcf_fn %s" % (CheckFileExist(args.vcf_fn)) if args.vcf_fn != None else ""
-    output_prefix = args.output_prefix
+    result.append("--bed_fn %s" % (bed_fn))
     threshold = args.threshold
+    result.append("--threshold %f" % (threshold))
     minCoverage = args.minCoverage
-    sampleName = args.sampleName
+    result.append("--minCoverage %f" % (minCoverage))
+    pypyBin = CheckCmdExist(args.pypy)
+    result.append("--pypy %s" % (pypyBin))
+    samtoolsBin = CheckCmdExist(args.samtools)
+    result.append("--samtools %s" % (samtoolsBin))
     delay = args.delay
+    result.append("--delay %d" % (delay))
     threads = args.tensorflowThreads
+    result.append("--threads %d" % (threads))
+    sampleName = args.sampleName
+    result.append("--sampleName %s" % (sampleName))
+    vcf_fn = "--vcf_fn %s" % (CheckFileExist(args.vcf_fn)) if args.vcf_fn != None else ""
+    result.append("%s" %(vcf_fn))
     considerleftedge = "--considerleftedge" if args.considerleftedge else ""
-    qual = "--qual %d" % (args.qual) if args.qual else ""
+    result.append("%s" % (considerleftedge))
     log_path="--log_path {}".format(args.log_path) if args.log_path else ""
+    qual = "--qual %d" % (args.qual) if args.qual else ""
     fast_plotting= "--fast_plotting" if args.fast_plotting else ""
     debug = "--debug" if args.debug else ""
+    suffix_1.append("--activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s %s" %\
+              (log_path, args.max_plot, args.parallel_level, args.workers, qual, fast_plotting, debug))
+    suffix_2="%s %s" % (qual, debug)
+    fai_fn = CheckFileExist(args.ref_fn + ".fai")
+    output_prefix = args.output_prefix
 
     includingAllContigs = args.includingAllContigs
     refChunkSize = args.refChunkSize
@@ -74,35 +93,37 @@ def Run(args):
         fields = line.strip().split("\t")
 
         chromName = fields[0]
+        result.insert(5,"--ctgName %s" % (chromName))
         if includingAllContigs == False and str(chromName) not in majorContigs:
             continue
         regionStart = 0
+        result.insert(6, "--ctgStart %d" % (regionStart))
         chromLength = int(fields[1])
 
         while regionStart < chromLength:
             start = regionStart
             end = regionStart + refChunkSize
+            result.append(7, "--ctgEnd %d" % (end))
             if end > chromLength:
                 end = chromLength
             output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, chromName, regionStart, end)
-            a="python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --bed_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s" %\
-               (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, bed_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge )
-            b="python %s --chkpnt_fn %s --ref_fn %s --bam_fn %s --ctgName %s --ctgStart %d --ctgEnd %d --call_fn %s --threshold %f --minCoverage %f --pypy %s --samtools %s --delay %d --threads %d --sampleName %s %s" %\
-              (callVarBamBin, chkpnt_fn, ref_fn, bam_fn, chromName, regionStart, end, output_fn, threshold, minCoverage, pypyBin, samtoolsBin, delay, threads, sampleName, vcf_fn, considerleftedge )
-            c="%s --activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s %s" %\
-              (log_path, args.max_plot, args.parallel_level, args.workers, qual, fast_plotting, debug)
-            d=" %s %s %s" % (qual, debug)
-
+            result.insert(8,"--call_fn %s" % (output_fn))
+            result2=result
+            result2.pop(4)
             if bed_fn != None and chromName in tree and len(tree[chromName].search(start, end)) != 0:
                     if args.activation_only:
-                        print(a+c)
+                        print(" ".join(result+suffix_1))
                     else:
-                        print(a+d)
+                        print(" ".join(result+suffix_2))
             elif args.activation_only:
-                print(b+c)
+                print(" ".join(result2+suffix_1))
             else:
-                print(b+d)
+                print(" ".join(result2+suffix_2))
             regionStart = end
+            result.pop(8)
+            result.pop(7)
+        result.pop(6)
+        result.pop(5)
 
 
 if __name__ == "__main__":
