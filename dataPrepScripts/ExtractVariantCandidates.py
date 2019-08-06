@@ -327,7 +327,7 @@ def make_candidates(args):
                     query_position += advance
 
                 elif c == "M" or c == "=" or c == "X":
-                    for _ in range(advance):
+                    for _ in xrange(advance):
                         base = SEQ[query_position]
                         pileup[reference_position][base] += 1
 

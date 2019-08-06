@@ -461,7 +461,7 @@ def no_of_deletion_bases_from(is_homo_deletion, is_hetero_deletion, variant_leng
 
 def inferred_insertion_bases_from(tensor_input):
     insertion_bases = ""
-    for position in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+    for position in xrange(flanking_base_number + 1, 2 * flanking_base_number + 1):
         reference_tensor = tensor_input[position, :, Channel.reference]
         insertion_tensor = np.copy(tensor_input[position, :, Channel.insert])
         for base_index in range(0, 4):
@@ -479,7 +479,7 @@ def inferred_insertion_bases_from(tensor_input):
 
 def inferred_deletion_length_from(tensor_input):
     deletion_length = 0
-    for position in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+    for position in xrange(flanking_base_number + 1, 2 * flanking_base_number + 1):
         reference_tensor = tensor_input[position, :, Channel.reference]
         deletion_tensor = tensor_input[position, :, Channel.delete]
         if (
