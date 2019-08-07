@@ -27,6 +27,7 @@ def Run(args):
     basedir = os.path.dirname(__file__)
     prefix_1=[]
     suffix_1=[]
+    suffix_2=[]
     if len(basedir) == 0:
         callVarBamBin = CheckFileExist("./callVarBam.py")
     else:
@@ -64,7 +65,7 @@ def Run(args):
     debug = "--debug" if args.debug else ""
     suffix_1.append("--activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s %s" %\
               (log_path, args.max_plot, args.parallel_level, args.workers, qual, fast_plotting, debug))
-    suffix_2="%s %s" % (qual, debug)
+    suffix_2.append("%s %s" % (qual, debug))
     fai_fn = CheckFileExist(args.ref_fn + ".fai")
     output_prefix = args.output_prefix
 
