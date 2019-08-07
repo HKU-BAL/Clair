@@ -31,31 +31,31 @@ def Run(args):
         callVarBamBin = CheckFileExist("./callVarBam.py")
     else:
         callVarBamBin = CheckFileExist(basedir + "/callVarBam.py")
-    result.append("python %s" %(callVarBamBin))
+    prefix_1.append("python %s" %(callVarBamBin))
     chkpnt_fn = CheckFileExist(args.chkpnt_fn, sfx=".meta")
-    result.append("--chkpnt_fn %s" % (chkpnt_fn))
+    prefix_1.append("--chkpnt_fn %s" % (chkpnt_fn))
     ref_fn = CheckFileExist(args.ref_fn)
-    result.append("--ref_fn %s" % (ref_fn))
+    prefix_1.append("--ref_fn %s" % (ref_fn))
     bam_fn = CheckFileExist(args.bam_fn)
-    result.append("--bam_fn %s" % (bam_fn))
+    prefix_1.append("--bam_fn %s" % (bam_fn))
     bed_fn = CheckFileExist(args.bed_fn) if args.bed_fn != None else None
-    result.append("--bed_fn %s" % (bed_fn))
+    prefix_1.append("--bed_fn %s" % (bed_fn))
     threshold = args.threshold
-    result.append("--threshold %f" % (threshold))
+    prefix_1.append("--threshold %f" % (threshold))
     minCoverage = args.minCoverage
-    result.append("--minCoverage %f" % (minCoverage))
+    prefix_1.append("--minCoverage %f" % (minCoverage))
     pypyBin = CheckCmdExist(args.pypy)
-    result.append("--pypy %s" % (pypyBin))
+    prefix_1.append("--pypy %s" % (pypyBin))
     samtoolsBin = CheckCmdExist(args.samtools)
-    result.append("--samtools %s" % (samtoolsBin))
+    prefix_1.append("--samtools %s" % (samtoolsBin))
     delay = args.delay
-    result.append("--delay %d" % (delay))
+    prefix_1.append("--delay %d" % (delay))
     threads = args.tensorflowThreads
-    result.append("--threads %d" % (threads))
+    prefix_1.append("--threads %d" % (threads))
     sampleName = args.sampleName
-    result.append("--sampleName %s" % (sampleName))
+    prefix_1.append("--sampleName %s" % (sampleName))
     vcf_fn = "--vcf_fn %s" % (CheckFileExist(args.vcf_fn)) if args.vcf_fn != None else ""
-    result.append("%s" %(vcf_fn))
+    prefix_1.append("%s" %(vcf_fn))
     considerleftedge = "--considerleftedge" if args.considerleftedge else ""
     result.append("%s" % (considerleftedge))
     log_path="--log_path {}".format(args.log_path) if args.log_path else ""
@@ -93,37 +93,37 @@ def Run(args):
         fields = line.strip().split("\t")
 
         chromName = fields[0]
-        result.insert(5,"--ctgName %s" % (chromName))
+        prefix_1.insert(5,"--ctgName %s" % (chromName))
         if includingAllContigs == False and str(chromName) not in majorContigs:
             continue
         regionStart = 0
-        result.insert(6, "--ctgStart %d" % (regionStart))
+        prefix_1.insert(6, "--ctgStart %d" % (regionStart))
         chromLength = int(fields[1])
 
         while regionStart < chromLength:
             start = regionStart
             end = regionStart + refChunkSize
-            result.append(7, "--ctgEnd %d" % (end))
+            prefix_1.append(7, "--ctgEnd %d" % (end))
             if end > chromLength:
                 end = chromLength
             output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, chromName, regionStart, end)
-            result.insert(8,"--call_fn %s" % (output_fn))
-            result2=result
-            result2.pop(4)
+            prefix_1.insert(8,"--call_fn %s" % (output_fn))
+            prefix_2=prefix_1
+            prefix_2.pop(4)
             if bed_fn != None and chromName in tree and len(tree[chromName].search(start, end)) != 0:
                     if args.activation_only:
-                        print(" ".join(result+suffix_1))
+                        print(" ".join(prefix_1+suffix_1))
                     else:
-                        print(" ".join(result+suffix_2))
+                        print(" ".join(prefix_1+suffix_2))
             elif args.activation_only:
-                print(" ".join(result2+suffix_1))
+                print(" ".join(prefix_2+suffix_1))
             else:
-                print(" ".join(result2+suffix_2))
+                print(" ".join(prefix_2+suffix_2))
             regionStart = end
-            result.pop(8)
-            result.pop(7)
-        result.pop(6)
-        result.pop(5)
+            prefix_1.pop(8)
+            prefix_1.pop(7)
+        prefix_1.pop(6)
+        prefix_1.pop(5)
 
 
 if __name__ == "__main__":
