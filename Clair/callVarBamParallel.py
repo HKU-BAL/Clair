@@ -5,8 +5,28 @@ import intervaltree
 import shlex
 import argparse
 import param
+from collections import namedtuple
 
 majorContigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) for a in range(0, 23)+["X", "Y"]})
+
+CommandOption = namedtuple('CommandOption', ['option', 'value'])
+CommandOptionWithNoValue = namedtuple('CommandOptionWithNoValue', ['option'])
+ExecuteCommand = namedtuple('ExecuteCommand', ['bin', 'bin_value'])
+
+
+def command_string_from(command):
+    if isinstance(command, CommandOption):
+        return "--{} \"{}\"".format(command.option, command.value)
+    elif isinstance(command, CommandOptionWithNoValue):
+        return "--{}".format(command.option)
+    elif isinstance(command, ExecuteCommand):
+        return " ".join([command.bin, command.bin_value])
+    else:
+        return ""
+
+
+def executable_command_string_from(commands):
+    return " ".join(map(command_string_from, commands))
 
 
 def CheckFileExist(fn, sfx=""):
@@ -23,108 +43,128 @@ def CheckCmdExist(cmd):
     return cmd
 
 
+def intervaltree_from(bed_file_path):
+    tree = {}
+    if bed_file_path is None:
+        return tree
+
+    bed_fp = subprocess.Popen(shlex.split("pigz -fdc %s" % (bed_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
+    for row in bed_fp.stdout:
+        row = row.strip().split()
+        name = row[0]
+        if name not in tree:
+            tree[name] = intervaltree.IntervalTree()
+        begin = int(row[1])
+        end = int(row[2])-1
+        if end == begin:
+            end += 1
+        tree[name].addi(begin, end)
+    bed_fp.stdout.close()
+    bed_fp.wait()
+
+    return tree
+
+
 def Run(args):
     basedir = os.path.dirname(__file__)
-    prefix_1=[]
-    suffix_1=[]
-    suffix_2=[]
     if len(basedir) == 0:
         callVarBamBin = CheckFileExist("./callVarBam.py")
     else:
         callVarBamBin = CheckFileExist(basedir + "/callVarBam.py")
-    prefix_1.append("python %s" %(callVarBamBin))
-    chkpnt_fn = CheckFileExist(args.chkpnt_fn, sfx=".meta")
-    prefix_1.append("--chkpnt_fn %s" % (chkpnt_fn))
-    ref_fn = CheckFileExist(args.ref_fn)
-    prefix_1.append("--ref_fn %s" % (ref_fn))
-    bam_fn = CheckFileExist(args.bam_fn)
-    prefix_1.append("--bam_fn %s" % (bam_fn))
-    bed_fn = CheckFileExist(args.bed_fn) if args.bed_fn != None else None
-    prefix_1.append("--bed_fn %s" % (bed_fn))
-    threshold = args.threshold
-    prefix_1.append("--threshold %f" % (threshold))
-    minCoverage = args.minCoverage
-    prefix_1.append("--minCoverage %f" % (minCoverage))
-    pypyBin = CheckCmdExist(args.pypy)
-    prefix_1.append("--pypy %s" % (pypyBin))
-    samtoolsBin = CheckCmdExist(args.samtools)
-    prefix_1.append("--samtools %s" % (samtoolsBin))
-    delay = args.delay
-    prefix_1.append("--delay %d" % (delay))
-    threads = args.tensorflowThreads
-    prefix_1.append("--threads %d" % (threads))
-    sampleName = args.sampleName
-    prefix_1.append("--sampleName %s" % (sampleName))
-    vcf_fn = "--vcf_fn %s" % (CheckFileExist(args.vcf_fn)) if args.vcf_fn != None else ""
-    prefix_1.append("%s" %(vcf_fn))
-    considerleftedge = "--considerleftedge" if args.considerleftedge else ""
-    prefix_1.append("%s" % (considerleftedge))
-    log_path="--log_path {}".format(args.log_path) if args.log_path else ""
-    qual = "--qual %d" % (args.qual) if args.qual else ""
-    fast_plotting= "--fast_plotting" if args.fast_plotting else ""
-    debug = "--debug" if args.debug else ""
-    suffix_1.append("--activation_only %s --max_plot %d --parallel_level %d --workers %d %s %s %s" %\
-              (log_path, args.max_plot, args.parallel_level, args.workers, qual, fast_plotting, debug))
-    suffix_2.append("%s %s" % (qual, debug))
-    fai_fn = CheckFileExist(args.ref_fn + ".fai")
-    output_prefix = args.output_prefix
 
+    pypyBin = CheckCmdExist(args.pypy)
+    samtoolsBin = CheckCmdExist(args.samtools)
+    chkpnt_fn = CheckFileExist(args.chkpnt_fn, sfx=".meta")
+    bam_fn = CheckFileExist(args.bam_fn)
+    ref_fn = CheckFileExist(args.ref_fn)
+    fai_fn = CheckFileExist(args.ref_fn + ".fai")
+    bed_fn = CheckFileExist(args.bed_fn) if args.bed_fn is not None else None
+    output_prefix = args.output_prefix
+    threshold = args.threshold
+
+    is_bed_file_provided = bed_fn is not None
+
+    minCoverage = args.minCoverage
+    sampleName = args.sampleName
+    delay = args.delay
+    threads = args.tensorflowThreads
+    qual = args.qual
     includingAllContigs = args.includingAllContigs
     refChunkSize = args.refChunkSize
 
-    tree = {}
-    if bed_fn != None:
-        bed_fp = subprocess.Popen(shlex.split("pigz -fdc %s" % (bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
-        for row in bed_fp.stdout:
-            row = row.strip().split()
-            name = row[0]
-            if name not in tree:
-                tree[name] = intervaltree.IntervalTree()
-            begin = int(row[1])
-            end = int(row[2])-1
-            if end == begin:
-                end += 1
-            tree[name].addi(begin, end)
-        bed_fp.stdout.close()
-        bed_fp.wait()
+    required_commands = [
+        ExecuteCommand('python', callVarBamBin),
+        CommandOption('chkpnt_fn', chkpnt_fn),
+        CommandOption('ref_fn', ref_fn),
+        CommandOption('bam_fn', bam_fn),
+        CommandOption('threshold', threshold),
+        CommandOption('minCoverage', minCoverage),
+        CommandOption('pypy', pypyBin),
+        CommandOption('samtools', samtoolsBin),
+        CommandOption('delay', delay),
+        CommandOption('threads', threads),
+        CommandOption('sampleName', sampleName),
+    ]
 
-    fai_fp = open(fai_fn)
-    for line in fai_fp:
+    optional_options = []
+    vcf_fn = CheckFileExist(args.vcf_fn) if args.vcf_fn else None
+    if vcf_fn is not None:
+        optional_options.append(CommandOption('vcf_fn', vcf_fn))
+    if args.qual is not None:
+        optional_options.append(CommandOption('qual', qual))
+    if args.considerleftedge:
+        optional_options.append(CommandOptionWithNoValue('considerleftedge'))
+    if args.debug:
+        optional_options.append(CommandOptionWithNoValue('debug'))
+    if args.activation_only is not None:
+        optional_options.append(CommandOptionWithNoValue('activation_only'))
+        if args.log_path is not None:
+            optional_options.append(CommandOption('log_path', args.log_path))
+        if args.max_plot is not None:
+            optional_options.append(CommandOption('max_plot', args.max_plot))
+        if args.parallel_level is not None:
+            optional_options.append(CommandOption('parallel_level', args.parallel_level))
+        if args.workers is not None:
+            optional_options.append(CommandOption('workers', args.workers))
+        if args.fast_plotting is not None:
+            optional_options.append(CommandOption('fast_plotting', args.fast_plotting))
 
-        fields = line.strip().split("\t")
+    command_string = executable_command_string_from(required_commands + optional_options)
 
-        chromName = fields[0]
-        prefix_1.insert(5,"--ctgName %s" % (chromName))
-        if includingAllContigs == False and str(chromName) not in majorContigs:
-            continue
-        regionStart = 0
-        prefix_1.insert(6, "--ctgStart %d" % (regionStart))
-        chromLength = int(fields[1])
+    tree = intervaltree_from(bed_file_path=bed_fn)
 
-        while regionStart < chromLength:
-            start = regionStart
-            end = regionStart + refChunkSize
-            prefix_1.insert(7, "--ctgEnd %d" % (end))
-            if end > chromLength:
-                end = chromLength
-            output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, chromName, regionStart, end)
-            prefix_1.insert(8,"--call_fn %s" % (output_fn))
-            prefix_2=prefix_1
-            prefix_2.pop(4)
-            if bed_fn != None and chromName in tree and len(tree[chromName].search(start, end)) != 0:
-                    if args.activation_only:
-                        print(" ".join(prefix_1+suffix_1))
-                    else:
-                        print(" ".join(prefix_1+suffix_2))
-            elif args.activation_only:
-                print(" ".join(prefix_2+suffix_1))
-            else:
-                print(" ".join(prefix_2+suffix_2))
-            regionStart = end
-            prefix_1.pop(8)
-            prefix_1.pop(7)
-        prefix_1.pop(6)
-        prefix_1.pop(5)
+    with open(fai_fn, 'r') as fai_fp:
+        for line in fai_fp:
+            fields = line.strip().split("\t")
+
+            chromName = fields[0]
+            if includingAllContigs == False and str(chromName) not in majorContigs:
+                continue
+            regionStart = 0
+            chromLength = int(fields[1])
+
+            while regionStart < chromLength:
+                start = regionStart
+                end = regionStart + refChunkSize
+                if end > chromLength:
+                    end = chromLength
+                output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, chromName, start, end)
+                regionStart = end
+
+                additional_options = [
+                    CommandOption('ctgName', chromName),
+                    CommandOption('ctgStart', start),
+                    CommandOption('ctgEnd', end),
+                    CommandOption('call_fn', output_fn)
+                ]
+                if (
+                    is_bed_file_provided and
+                    chromName in tree and
+                    len(tree[chromName].search(start, end)) != 0
+                ):
+                    additional_options.append(CommandOption('bed_fn', bed_fn))
+
+                print(command_string + " " + executable_command_string_from(additional_options))
 
 
 if __name__ == "__main__":

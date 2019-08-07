@@ -8,6 +8,26 @@ import multiprocessing
 import signal
 import random
 import time
+from collections import namedtuple
+
+CommandOption = namedtuple('CommandOption', ['option', 'value'])
+CommandOptionWithNoValue = namedtuple('CommandOptionWithNoValue', ['option'])
+ExecuteCommand = namedtuple('ExecuteCommand', ['bin', 'bin_value'])
+
+
+def command_string_from(command):
+    if isinstance(command, CommandOption):
+        return "--{} \"{}\"".format(command.option, command.value)
+    elif isinstance(command, CommandOptionWithNoValue):
+        return "--{}".format(command.option)
+    elif isinstance(command, ExecuteCommand):
+        return " ".join([command.bin, command.bin_value])
+    else:
+        return ""
+
+
+def executable_command_string_from(commands):
+    return " ".join(map(command_string_from, commands))
 
 
 class InstancesClass(object):
@@ -63,51 +83,58 @@ def CheckCmdExist(cmd):
 
 def Run(args):
     basedir = os.path.dirname(__file__)
-    #basedir = "."
     EVCBin = CheckFileExist(basedir + "/../dataPrepScripts/ExtractVariantCandidates.py")
     GTBin = CheckFileExist(basedir + "/../dataPrepScripts/GetTruth.py")
     CTBin = CheckFileExist(basedir + "/../dataPrepScripts/CreateTensor.py")
     CVBin = CheckFileExist(basedir + "/call_var.py")
+
     pypyBin = CheckCmdExist(args.pypy)
     samtoolsBin = CheckCmdExist(args.samtools)
+
     chkpnt_fn = CheckFileExist(args.chkpnt_fn, sfx=".meta")
     bam_fn = CheckFileExist(args.bam_fn)
     ref_fn = CheckFileExist(args.ref_fn)
-    if args.bed_fn == None:
-        bed_fn = ""
-    else:
-        bed_fn = CheckFileExist(args.bed_fn)
-        bed_fn = "--bed_fn %s" % (bed_fn)
-    vcf_fn = None
-    if args.vcf_fn != None:
-        vcf_fn = CheckFileExist(args.vcf_fn)
+    vcf_fn = CheckFileExist(args.vcf_fn) if args.vcf_fn != None else None
+    bed_fn = CheckFileExist(args.bed_fn) if args.bed_fn != None else ""
+
+    dcov = args.dcov
     call_fn = args.call_fn
     threshold = args.threshold
     minCoverage = args.minCoverage
     sampleName = args.sampleName
+    qual = args.qual
+    log_path= args.log_path
+    fast_plotting= args.fast_plotting
     ctgName = args.ctgName
+    ctgStart=args.ctgStart
+    ctgEnd=args.ctgEnd
+
     if ctgName == None:
         sys.exit("--ctgName must be specified. You can call variants on multiple chromosomes simultaneously.")
 
-    considerleftedge = "--considerleftedge" if args.considerleftedge else ""
-    qual = "--qual %d" % (args.qual) if args.qual else ""
-    log_path= "--log_path {}".format(args.log_path) if args.log_path else ""
-    debug = "--debug" if args.debug else ""
-    fast_plotting= "--fast_plotting" if args.fast_plotting else ""
-
+    if args.considerleftedge:
+        considerleftedge = CommandOptionWithNoValue('considerleftedge')
+    else:
+        considerleftedge=""
+    if args.debug:
+        debug = CommandOptionWithNoValue('debug')
+    else:
+        debug = ""
     if args.ctgStart != None and args.ctgEnd != None and int(args.ctgStart) <= int(args.ctgEnd):
-        ctgRange = "--ctgStart %s --ctgEnd %s" % (args.ctgStart, args.ctgEnd)
+        ctgStart = CommandOption('ctgStart',ctgStart)
+        ctgEnd = CommandOption('ctgEnd',ctgEnd)
+        ctgRange = executable_command_string_from(ctgStart) + " " + executable_command_string_from(ctgEnd)
     else:
         ctgRange = ""
-    dcov = args.dcov
 
-    maxCpus = multiprocessing.cpu_count()
     if args.threads == None:
         numCpus = multiprocessing.cpu_count()
     else:
         numCpus = args.threads if args.threads < multiprocessing.cpu_count() else multiprocessing.cpu_count()
+
     _cpuSet = ",".join(str(x) for x in random.sample(xrange(0, maxCpus), numCpus))
     taskSet = "taskset -c %s" % (_cpuSet)
+
     try:
         subprocess.check_output("which %s" % ("taskset"), shell=True)
     except:
@@ -118,31 +145,87 @@ def Run(args):
         print >> sys.stderr, "Delay %d seconds before starting variant calling ..." % (delay)
         time.sleep(delay)
 
+    vcfIsNone_commands=[
+        pypyBin,
+        EVCBin,
+        CommandOption('bam_fn',bam_fn),
+        CommandOption('ref_fn',ref_fn),
+        CommandOption('bed_fn',bed_fn),
+        CommandOption('ctgName',ctgName),
+        ctgRange,
+        CommandOption('threshold',threshold),
+        CommandOption('midCoverage',minCoverage),
+        CommandOption('samtoolsBin',samtoolsBin)
+    ]
+
+    vcfIsNotNone_commands=[
+        pypyBin,
+        GTBin,
+        CommandOption('vcf_fn',vcf_fn),
+        CommandOption('ctgName',ctgName),
+        ctgRange
+    ]
+
+    required_commands=[
+        pypyBin,
+        CTBin,
+        CommandOption('bam_fn',bam_fn),
+        CommandOption('ref_fn',ref_fn),
+        CommandOption('ctgName',ctgName),
+        ctgRange,
+        considerleftedge,
+        CommandOption('samtools',samtoolsBin),
+        CommandOption('dcov',dcov)
+    ]
+
+    activation_commands=[
+        taskSet,
+        ExecuteCommand('python',CVBin),
+        CommandOption('chkpnt_fn', chkpnt_fn),
+        CommandOption('call_fn',call_fn),
+        CommandOption('bam_fn',bam_fn),
+        CommandOption('sampleName',sampleName),
+        CommandOption('threads',numCpus)
+    ]
+
+    activationOnly_commands=[
+        CommandOption('activation',log_path),
+        CommandOption('max_plot',args.max_plot),
+        CommandOption('parallel_level',args.parallel_path),
+        CommandOption('worker',args.workers),
+        CommandOption('ref_fn',ref_fn),
+        qual,
+        fast_plotting,
+        debug
+    ]
+
+    notActivationOnly_commands=[
+        CommandOption('ref_fn',ref_fn),
+        qual,
+        debug
+    ]
+
+
     try:
         if vcf_fn == None:
             c.EVCInstance = subprocess.Popen(
-                shlex.split("%s %s --bam_fn %s --ref_fn %s %s --ctgName %s %s --threshold %s --minCoverage %s --samtools %s" %
-                            (pypyBin, EVCBin, bam_fn, ref_fn, bed_fn, ctgName, ctgRange, threshold, minCoverage, samtoolsBin)),
+                vcfIsNone_commands,
                 stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
         else:
             c.EVCInstance = subprocess.Popen(
-                shlex.split("%s %s --vcf_fn %s --ctgName %s %s" %
-                            (pypyBin, GTBin, vcf_fn, ctgName, ctgRange)),
+                vcfIsNotNone_commands,
                 stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
         c.CTInstance = subprocess.Popen(
-            shlex.split("%s %s --bam_fn %s --ref_fn %s --ctgName %s %s %s --samtools %s --dcov %d" %
-                        (pypyBin, CTBin, bam_fn, ref_fn, ctgName, ctgRange, considerleftedge, samtoolsBin, dcov)),
+            required_commands,
             stdin=c.EVCInstance.stdout, stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
 
         if args.activation_only:
             c.CVInstance = subprocess.Popen(
-                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --bam_fn %s --sampleName %s --threads %d --activation_only %s --max_plot %d --parallel_level %d --workers %d --ref_fn %s %s %s %s" %
-                            (taskSet, CVBin, chkpnt_fn, call_fn, bam_fn, sampleName, numCpus, log_path, args.max_plot, args.parallel_level, args.workers, ref_fn, qual, fast_plotting, debug)),
+                activation_commands+activationOnly_commands,
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
         else:
             c.CVInstance = subprocess.Popen(
-                shlex.split("%s python %s --chkpnt_fn %s --call_fn %s --bam_fn %s --sampleName %s --threads %d --ref_fn %s %s %s" %
-                            (taskSet, CVBin, chkpnt_fn, call_fn, bam_fn, sampleName, numCpus, ref_fn, qual, debug)),
+                activation_commands+notActivationOnly_commands,
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
     except Exception as e:
         print >> sys.stderr, e
