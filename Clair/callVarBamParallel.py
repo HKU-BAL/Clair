@@ -57,7 +57,7 @@ def Run(args):
     vcf_fn = "--vcf_fn %s" % (CheckFileExist(args.vcf_fn)) if args.vcf_fn != None else ""
     prefix_1.append("%s" %(vcf_fn))
     considerleftedge = "--considerleftedge" if args.considerleftedge else ""
-    result.append("%s" % (considerleftedge))
+    prefix_1.append("%s" % (considerleftedge))
     log_path="--log_path {}".format(args.log_path) if args.log_path else ""
     qual = "--qual %d" % (args.qual) if args.qual else ""
     fast_plotting= "--fast_plotting" if args.fast_plotting else ""
