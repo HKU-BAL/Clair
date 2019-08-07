@@ -103,7 +103,7 @@ def Run(args):
         while regionStart < chromLength:
             start = regionStart
             end = regionStart + refChunkSize
-            prefix_1.append(7, "--ctgEnd %d" % (end))
+            prefix_1.insert(7, "--ctgEnd %d" % (end))
             if end > chromLength:
                 end = chromLength
             output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, chromName, regionStart, end)
