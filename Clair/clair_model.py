@@ -51,7 +51,7 @@ class Clair(object):
         BLACK=[0.0, 0.0, 0.0]
     )
 
-    def __init__(self, **kwargs):
+    def __init__(self, optimizer,**kwargs):
 
         # Define the default dictionary here
         params = dict(
@@ -97,6 +97,7 @@ class Clair(object):
             l2_regularization_lambda_decay_rate=param.l2RegularizationLambdaDecay,
             tensor_transform_function=lambda X, Y, phase: (X, Y)
         )
+
 
         # Getting other parameters from the param.py file
         params_from_file = param.get_model_parameters()
@@ -148,7 +149,7 @@ class Clair(object):
         self.l2_regularization_lambda_value = params['l2_regularization_lambda']
         self.l2_regularization_lambda_decay_rate = params['l2_regularization_lambda_decay_rate']
         self.structure = params['structure']
-        self.optimizer_name=param.optimizer
+        self.optimizer_name=optimizer
 
         # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks,
         # which does not support tf.float64
