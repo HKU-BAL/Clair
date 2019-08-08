@@ -59,10 +59,10 @@ def OutputVariant(args):
             continue
 
         # position in vcf is 1-based
-        chromosome, position = row[0], int(row[1])
+        chromosome, position = row[0], row[1]
         if chromosome != ctg_name:
             continue
-        if is_ctg_region_provided and not (ctg_start <= position <= ctg_end):
+        if is_ctg_region_provided and not (ctg_start <= int(position) <= ctg_end):
             continue
         reference, alternate, last_column = row[3], row[4], row[-1]
 
