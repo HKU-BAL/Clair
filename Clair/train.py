@@ -327,7 +327,7 @@ if __name__ == "__main__":
     # initialize
     logging.info("[INFO] Initializing")
     utils.setup_environment()
-    m = cv.Clair(optimizer="Adam")
+    m = cv.Clair()
     m.init()
 
     dataset_info = utils.dataset_info_from(
