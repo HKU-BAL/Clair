@@ -23,7 +23,9 @@ def PypyGCCollect(signum, frame):
 
 
 def variants_map_from(variant_file_path):
-    """variants map with 1-based position as key"""
+    """
+    variants map with 1-based position as key
+    """
     if variant_file_path == None:
         return {}
 
@@ -54,7 +56,9 @@ def non_variants_map_near_variants_from(
     lower_limit_to_non_variants=15,
     upper_limit_to_non_variants=16
 ):
-    """non variants map with 1-based position as key"""
+    """
+    non variants map with 1-based position as key
+    """
     non_variants_map = {}
     non_variants_map_to_exclude = {}
 
@@ -101,6 +105,9 @@ class CandidateStdout(object):
 
 
 def region_from(ctg_name, ctg_start=None, ctg_end=None):
+    """
+    1-based region string [start, end]
+    """
     if ctg_name is None:
         return ""
     if (ctg_start is None) != (ctg_end is None):
@@ -140,6 +147,9 @@ def reference_sequence_from(samtools_execute_command, fasta_file_path, regions):
 
 
 def interval_tree_map_from(bed_file_path):
+    """
+    0-based interval tree [start, end)
+    """
     interval_tree_map = {}
     if bed_file_path is None:
         return interval_tree_map
@@ -164,7 +174,7 @@ def interval_tree_map_from(bed_file_path):
                 interval_tree_map[ctg_name] = intervaltree.IntervalTree()
 
             ctg_start = int(columns[1])
-            ctg_end = int(columns[2])-1
+            ctg_end = int(columns[2])
             if ctg_start == ctg_end:
                 ctg_end += 1
 
@@ -241,18 +251,12 @@ def make_candidates(args):
         print >> sys.stderr, "Fasta index {}.fai doesn't exist.".format(fasta_file_path)
         sys.exit(1)
 
+    # 1-based regions [start, end] (start and end inclusive)
     regions = []
-    reference_start = None
-    reference_end = None
+    reference_start, reference_end = None, None
     if is_ctg_range_given:
-        ctg_start += 1
-        reference_start = ctg_start
-        reference_end = ctg_end
-
-        reference_start -= param.expandReferenceRegion
+        reference_start, reference_end = ctg_start - param.expandReferenceRegion, ctg_end + param.expandReferenceRegion
         reference_start = 1 if reference_start < 1 else reference_start
-        reference_end += param.expandReferenceRegion
-
         regions.append(region_from(ctg_name=ctg_name, ctg_start=reference_start, ctg_end=reference_end))
     elif is_ctg_name_given:
         regions.append(region_from(ctg_name=ctg_name))
@@ -355,8 +359,8 @@ def make_candidates(args):
         for zero_based_position in positions:
             baseCount = depth = reference_base = temp_key = None
 
-            # ctg and bed checking
-            pass_ctg = not is_ctg_range_given or ctg_start <= zero_based_position <= ctg_end
+            # ctg and bed checking (region [ctg_start, ctg_end] is 1-based, inclusive start and end positions)
+            pass_ctg = not is_ctg_range_given or ctg_start <= zero_based_position+1 <= ctg_end
             pass_bed = not is_bed_file_given or (
                 ctg_name in tree and len(tree[ctg_name].search(zero_based_position)) != 0
             )
@@ -395,7 +399,7 @@ def make_candidates(args):
                     baseCount[0][0] != reference_base
                 )
 
-            # output
+            # output 1-based candidate
             need_output_candidate = pass_ctg and pass_bed and pass_output_probability and pass_depth and pass_af
             if need_output_candidate:
                 if temp_key is not None and temp_key in non_variants_map:
@@ -435,7 +439,7 @@ def make_candidates(args):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="Generate variant candidates using alignments")
+    parser = argparse.ArgumentParser(description="Generate 1-based variant candidates using alignments")
 
     parser.add_argument('--bam_fn', type=str, default="input.bam",
                         help="Sorted bam file input, default: %(default)s")
@@ -477,10 +481,10 @@ if __name__ == "__main__":
                         help="The name of sequence to be processed, default: %(default)s")
 
     parser.add_argument('--ctgStart', type=int, default=None,
-                        help="The 1-base starting position of the sequence to be processed")
+                        help="The 1-based starting position of the sequence to be processed")
 
     parser.add_argument('--ctgEnd', type=int, default=None,
-                        help="The inclusive ending position of the sequence to be processed")
+                        help="The 1-based inclusive ending position of the sequence to be processed")
 
     parser.add_argument('--samtools', type=str, default="samtools",
                         help="Path to the 'samtools', default: %(default)s")

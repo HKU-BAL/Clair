@@ -241,10 +241,10 @@ if __name__ == "__main__":
                         help="The name of sequence to be processed, default: %(default)s")
 
     parser.add_argument('--ctgStart', type=int, default=None,
-                        help="The 1-bsae starting position of the sequence to be processed")
+                        help="The 1-based starting position of the sequence to be processed")
 
     parser.add_argument('--ctgEnd', type=int, default=None,
-                        help="The inclusive ending position of the sequence to be processed")
+                        help="The 1-based inclusive ending position of the sequence to be processed")
 
     parser.add_argument('--considerleftedge', type=param.str2bool, nargs='?', const=True, default=True,
                         help="Count the left-most base-pairs of a read for coverage even if the starting position of a read is after the starting position of a tensor, default: %(default)s")
