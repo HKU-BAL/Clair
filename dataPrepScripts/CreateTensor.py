@@ -26,7 +26,7 @@ stripe2 = param.matrixRow * param.matrixNum
 stripe1 = param.matrixNum
 
 
-def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_start, minimum_coverage):
+def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_start_0_based, minimum_coverage):
     flanking_base_num = param.flankingBaseNum
     matrix_row = param.matrixRow
     matrix_num = param.matrixNum
@@ -63,7 +63,7 @@ def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_
             else:
                 print >> sys.stderr, "Should not reach here: %s, %s" % (reference_base, query_base)
 
-    new_reference_position = center - (0 if reference_start == None else (reference_start - 1))
+    new_reference_position = center - reference_start_0_based
     if new_reference_position - (flanking_base_num+1) < 0 or depth[flanking_base_num] < minimum_coverage:
         return None
     return "%s %d %s %s" % (
@@ -91,20 +91,23 @@ def get_candidate_position_generator(
         )
         candidate_file_path_output = candidate_file_path_process.stdout
 
+    is_ctg_region_provided = ctg_start is not None and ctg_end is not None
+
     for row in candidate_file_path_output:
         row = row.split()
-        position = int(row[1])
-        if ctg_start != None and position < ctg_start:
+        position = int(row[1]) # 1-based position
+
+        if is_ctg_region_provided and not (ctg_start <= position <= ctg_end):
             continue
-        if ctg_end != None and position > ctg_end:
-            continue
-        if is_consider_left_edge == True:
+
+        if is_consider_left_edge:
+            # i is 0-based
             for i in range(position - (flanking_base_num + 1), position + (flanking_base_num + 1)):
                 if i not in begin_to_end:
                     begin_to_end[i] = [(position + (flanking_base_num + 1), position)]
                 else:
                     begin_to_end[i].append((position + (flanking_base_num + 1), position))
-        elif is_consider_left_edge == False:
+        else:
             begin_to_end[position - (flanking_base_num + 1)] = [(position + (flanking_base_num + 1), position)]
 
         yield position
@@ -132,16 +135,12 @@ def get_reference_result_from(
     expand_reference_region
 ):
     faidx_process = None
-    reference_start = None
-    reference_end = None
-
+    reference_start, reference_end = None, None
     have_start_and_end_position = ctg_start != None and ctg_end != None
+
     if have_start_and_end_position:
-        reference_start = ctg_start
-        reference_end = ctg_end
-        reference_start -= expand_reference_region
+        reference_start, reference_end = ctg_start - expand_reference_region, ctg_end + expand_reference_region
         reference_start = 1 if reference_start < 1 else reference_start
-        reference_end += expand_reference_region
 
         faidx_process = subprocess.Popen(
             shlex.split(
@@ -151,8 +150,7 @@ def get_reference_result_from(
             bufsize=8388608
         )
     else:
-        ctg_start = None
-        ctg_end = None
+        ctg_start, ctg_end = None, None
         faidx_process = subprocess.Popen(
             shlex.split("%s faidx %s %s" % (samtools, reference_file_path, ctg_name)),
             stdout=subprocess.PIPE,
@@ -257,11 +255,6 @@ def OutputAlnTensor(args):
     ctg_start = args.ctgStart
     ctg_end = args.ctgEnd
 
-    is_ctg_name_given = ctg_name is not None
-    is_ctg_range_given = is_ctg_name_given and ctg_start is not None and ctg_end is not None
-    if is_ctg_range_given:
-        ctg_start += 1  # Change 0-based (BED) to 1-based (VCF and samtools faidx)
-
     reference_result = get_reference_result_from(
         ctg_name=ctg_name,
         ctg_start=ctg_start,
@@ -283,6 +276,7 @@ def OutputAlnTensor(args):
         sys.exit(1)
 
     reference_start = reference_result.start
+    reference_start_0_based = 0 if reference_start is None else (reference_start - 1)
     begin_to_end = {}
     candidate_position = 0
     candidate_position_generator = get_candidate_position_generator(
@@ -319,9 +313,7 @@ def OutputAlnTensor(args):
         if l[0][0] == "@":
             continue
 
-        _QNAME = l[0]
         FLAG = int(l[1])
-        _RNAME = l[2]
         POS = int(l[3]) - 1  # switch from 1-base to 0-base to match sequence index
         MQ = int(l[4])
         CIGAR = l[5]
@@ -350,7 +342,7 @@ def OutputAlnTensor(args):
 
         advance = 0
         for c in str(CIGAR):
-            if available_slots == 0:
+            if available_slots <= 0:
                 break
 
             if c.isdigit():
@@ -373,15 +365,14 @@ def OutputAlnTensor(args):
                             center_to_alignment.setdefault(rCenter, [])
                             center_to_alignment[rCenter].append([])
                     for center in list(active_set):
-                        if available_slots == 0:
-                            continue
+                        if available_slots <= 0:
+                            break
                         available_slots -= 1
 
                         center_to_alignment[center][-1].append((
                             reference_position,
                             0,
-                            reference_sequence[reference_position -
-                                               (0 if reference_start == None else (reference_start - 1))],
+                            reference_sequence[reference_position - reference_start_0_based],
                             SEQ[query_position],
                             STRAND
                         ))
@@ -393,11 +384,10 @@ def OutputAlnTensor(args):
 
             # insertion
             if c == "I":
-                queryAdv = 0
-                for _ in xrange(advance):
+                for queryAdv in xrange(advance):
                     for center in list(active_set):
-                        if available_slots == 0:
-                            continue
+                        if available_slots <= 0:
+                            break
                         available_slots -= 1
 
                         center_to_alignment[center][-1].append((
@@ -408,21 +398,19 @@ def OutputAlnTensor(args):
                             STRAND
                         ))
                     query_position += 1
-                    queryAdv += 1
 
             # deletion
             if c == "D":
                 for _ in xrange(advance):
                     for center in list(active_set):
-                        if available_slots == 0:
-                            continue
+                        if available_slots <= 0:
+                            break
                         available_slots -= 1
 
                         center_to_alignment[center][-1].append((
                             reference_position,
                             0,
-                            reference_sequence[reference_position -
-                                               (0 if reference_start == None else (reference_start - 1))],
+                            reference_sequence[reference_position - reference_start_0_based],
                             "-",
                             STRAND
                         ))
@@ -447,7 +435,7 @@ def OutputAlnTensor(args):
                 if center + (param.flankingBaseNum + 1) >= POS:
                     continue
                 l = generate_tensor(
-                    ctg_name, center_to_alignment[center], center, reference_sequence, reference_start, min_coverage
+                    ctg_name, center_to_alignment[center], center, reference_sequence, reference_start_0_based, min_coverage
                 )
                 if l != None:
                     tensor_fp.stdin.write(l)
@@ -458,7 +446,7 @@ def OutputAlnTensor(args):
 
     for center in center_to_alignment.keys():
         l = generate_tensor(
-            ctg_name, center_to_alignment[center], center, reference_sequence, reference_start, min_coverage
+            ctg_name, center_to_alignment[center], center, reference_sequence, reference_start_0_based, min_coverage
         )
         if l != None:
             tensor_fp.stdin.write(l)
@@ -496,10 +484,10 @@ if __name__ == "__main__":
                         help="The name of sequence to be processed, default: %(default)s")
 
     parser.add_argument('--ctgStart', type=int, default=None,
-                        help="The 1-base starting position of the sequence to be processed")
+                        help="The 1-based starting position of the sequence to be processed")
 
     parser.add_argument('--ctgEnd', type=int, default=None,
-                        help="The inclusive ending position of the sequence to be processed")
+                        help="The 1-based inclusive ending position of the sequence to be processed")
 
     parser.add_argument('--samtools', type=str, default="samtools",
                         help="Path to the 'samtools', default: %(default)s")
