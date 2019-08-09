@@ -88,12 +88,6 @@ def Run(args):
     CTBin = CheckFileExist(basedir + "/../dataPrepScripts/CreateTensor.py")
     CVBin = CheckFileExist(basedir + "/call_var.py")
 
-    is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
-    if is_using_pysam_for_all_indel_bases_output:
-        pysam_for_all_indel_bases = CommandOptionWithNoValue('pysam_for_all_indel_bases')
-    else:
-        pysam_for_all_indel_bases = ""
-
     pypyBin = CheckCmdExist(args.pypy)
     samtoolsBin = CheckCmdExist(args.samtools)
 
@@ -122,6 +116,12 @@ def Run(args):
         considerleftedge = CommandOptionWithNoValue('considerleftedge')
     else:
         considerleftedge=""
+
+    if args.pysam_for_all_indel_bases:
+        pysam_for_all_indel_bases = CommandOptionWithNoValue('pysam_for_all_indel_bases')
+    else:
+        pysam_for_all_indel_bases = ""
+
     if args.debug:
         debug = CommandOptionWithNoValue('debug')
     else:
@@ -181,7 +181,8 @@ def Run(args):
         ctgRange,
         considerleftedge,
         CommandOption('samtools',samtoolsBin),
-        CommandOption('dcov',dcov)
+        CommandOption('dcov',dcov),
+        pysam_for_all_indel_bases
     ]
 
     activation_commands=[
@@ -202,8 +203,7 @@ def Run(args):
         CommandOption('ref_fn',ref_fn),
         qual,
         fast_plotting,
-        debug,
-        pysam_for_all_indel_bases
+        debug
     ]
 
     notActivationOnly_commands=[

@@ -117,7 +117,7 @@ def Run(args):
         optional_options.append(CommandOptionWithNoValue('considerleftedge'))
     if args.debug:
         optional_options.append(CommandOptionWithNoValue('debug'))
-    if is_using_pysam_for_all_indel_bases_output:
+    if args.pysam_for_all_indel_bases:
         optional_options.append(CommandOptionWithNoValue('pysam_for_all_indel_bases'))
     if args.activation_only is not None:
         optional_options.append(CommandOptionWithNoValue('activation_only'))
