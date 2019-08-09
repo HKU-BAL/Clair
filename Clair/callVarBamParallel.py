@@ -83,7 +83,6 @@ def Run(args):
     threshold = args.threshold
 
     is_bed_file_provided = bed_fn is not None
-    is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
 
     minCoverage = args.minCoverage
     sampleName = args.sampleName
