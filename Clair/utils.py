@@ -429,7 +429,7 @@ def DecompressArray(array, start, num, maximum):
     rt.append(blosc.unpack_array(array[startingBlock]))
     startingBlock += 1
     if startingBlock <= maximumBlock:
-        for i in range(startingBlock, (maximumBlock+1)):
+        for i in xrange(startingBlock, (maximumBlock+1)):
             rt.append(blosc.unpack_array(array[i]))
     nprt = np.concatenate(rt[:])
     if leftEnd != 0 or num % param.bloscBlockSize != 0:
@@ -451,10 +451,10 @@ def DecompressArray_with_order(array, start, num, maximum, read_index_list=None)
     startingBlock += 1
     if startingBlock <= maximumBlock:
         if read_index_list is None:
-            for i in range(startingBlock, (maximumBlock+1)):
+            for i in xrange(startingBlock, (maximumBlock+1)):
                 rt.append(blosc.unpack_array(array[i]))
         else:
-            for i in range(startingBlock, (maximumBlock+1)):
+            for i in xrange(startingBlock, (maximumBlock+1)):
                 rt.append(blosc.unpack_array(array[read_index_list[i]]))
     nprt = np.concatenate(rt[:])
     if leftEnd != 0 or num % param.bloscBlockSize != 0:

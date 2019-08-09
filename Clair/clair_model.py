@@ -95,8 +95,10 @@ class Clair(object):
             learning_rate_decay=param.learningRateDecay,
             l2_regularization_lambda=param.l2RegularizationLambda,
             l2_regularization_lambda_decay_rate=param.l2RegularizationLambdaDecay,
-            tensor_transform_function=lambda X, Y, phase: (X, Y)
+            tensor_transform_function=lambda X, Y, phase: (X, Y),
+            optimizer="Adam"
         )
+
 
         # Getting other parameters from the param.py file
         params_from_file = param.get_model_parameters()
@@ -148,7 +150,7 @@ class Clair(object):
         self.l2_regularization_lambda_value = params['l2_regularization_lambda']
         self.l2_regularization_lambda_decay_rate = params['l2_regularization_lambda_decay_rate']
         self.structure = params['structure']
-        self.optimizer_name=param.optimizer
+        self.optimizer_name = params['optimizer']
 
         # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks,
         # which does not support tf.float64

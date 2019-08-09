@@ -9,6 +9,7 @@ from threading import Thread
 from math import log, e
 from enum import IntEnum
 from collections import namedtuple, defaultdict
+from itertools import izip
 
 import utils
 import clair_model as cv
@@ -460,7 +461,7 @@ def no_of_deletion_bases_from(is_homo_deletion, is_hetero_deletion, variant_leng
 
 def inferred_insertion_bases_from(tensor_input):
     insertion_bases = ""
-    for position in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+    for position in xrange(flanking_base_number + 1, 2 * flanking_base_number + 1):
         reference_tensor = tensor_input[position, :, Channel.reference]
         insertion_tensor = np.copy(tensor_input[position, :, Channel.insert])
         for base_index in range(0, 4):
@@ -478,7 +479,7 @@ def inferred_insertion_bases_from(tensor_input):
 
 def inferred_deletion_length_from(tensor_input):
     deletion_length = 0
-    for position in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
+    for position in xrange(flanking_base_number + 1, 2 * flanking_base_number + 1):
         reference_tensor = tensor_input[position, :, Channel.reference]
         deletion_tensor = tensor_input[position, :, Channel.delete]
         if (
@@ -502,20 +503,38 @@ def insertion_bases_using_tensor(tensor_input, variant_length):
     return insertion_bases
 
 
-def maximum_insertion_length_from(variant_length):
+def maximum_variant_length_from(variant_length):
     if variant_length >= minimum_variant_length_that_need_infer:
         return maximum_variant_length_that_need_infer
     else:
         return variant_length
 
 
-def insertion_bases_from(tensor_input, variant_length, sam_file, contig, position):
+def insertion_bases_from(
+    tensor_input,
+    variant_length,
+    sam_file,
+    contig,
+    position,
+    is_using_pysam_for_all_indel_bases_output
+):
     """
-        Return (insertion_bases, is_inferred) tuple
+        Return (insertion_bases, insertion bases length, is_inferred) tuple
     """
+    if is_using_pysam_for_all_indel_bases_output:
+        insertion_bases = insertion_bases_using_pysam_from(
+            sam_file=sam_file,
+            contig=contig,
+            position=position,
+            minimum_insertion_length=variant_length,
+            maximum_insertion_length=maximum_variant_length_from(variant_length)
+        )
+        return insertion_bases, len(insertion_bases), False
+
     need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
     if not need_inferred_variant_length:
-        return (insertion_bases_using_tensor(tensor_input, variant_length), False)
+        insertion_bases = insertion_bases_using_tensor(tensor_input, variant_length)
+        return insertion_bases, len(insertion_bases), False
 
     insertion_bases = insertion_bases_using_pysam_from(
         sam_file=sam_file,
@@ -523,16 +542,38 @@ def insertion_bases_from(tensor_input, variant_length, sam_file, contig, positio
         position=position,
         minimum_insertion_length=minimum_variant_length_that_need_infer
     )
-    if len(insertion_bases) > 0:
-        return (insertion_bases, False)
+    insertion_length = len(insertion_bases)
+    if insertion_length > 0:
+        return insertion_bases, insertion_length, False
     else:
-        return (inferred_insertion_bases_from(tensor_input), True)
+        insertion_bases = inferred_insertion_bases_from(tensor_input)
+        return insertion_bases, len(insertion_bases), True
 
 
-def deletion_bases_from(tensor_input, variant_length, sam_file, fasta_file, contig, position, reference_sequence):
+def deletion_bases_from(
+    tensor_input,
+    variant_length,
+    sam_file,
+    fasta_file,
+    contig,
+    position,
+    reference_sequence,
+    is_using_pysam_for_all_indel_bases_output
+):
     """
-        Return (deletion_bases, is_inferred) tuple
+        Return (deletion_bases, deletion bases length, is_inferred) tuple
     """
+    if is_using_pysam_for_all_indel_bases_output:
+        deletion_bases = deletion_bases_using_pysam_from(
+            sam_file=sam_file,
+            fasta_file=fasta_file,
+            contig=contig,
+            position=position,
+            minimum_deletion_length=variant_length,
+            maximum_deletion_length=maximum_variant_length_from(variant_length)
+        )
+        return deletion_bases, len(deletion_bases), False
+
     deletion_bases = ""
     need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
     if need_inferred_variant_length:
@@ -543,14 +584,13 @@ def deletion_bases_from(tensor_input, variant_length, sam_file, fasta_file, cont
             position=position,
             minimum_deletion_length=minimum_variant_length_that_need_infer
         )
+
     have_long_deletion_bases = need_inferred_variant_length and len(deletion_bases) >= flanking_base_number
     if have_long_deletion_bases:
-        return (deletion_bases, False)
+        return deletion_bases, len(deletion_bases), False
     else:
-        return (
-            reference_sequence[flanking_base_number + 1:flanking_base_number + variant_length + 1],
-            need_inferred_variant_length
-        )
+        deletion_bases = reference_sequence[flanking_base_number + 1:flanking_base_number + variant_length + 1]
+        return deletion_bases, len(deletion_bases), need_inferred_variant_length
 
 
 def Output(
@@ -558,35 +598,49 @@ def Output(
     call_fh,
     batch_size,
     X,
-    posBatch,
-    base_change_probabilities,
-    genotype_probabilities,
-    variant_length_probabilities_1,
-    variant_length_probabilities_2,
+    batch_chr_pos_seq,
+    batch_base_change_probabilities,
+    batch_genotype_probabilities,
+    batch_variant_length_probabilities_1,
+    batch_variant_length_probabilities_2,
     sam_file,
     fasta_file
 ):
-    if len(base_change_probabilities) != batch_size:
+    if len(batch_base_change_probabilities) != batch_size:
         sys.exit(
             "Inconsistent shape between input tensor and output predictions %d/%d" %
-            (batch_size, len(base_change_probabilities))
+            (batch_size, len(batch_base_change_probabilities))
         )
 
     is_show_reference = args.showRef
     position_center = flanking_base_number
-    no_of_rows = len(base_change_probabilities)
     is_debug = True if args.debug is True else False
+    is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
 
-    for row_index in range(no_of_rows):
+    for (
+        x,
+        chr_pos_seq,
+        base_change_probabilities,
+        genotype_probabilities,
+        variant_length_probabilities_1,
+        variant_length_probabilities_2
+    ) in izip(
+        X,
+        batch_chr_pos_seq,
+        batch_base_change_probabilities,
+        batch_genotype_probabilities,
+        batch_variant_length_probabilities_1,
+        batch_variant_length_probabilities_2
+    ):
         variant_lengths = [
-            np.argmax(variant_length_probabilities_1[row_index]) - VariantLength.index_offset,
-            np.argmax(variant_length_probabilities_2[row_index]) - VariantLength.index_offset,
+            np.argmax(variant_length_probabilities_1) - VariantLength.index_offset,
+            np.argmax(variant_length_probabilities_2) - VariantLength.index_offset,
         ]
         variant_lengths.sort()
 
         prediction = Predictions(
-            base_change=np.argmax(base_change_probabilities[row_index]),
-            genotype=np.argmax(genotype_probabilities[row_index]),
+            base_change=np.argmax(base_change_probabilities),
+            genotype=np.argmax(genotype_probabilities),
             variant_lengths=variant_lengths
         )
 
@@ -601,8 +655,6 @@ def Output(
         is_homo_deletion = is_homo_deletion_from(prediction)
         is_hetero_deletion = is_hetero_deletion_from(prediction)
         is_insertion_and_deletion = is_insertion_and_deletion_from(prediction)
-        # is_SNP_Ins_multi = False
-        # is_SNP_Del_multi = False
 
         is_SNP = is_homo_SNP or is_hetero_SNP
         is_insertion = is_homo_insertion or is_hetero_insertion
@@ -610,15 +662,15 @@ def Output(
 
         # get chromosome, position and reference bases
         # with flanking "flanking_base_number" flanking bases at position
-        chromosome, position, reference_sequence = posBatch[row_index].split(":")
+        chromosome, position, reference_sequence = chr_pos_seq.split(":")
         position = int(position)
 
         # quality score
         quality_score = quality_score_from(
-            base_change_probabilities[row_index],
-            genotype_probabilities[row_index],
-            variant_length_probabilities_1[row_index],
-            variant_length_probabilities_2[row_index]
+            base_change_probabilities,
+            genotype_probabilities,
+            variant_length_probabilities_1,
+            variant_length_probabilities_2
         )
 
         # filtration value
@@ -629,18 +681,17 @@ def Output(
         info = []
 
         # read depth
-        read_depth = sum(X[row_index, position_center, :, Channel.delete] +
-                         X[row_index, position_center, :, Channel.reference])
+        read_depth = sum(x[position_center, :, Channel.delete] + x[position_center, :, Channel.reference])
         if read_depth == 0:
             print_debug_message_with(
                 is_debug,
                 call_fh,
                 chromosome,
                 position,
-                base_change_probabilities[row_index],
-                genotype_probabilities[row_index],
-                variant_length_probabilities_1[row_index],
-                variant_length_probabilities_2[row_index],
+                base_change_probabilities,
+                genotype_probabilities,
+                variant_length_probabilities_1,
+                variant_length_probabilities_2,
                 "Read Depth is zero"
             )
             continue
@@ -663,12 +714,12 @@ def Output(
             alternate_base = reference_base
 
         elif is_homo_SNP:
-            base1, base2 = homo_SNP_bases_from(base_change_probabilities[row_index])
+            base1, base2 = homo_SNP_bases_from(base_change_probabilities)
             reference_base = reference_sequence[position_center]
             alternate_base = base1 if base1 != reference_base else base2
 
         elif is_hetero_SNP:
-            base1, base2 = hetero_SNP_bases_from(base_change_probabilities[row_index])
+            base1, base2 = hetero_SNP_bases_from(base_change_probabilities)
             reference_base = reference_sequence[position_center]
             is_multi = base1 != reference_base and base2 != reference_base
             if is_multi:
@@ -688,30 +739,33 @@ def Output(
                     call_fh,
                     chromosome,
                     position,
-                    base_change_probabilities[row_index],
-                    genotype_probabilities[row_index],
-                    variant_length_probabilities_1[row_index],
-                    variant_length_probabilities_2[row_index],
+                    base_change_probabilities,
+                    genotype_probabilities,
+                    variant_length_probabilities_1,
+                    variant_length_probabilities_2,
                     "is hetero insertion and # of insertion bases predicted is less than 0"
                 )
                 continue
 
-            insertion_bases, is_inferred_insertion_bases = insertion_bases_from(
-                tensor_input=X[row_index],
+            insertion_bases, insertion_length, is_inferred_insertion_bases = insertion_bases_from(
+                tensor_input=x,
                 variant_length=variant_length,
                 sam_file=sam_file,
                 contig=chromosome,
-                position=position
+                position=position,
+                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
             )
-            reference_base = reference_sequence[position_center]
-            alternate_base = reference_base + insertion_bases
+            if insertion_length > 0:
+                reference_base = reference_sequence[position_center]
+                alternate_base = reference_base + insertion_bases
 
             if is_inferred_insertion_bases:
-                length_guess = len(insertion_bases)
+                length_guess = insertion_length
 
-            hetero_insert_base = hetero_insert_base_from(base_change_probabilities[row_index])
+            hetero_insert_base = hetero_insert_base_from(base_change_probabilities)
             is_SNP_Ins_multi = (
                 is_hetero_insertion and
+                insertion_length > 0 and
                 (
                     prediction.base_change == BaseChange.AIns or
                     prediction.base_change == BaseChange.CIns or
@@ -723,6 +777,7 @@ def Output(
             )
             is_Ins_Ins_multi = (
                 is_hetero_insertion and
+                insertion_length > 0 and
                 prediction.base_change == BaseChange.InsIns and
                 variant_length_1 > 0 and variant_length_2 > 0
             )
@@ -737,7 +792,7 @@ def Output(
                         contig=chromosome,
                         position=position,
                         minimum_insertion_length=variant_length_1,
-                        maximum_insertion_length=maximum_insertion_length_from(variant_length_1),
+                        maximum_insertion_length=maximum_variant_length_from(variant_length_1),
                         insertion_bases_to_ignore=insertion_bases
                     ) or
                     insertion_bases[0:variant_length_1]
@@ -759,32 +814,35 @@ def Output(
                     call_fh,
                     chromosome,
                     position,
-                    base_change_probabilities[row_index],
-                    genotype_probabilities[row_index],
-                    variant_length_probabilities_1[row_index],
-                    variant_length_probabilities_2[row_index],
+                    base_change_probabilities,
+                    genotype_probabilities,
+                    variant_length_probabilities_1,
+                    variant_length_probabilities_2,
                     "is hetero deletion and # of deletion bases predicted is less than 0"
                 )
                 continue
 
-            deletion_bases, is_inferred_deletion_bases = deletion_bases_from(
-                tensor_input=X[row_index],
+            deletion_bases, deletion_length, is_inferred_deletion_bases = deletion_bases_from(
+                tensor_input=x,
                 variant_length=variant_length,
                 sam_file=sam_file,
                 fasta_file=fasta_file,
                 contig=chromosome,
                 position=position,
-                reference_sequence=reference_sequence
+                reference_sequence=reference_sequence,
+                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
             )
-            reference_base = reference_sequence[position_center] + deletion_bases
-            alternate_base = reference_base[0]
+            if deletion_length > 0:
+                reference_base = reference_sequence[position_center] + deletion_bases
+                alternate_base = reference_base[0]
 
             if is_inferred_deletion_bases:
-                length_guess = len(deletion_bases)
+                length_guess = deletion_length
 
-            hetero_delete_base = hetero_delete_base_from(base_change_probabilities[row_index])
+            hetero_delete_base = hetero_delete_base_from(base_change_probabilities)
             is_SNP_Del_multi = (
                 is_hetero_deletion and
+                deletion_length > 0 and
                 (
                     prediction.base_change == BaseChange.ADel or
                     prediction.base_change == BaseChange.CDel or
@@ -796,6 +854,7 @@ def Output(
             )
             is_Del_Del_multi = (
                 is_hetero_deletion and
+                deletion_length > 0 and
                 prediction.base_change == BaseChange.DelDel and
                 variant_length_1 > 0 and variant_length_2 > 0 and
                 variant_length_1 != variant_length_2
@@ -818,27 +877,26 @@ def Output(
                     genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
         elif is_insertion_and_deletion:
-            variant_length_delete = 1 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0]
-            variant_length_insert = 1 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1]
-
-            insertion_bases, _ = insertion_bases_from(
-                tensor_input=X[row_index],
-                variant_length=variant_length_insert,
+            insertion_bases, insertion_length, _ = insertion_bases_from(
+                tensor_input=x,
+                variant_length=1 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1],
                 sam_file=sam_file,
                 contig=chromosome,
-                position=position
+                position=position,
+                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
             )
-            deletion_bases, _ = deletion_bases_from(
-                tensor_input=X[row_index],
-                variant_length=variant_length_delete,
+            deletion_bases, deletion_length, _ = deletion_bases_from(
+                tensor_input=x,
+                variant_length=1 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0],
                 sam_file=sam_file,
                 fasta_file=fasta_file,
                 contig=chromosome,
                 position=position,
-                reference_sequence=reference_sequence
+                reference_sequence=reference_sequence,
+                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
             )
 
-            if len(insertion_bases) > 0 and len(deletion_bases) > 0:
+            if insertion_length > 0 and deletion_length > 0:
                 reference_base = reference_sequence[position_center] + deletion_bases
                 alternate_base = "{},{}".format(
                     reference_base[0],
@@ -851,10 +909,10 @@ def Output(
                 call_fh,
                 chromosome,
                 position,
-                base_change_probabilities[row_index],
-                genotype_probabilities[row_index],
-                variant_length_probabilities_1[row_index],
-                variant_length_probabilities_2[row_index],
+                base_change_probabilities,
+                genotype_probabilities,
+                variant_length_probabilities_1,
+                variant_length_probabilities_2,
                 "no reference base / alternate base prediction"
             )
             continue
@@ -863,31 +921,31 @@ def Output(
         supported_reads_count = 0
         if is_reference:
             supported_reads_count = (
-                X[row_index, position_center,   base2num[reference_base], Channel.reference] +
-                X[row_index, position_center, base2num[reference_base]+4, Channel.reference]
+                x[position_center,   base2num[reference_base], Channel.reference] +
+                x[position_center, base2num[reference_base]+4, Channel.reference]
             )
         elif is_SNP:
             for base in alternate_base:
                 if base == ',':
                     continue
                 supported_reads_count += (
-                    X[row_index, position_center,   base2num[base], Channel.SNP] +
-                    X[row_index, position_center, base2num[base]+4, Channel.SNP] +
-                    X[row_index, position_center,   base2num[base], Channel.reference] +
-                    X[row_index, position_center, base2num[base]+4, Channel.reference]
+                    x[position_center,   base2num[base], Channel.SNP] +
+                    x[position_center, base2num[base]+4, Channel.SNP] +
+                    x[position_center,   base2num[base], Channel.reference] +
+                    x[position_center, base2num[base]+4, Channel.reference]
                 )
         elif is_insertion:
             supported_reads_count = (
-                sum(X[row_index, position_center+1, :, Channel.insert]) -
-                sum(X[row_index, position_center+1, :, Channel.SNP])
+                sum(x[position_center+1, :, Channel.insert]) -
+                sum(x[position_center+1, :, Channel.SNP])
             )
         elif is_deletion:
-            supported_reads_count = sum(X[row_index, position_center+1, :, Channel.delete])
+            supported_reads_count = sum(x[position_center+1, :, Channel.delete])
         elif is_insertion_and_deletion:
             supported_reads_count = (
-                sum(X[row_index, position_center+1, :, Channel.insert]) +
-                sum(X[row_index, position_center+1, :, Channel.delete]) -
-                sum(X[row_index, position_center+1, :, Channel.SNP])
+                sum(x[position_center+1, :, Channel.insert]) +
+                sum(x[position_center+1, :, Channel.delete]) -
+                sum(x[position_center+1, :, Channel.SNP])
             )
         allele_frequency = ((supported_reads_count + 0.0) / read_depth) if read_depth != 0 else 0.0
         if allele_frequency > 1:
@@ -910,10 +968,10 @@ def Output(
                 call_fh,
                 chromosome,
                 position,
-                base_change_probabilities[row_index],
-                genotype_probabilities[row_index],
-                variant_length_probabilities_1[row_index],
-                variant_length_probabilities_2[row_index],
+                base_change_probabilities,
+                genotype_probabilities,
+                variant_length_probabilities_1,
+                variant_length_probabilities_2,
                 "Normal output" if not is_reference else "Reference"
             )
         else:
@@ -1115,6 +1173,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-w', '--workers', type=int, default=8,
                         help="The number of workers in plotting, default: %(default)s")
+
+    parser.add_argument('--pysam_for_all_indel_bases', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Always using pysam for outputting indel bases, optional")
 
     args = parser.parse_args()
 

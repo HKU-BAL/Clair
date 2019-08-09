@@ -24,7 +24,6 @@ trainingDatasetPercentage = 0.9
 stepsizeConstant=1
 clrGamma=0.95
 momentum=0.9
-optimizer="SGDM"
 
 # Clair specific
 l2RegularizationLambda = 0.005

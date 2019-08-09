@@ -30,11 +30,9 @@ def CheckCmdExist(cmd):
 def OutputVariant(args):
     var_fn = args.var_fn
     vcf_fn = args.vcf_fn
-    ctgName = args.ctgName
-    ctgStart = args.ctgStart
-    ctgEnd = args.ctgEnd
-    if ctgStart != None and ctgEnd != None:
-        ctgStart += 1
+    ctg_name = args.ctgName
+    ctg_start = args.ctgStart
+    ctg_end = args.ctgEnd
 
     if args.var_fn != "PIPE":
         var_fpo = open(var_fn, "wb")
@@ -43,25 +41,30 @@ def OutputVariant(args):
     else:
         var_fp = TruthStdout(sys.stdout)
 
+    is_ctg_region_provided = ctg_start is not None and ctg_end is not None
+
     tabixed = 0
-    if ctgStart != None and ctgEnd != None:
+    if is_ctg_region_provided:
         if CheckFileExist("%s.tbi" % (vcf_fn)) != None:
             if CheckCmdExist("tabix") != None:
                 tabixed = 1
                 vcf_fp = subprocess.Popen(shlex.split("tabix -f -p vcf %s %s:%s-%s" %
-                                                      (vcf_fn, ctgName, ctgStart, ctgEnd)), stdout=subprocess.PIPE, bufsize=8388608)
+                                                      (vcf_fn, ctg_name, ctg_start, ctg_end)), stdout=subprocess.PIPE, bufsize=8388608)
     if tabixed == 0:
         vcf_fp = subprocess.Popen(shlex.split("gzip -fdc %s" % (vcf_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+
     for row in vcf_fp.stdout:
         row = row.strip().split()
         if row[0][0] == "#":
             continue
-        if row[0] != ctgName:
+
+        # position in vcf is 1-based
+        chromosome, position = row[0], row[1]
+        if chromosome != ctg_name:
             continue
-        if ctgStart != None and ctgEnd != None:
-            if int(row[1]) < ctgStart or int(row[1]) > ctgEnd:
-                continue
-        last_column = row[-1]
+        if is_ctg_region_provided and not (ctg_start <= int(position) <= ctg_end):
+            continue
+        reference, alternate, last_column = row[3], row[4], row[-1]
 
         # normal GetTruth
         genotype = last_column.split(":")[0].replace("/", "|").replace(".", "0").split("|")
@@ -69,13 +72,6 @@ def OutputVariant(args):
 
         # 1000 Genome GetTruth (format problem) (no genotype is given)
         # genotype_1, genotype_2 = "1", "1"
-
-        chromosome = row[0]
-        position = row[1]
-        reference = row[3]
-        alternate = row[4]
-
-        # 1000 Genome GetTruth (format problem) (no genotype is given)
         # if alternate.find(',') >= 0:
         #     genotype_1, genotype_2 = "1", "2"
 
@@ -108,10 +104,10 @@ if __name__ == "__main__":
                         help="The name of sequence to be processed, default: %(default)s")
 
     parser.add_argument('--ctgStart', type=int, default=None,
-                        help="The 1-bsae starting position of the sequence to be processed")
+                        help="The 1-based starting position of the sequence to be processed")
 
     parser.add_argument('--ctgEnd', type=int, default=None,
-                        help="The inclusive ending position of the sequence to be processed")
+                        help="The 1-based inclusive ending position of the sequence to be processed")
 
     args = parser.parse_args()
 
