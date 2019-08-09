@@ -84,6 +84,8 @@ def Run(args):
 
     is_bed_file_provided = bed_fn is not None
     is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
+    if is_using_pysam_for_all_indel_bases_output:
+        pysam_for_all_indel_bases = CommandOptionWithNoValue('pysam_for_all_indel_bases')
 
     minCoverage = args.minCoverage
     sampleName = args.sampleName
@@ -105,7 +107,7 @@ def Run(args):
         CommandOption('delay', delay),
         CommandOption('threads', threads),
         CommandOption('sampleName', sampleName),
-        CommandOption('pysam_for_all_indel_bases',is_using_pysam_for_all_indel_bases_output)
+        pysam_for_all_indel_bases
     ]
 
     optional_options = []
