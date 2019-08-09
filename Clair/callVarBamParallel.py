@@ -83,6 +83,7 @@ def Run(args):
     threshold = args.threshold
 
     is_bed_file_provided = bed_fn is not None
+    is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
 
     minCoverage = args.minCoverage
     sampleName = args.sampleName
@@ -104,6 +105,7 @@ def Run(args):
         CommandOption('delay', delay),
         CommandOption('threads', threads),
         CommandOption('sampleName', sampleName),
+        CommandOption('pysam_for_all_indel_bases',is_using_pysam_for_all_indel_bases_output)
     ]
 
     optional_options = []
@@ -243,6 +245,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Debug mode, optional")
+
+    parser.add_argument('--pysam_for_all_indel_bases', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Always using pysam for outputting indel bases, optional")
 
     args = parser.parse_args()
 

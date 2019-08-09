@@ -88,6 +88,8 @@ def Run(args):
     CTBin = CheckFileExist(basedir + "/../dataPrepScripts/CreateTensor.py")
     CVBin = CheckFileExist(basedir + "/call_var.py")
 
+    is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
+
     pypyBin = CheckCmdExist(args.pypy)
     samtoolsBin = CheckCmdExist(args.samtools)
 
@@ -185,7 +187,8 @@ def Run(args):
         CommandOption('call_fn',call_fn),
         CommandOption('bam_fn',bam_fn),
         CommandOption('sampleName',sampleName),
-        CommandOption('threads',numCpus)
+        CommandOption('threads',numCpus),
+        CommandOption('pysam_for_all_indel_bases',is_using_pysam_for_all_indel_bases_output)
     ]
 
     activationOnly_commands=[
@@ -357,6 +360,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Debug mode, optional")
+
+    parser.add_argument('--pysam_for_all_indel_bases', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Always using pysam for outputting indel bases, optional")
 
     args = parser.parse_args()
 
