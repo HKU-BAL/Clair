@@ -91,6 +91,8 @@ def Run(args):
     is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
     if is_using_pysam_for_all_indel_bases_output:
         pysam_for_all_indel_bases = CommandOptionWithNoValue('pysam_for_all_indel_bases')
+    else:
+        pysam_for_all_indel_bases = ""
 
     pypyBin = CheckCmdExist(args.pypy)
     samtoolsBin = CheckCmdExist(args.samtools)
