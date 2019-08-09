@@ -189,8 +189,7 @@ def Run(args):
         CommandOption('call_fn',call_fn),
         CommandOption('bam_fn',bam_fn),
         CommandOption('sampleName',sampleName),
-        CommandOption('threads',numCpus),
-        pysam_for_all_indel_bases
+        CommandOption('threads',numCpus)
     ]
 
     activationOnly_commands=[
@@ -201,7 +200,8 @@ def Run(args):
         CommandOption('ref_fn',ref_fn),
         qual,
         fast_plotting,
-        debug
+        debug,
+        pysam_for_all_indel_bases
     ]
 
     notActivationOnly_commands=[
