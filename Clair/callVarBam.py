@@ -207,7 +207,7 @@ def Run(args):
     ]
 
     notActivationOnly_commands=[
-        CommandOption('ref_fn',ref_fn),
+        command_string_from(CommandOption('ref_fn',ref_fn)),
         qual,
         debug
     ]
