@@ -216,11 +216,11 @@ def Run(args):
     try:
         if vcf_fn == None:
             c.EVCInstance = subprocess.Popen(
-                shlex.splie(" ".join(vcfIsNone_commands)),
+                shlex.split(" ".join(vcfIsNone_commands)),
                 stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
         else:
             c.EVCInstance = subprocess.Popen(
-                shlex.splie(" ".join(vcfIsNotNone_commands)),
+                shlex.split(" ".join(vcfIsNotNone_commands)),
                 stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
         c.CTInstance = subprocess.Popen(
             shlex.splie(" ".join(required_commands)),
@@ -228,11 +228,11 @@ def Run(args):
 
         if args.activation_only:
             c.CVInstance = subprocess.Popen(
-                shlex.splie(" ".join(activation_commands+activationOnly_commands)),
+                shlex.split(" ".join(activation_commands+activationOnly_commands)),
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
         else:
             c.CVInstance = subprocess.Popen(
-                shlex.splie(" ".join(activation_commands+notActivationOnly_commands)),
+                shlex.split(" ".join(activation_commands+notActivationOnly_commands)),
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
     except Exception as e:
         print >> sys.stderr, e
