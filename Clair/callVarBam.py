@@ -154,60 +154,60 @@ def Run(args):
     vcfIsNone_commands=[
         pypyBin,
         EVCBin,
-        CommandOption('bam_fn',bam_fn),
-        CommandOption('ref_fn',ref_fn),
-        CommandOption('bed_fn',bed_fn),
-        CommandOption('ctgName',ctgName),
+        command_string_from(CommandOption('bam_fn',bam_fn)),
+        command_string_from(CommandOption('ref_fn',ref_fn)),
+        command_string_from(CommandOption('bed_fn',bed_fn)),
+        command_string_from(CommandOption('ctgName',ctgName)),
         ctgRange,
-        CommandOption('threshold',threshold),
-        CommandOption('midCoverage',minCoverage),
-        CommandOption('samtoolsBin',samtoolsBin)
+        command_string_from(CommandOption('threshold',threshold)),
+        command_string_from(CommandOption('midCoverage',minCoverage)),
+        command_string_from(CommandOption('samtoolsBin',samtoolsBin))
     ]
 
     vcfIsNotNone_commands=[
         pypyBin,
         GTBin,
-        CommandOption('vcf_fn',vcf_fn),
-        CommandOption('ctgName',ctgName),
+        command_string_from(CommandOption('vcf_fn',vcf_fn)),
+        command_string_from(CommandOption('ctgName',ctgName)),
         ctgRange
     ]
 
     required_commands=[
         pypyBin,
         CTBin,
-        CommandOption('bam_fn',bam_fn),
-        CommandOption('ref_fn',ref_fn),
-        CommandOption('ctgName',ctgName),
+        command_string_from(CommandOption('bam_fn',bam_fn)),
+        command_string_from(CommandOption('ref_fn',ref_fn)),
+        command_string_from(CommandOption('ctgName',ctgName)),
         ctgRange,
         considerleftedge,
-        CommandOption('samtools',samtoolsBin),
-        CommandOption('dcov',dcov),
+        command_string_from(CommandOption('samtools',samtoolsBin)),
+        command_string_from(CommandOption('dcov',dcov)),
         pysam_for_all_indel_bases
     ]
 
     activation_commands=[
         taskSet,
         ExecuteCommand('python',CVBin),
-        CommandOption('chkpnt_fn', chkpnt_fn),
-        CommandOption('call_fn',call_fn),
-        CommandOption('bam_fn',bam_fn),
-        CommandOption('sampleName',sampleName),
-        CommandOption('threads',numCpus)
+        command_string_from(CommandOption('chkpnt_fn', chkpnt_fn)),
+        command_string_from(CommandOption('call_fn',call_fn)),
+        command_string_from(CommandOption('bam_fn',bam_fn)),
+        command_string_from(CommandOption('sampleName',sampleName)),
+        command_string_from(CommandOption('threads',numCpus))
     ]
 
     activationOnly_commands=[
-        CommandOption('activation',log_path),
-        CommandOption('max_plot',args.max_plot),
-        CommandOption('parallel_level',args.parallel_path),
-        CommandOption('worker',args.workers),
-        CommandOption('ref_fn',ref_fn),
+        command_string_from(CommandOption('activation',log_path)),
+        command_string_from(CommandOption('max_plot',args.max_plot)),
+        command_string_from(CommandOption('parallel_level',args.parallel_path)),
+        command_string_from(CommandOption('worker',args.workers)),
+        command_string_from(CommandOption('ref_fn',ref_fn)),
         qual,
         fast_plotting,
         debug
     ]
 
     notActivationOnly_commands=[
-        CommandOption('ref_fn',ref_fn),
+        command_string_from(CommandOption('ref_fn',ref_fn)),
         qual,
         debug
     ]
