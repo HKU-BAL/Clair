@@ -1174,7 +1174,7 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--workers', type=int, default=8,
                         help="The number of workers in plotting, default: %(default)s")
 
-    parser.add_argument('--pysam_for_all_indel_bases', action='store_true', default=False,
+    parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
 
     args = parser.parse_args()

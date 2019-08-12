@@ -369,7 +369,7 @@ if __name__ == "__main__":
     parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
                         help="Debug mode, optional")
 
-    parser.add_argument('--pysam_for_all_indel_bases', action='store_true', default=False,
+    parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
 
     args = parser.parse_args()
