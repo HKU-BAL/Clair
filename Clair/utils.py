@@ -242,7 +242,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             if name not in tree:
                 tree[name] = intervaltree.IntervalTree()
             begin = int(row[1])
-            end = int(row[2])-1
+            end = int(row[2])
             if end == begin:
                 end += 1
             tree[name].addi(begin, end)
