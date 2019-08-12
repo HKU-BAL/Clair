@@ -126,12 +126,13 @@ def Run(args):
         debug = CommandOptionWithNoValue('debug')
     else:
         debug = ""
+
     if args.ctgStart != None and args.ctgEnd != None and int(args.ctgStart) <= int(args.ctgEnd):
         ctgStart = CommandOption('ctgStart',ctgStart)
         ctgEnd = CommandOption('ctgEnd',ctgEnd)
-        ctgRange = executable_command_string_from(ctgStart) + " " + executable_command_string_from(ctgEnd)
     else:
-        ctgRange = ""
+        ctgStart = ""
+        ctgEnd = ""
 
     if args.threads == None:
         numCpus = multiprocessing.cpu_count()
@@ -154,60 +155,63 @@ def Run(args):
     vcfIsNone_commands=[
         pypyBin,
         EVCBin,
-        command_string_from(CommandOption('bam_fn',bam_fn)),
-        command_string_from(CommandOption('ref_fn',ref_fn)),
-        command_string_from(CommandOption('bed_fn',bed_fn)),
-        command_string_from(CommandOption('ctgName',ctgName)),
-        ctgRange,
-        command_string_from(CommandOption('threshold',threshold)),
-        command_string_from(CommandOption('midCoverage',minCoverage)),
-        command_string_from(CommandOption('samtoolsBin',samtoolsBin))
+        CommandOption('bam_fn',bam_fn),
+        CommandOption('ref_fn',ref_fn),
+        CommandOption('bed_fn',bed_fn),
+        CommandOption('ctgName',ctgName),
+        ctgStart,
+        ctgEnd,
+        CommandOption('threshold',threshold),
+        CommandOption('midCoverage',minCoverage),
+        CommandOption('samtoolsBin',samtoolsBin)
     ]
 
     vcfIsNotNone_commands=[
         pypyBin,
         GTBin,
-        command_string_from(CommandOption('vcf_fn',vcf_fn)),
-        command_string_from(CommandOption('ctgName',ctgName)),
-        ctgRange
+        CommandOption('vcf_fn',vcf_fn),
+        CommandOption('ctgName',ctgName),
+        ctgStart,
+        ctgEnd
     ]
 
     required_commands=[
         pypyBin,
         CTBin,
-        command_string_from(CommandOption('bam_fn',bam_fn)),
-        command_string_from(CommandOption('ref_fn',ref_fn)),
-        command_string_from(CommandOption('ctgName',ctgName)),
-        ctgRange,
+        CommandOption('bam_fn',bam_fn),
+        CommandOption('ref_fn',ref_fn),
+        CommandOption('ctgName',ctgName),
+        ctgStart,
+        ctgEnd,
         considerleftedge,
-        command_string_from(CommandOption('samtools',samtoolsBin)),
-        command_string_from(CommandOption('dcov',dcov)),
+        CommandOption('samtools',samtoolsBin),
+        CommandOption('dcov',dcov),
         pysam_for_all_indel_bases
     ]
 
     activation_commands=[
         taskSet,
-        command_string_from(ExecuteCommand('python',CVBin)),
-        command_string_from(CommandOption('chkpnt_fn', chkpnt_fn)),
-        command_string_from(CommandOption('call_fn',call_fn)),
-        command_string_from(CommandOption('bam_fn',bam_fn)),
-        command_string_from(CommandOption('sampleName',sampleName)),
-        command_string_from(CommandOption('threads',numCpus))
+        ExecuteCommand('python',CVBin),
+        CommandOption('chkpnt_fn', chkpnt_fn),
+        CommandOption('call_fn',call_fn),
+        CommandOption('bam_fn',bam_fn),
+        CommandOption('sampleName',sampleName),
+        CommandOption('threads',numCpus)
     ]
 
     activationOnly_commands=[
-        command_string_from(CommandOption('activation',log_path)),
-        command_string_from(CommandOption('max_plot',args.max_plot)),
-        command_string_from(CommandOption('parallel_level',args.parallel_path)),
-        command_string_from(CommandOption('worker',args.workers)),
-        command_string_from(CommandOption('ref_fn',ref_fn)),
+        CommandOption('activation',log_path),
+        CommandOption('max_plot',args.max_plot),
+        CommandOption('parallel_level',args.parallel_path),
+        CommandOption('worker',args.workers),
+        CommandOption('ref_fn',ref_fn),
         qual,
         fast_plotting,
         debug
     ]
 
     notActivationOnly_commands=[
-        command_string_from(CommandOption('ref_fn',ref_fn)),
+        CommandOption('ref_fn',ref_fn),
         qual,
         debug
     ]
@@ -216,23 +220,23 @@ def Run(args):
     try:
         if vcf_fn == None:
             c.EVCInstance = subprocess.Popen(
-                shlex.split(" ".join(vcfIsNone_commands)),
+                shlex.split(executable_command_string_from(vcfIsNone_commands)),
                 stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
         else:
             c.EVCInstance = subprocess.Popen(
-                shlex.split(" ".join(vcfIsNotNone_commands)),
+                shlex.split(executable_command_string_from(vcfIsNotNone_commands)),
                 stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
         c.CTInstance = subprocess.Popen(
-            shlex.splie(" ".join(required_commands)),
+            shlex.splie(executable_command_string_from(required_commands)),
             stdin=c.EVCInstance.stdout, stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
 
         if args.activation_only:
             c.CVInstance = subprocess.Popen(
-                shlex.split(" ".join(activation_commands+activationOnly_commands)),
+                shlex.split(executable_command_string_from(activation_commands+activationOnly_commands)),
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
         else:
             c.CVInstance = subprocess.Popen(
-                shlex.split(" ".join(activation_commands+notActivationOnly_commands)),
+                shlex.split(executable_command_string_from(activation_commands+notActivationOnly_commands)),
                 stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
     except Exception as e:
         print >> sys.stderr, e
