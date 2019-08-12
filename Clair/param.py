@@ -13,17 +13,22 @@ bloscBlockSize = 500
 # Model hyperparameters
 trainBatchSize = 10000
 predictBatchSize = 10000
-initialLearningRate = 1e-4
-maximumLearningRate = 3e-2
-min_lr=1e-6
-max_lr=1e-1
-lr_finder_max_epoch=1
-learningRateDecay =1.08
+initialLearningRate = 0.001
+learningRateDecay = 0.1
 maxLearningRateSwitch = 6
 trainingDatasetPercentage = 0.9
+
+#clr param
+clr_max_lr=3e-2
+clr_min_lr=1e-4
 stepsizeConstant=1
 clrGamma=0.95
 momentum=0.9
+
+#lr_finder params
+min_lr=1e-6
+max_lr=1e-1
+lr_finder_max_epoch=1
 
 # Clair specific
 l2RegularizationLambda = 0.005

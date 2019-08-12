@@ -62,7 +62,7 @@ def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor
 
 def train_model(m, training_config):
     learning_rate = training_config["learning_rate"]
-    max_learning_rate=param.maximumLearningRate
+    max_learning_rate=param.clr_max_lr
     l2_regularization_lambda = training_config["l2_regularization_lambda"]
     output_file_path_prefix = training_config["output_file_path_prefix"]
     summary_writer = training_config["summary_writer"]

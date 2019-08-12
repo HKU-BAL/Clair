@@ -1128,9 +1128,9 @@ class Clair(object):
                 max_lr = max_lr / 2
         x = global_step / step_size
         if x <= 1:
-            self.learning_rate_value = param.initialLearningRate + (max_lr - param.initialLearningRate) * np.maximum(0,x)
+            self.learning_rate_value = param.clr_min_lr + (max_lr - param.clr_min_lr) * np.maximum(0,x)
         else:
-            self.learning_rate_value = param.initialLearningRate + (max_lr - param.initialLearningRate) * np.maximum(0,(2 - x))
+            self.learning_rate_value = param.clr_min_lr + (max_lr - param.clr_min_lr) * np.maximum(0,(2 - x))
         return self.learning_rate_value, global_step, max_lr
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
