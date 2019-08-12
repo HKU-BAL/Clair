@@ -23,7 +23,7 @@ def command_string_from(command):
     elif isinstance(command, ExecuteCommand):
         return " ".join([command.bin, command.bin_value])
     else:
-        return command
+        return ""
 
 
 def executable_command_string_from(commands):
@@ -200,7 +200,8 @@ def Run(args):
     ]
 
     activationOnly_commands=[
-        CommandOption('activation',log_path),
+        CommandOptionWithNoValue('activation_only'),
+        CommandOption('log_path',log_path),
         CommandOption('max_plot',args.max_plot),
         CommandOption('parallel_level',args.parallel_path),
         CommandOption('worker',args.workers),
