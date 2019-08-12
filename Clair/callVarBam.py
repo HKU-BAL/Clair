@@ -103,7 +103,6 @@ def Run(args):
     minCoverage = args.minCoverage
     sampleName = args.sampleName
     qual = args.qual
-    log_path= args.log_path
     fast_plotting= args.fast_plotting
     ctgName = args.ctgName
     ctgStart=args.ctgStart
@@ -116,6 +115,11 @@ def Run(args):
         considerleftedge = CommandOptionWithNoValue('considerleftedge')
     else:
         considerleftedge=""
+
+    if args.log_path:
+        log_path = CommandOption('log_path',log_path)
+    else:
+        log_path = ""
 
     if args.pysam_for_all_indel_bases:
         pysam_for_all_indel_bases = CommandOptionWithNoValue('pysam_for_all_indel_bases')
@@ -201,7 +205,7 @@ def Run(args):
 
     activationOnly_commands=[
         CommandOptionWithNoValue('activation_only'),
-        CommandOption('log_path',log_path),
+        log_path,
         CommandOption('max_plot',args.max_plot),
         CommandOption('parallel_level',args.parallel_path),
         CommandOption('worker',args.workers),
