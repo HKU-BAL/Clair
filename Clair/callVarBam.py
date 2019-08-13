@@ -239,7 +239,7 @@ def Run(args):
                 shlex.split(executable_command_string_from(vcfIsNotNone_commands)),
                 stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
         c.CTInstance = subprocess.Popen(
-            shlex.splie(executable_command_string_from(required_commands)),
+            shlex.split(executable_command_string_from(required_commands)),
             stdin=c.EVCInstance.stdout, stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
 
         if args.activation_only:
