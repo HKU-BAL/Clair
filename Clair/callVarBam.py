@@ -196,8 +196,7 @@ def Run(args):
         ctgEnd,
         considerleftedge,
         CommandOption('samtools',samtoolsBin),
-        CommandOption('dcov',dcov),
-        pysam_for_all_indel_bases
+        CommandOption('dcov',dcov)
     ]
 
     activation_commands=[
