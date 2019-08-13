@@ -501,6 +501,9 @@ if __name__ == "__main__":
     parser.add_argument('--minCoverage', type=int, default=0,
                         help="Minimum coverage required to generate a tensor, default: %(default)d")
 
+    parser.add_argument('--pysam_for_all_indel_bases', type=param.str2bool, nargs='?', const=True, default=False,
+                        help="Always using pysam for outputting indel bases, optional")
+
     args = parser.parse_args()
 
     if len(sys.argv[1:]) == 0:
