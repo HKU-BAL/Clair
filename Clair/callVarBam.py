@@ -149,6 +149,7 @@ def Run(args):
     else:
         numCpus = args.threads if args.threads < multiprocessing.cpu_count() else multiprocessing.cpu_count()
 
+    maxCpus = multiprocessing.cpu_count()
     _cpuSet = ",".join(str(x) for x in random.sample(xrange(0, maxCpus), numCpus))
     taskSet = "taskset -c %s" % (_cpuSet)
 
