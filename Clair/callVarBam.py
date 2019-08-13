@@ -128,8 +128,8 @@ def Run(args):
         debug = ""
 
     if args.ctgStart != None and args.ctgEnd != None and int(args.ctgStart) <= int(args.ctgEnd):
-        ctgStart = CommandOption('ctgStart',ctgStart)
-        ctgEnd = CommandOption('ctgEnd',ctgEnd)
+        ctgStart = CommandOption('ctgStart',args.ctgStart)
+        ctgEnd = CommandOption('ctgEnd',args.ctgEnd)
     else:
         ctgStart = ""
         ctgEnd = ""
