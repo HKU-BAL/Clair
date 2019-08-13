@@ -214,7 +214,7 @@ def Run(args):
         CommandOptionWithNoValue('activation_only'),
         log_path,
         CommandOption('max_plot',args.max_plot),
-        CommandOption('parallel_level',args.parallel_path),
+        CommandOption('parallel_level',args.parallel_level),
         CommandOption('workers',args.workers),
         CommandOption('ref_fn',ref_fn),
         qual,
