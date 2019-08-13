@@ -173,8 +173,8 @@ def Run(args):
         ctgStart,
         ctgEnd,
         CommandOption('threshold',threshold),
-        CommandOption('midCoverage',minCoverage),
-        CommandOption('samtoolsBin',samtoolsBin)
+        CommandOption('minCoverage',minCoverage),
+        CommandOption('samtools',samtoolsBin)
     ]
 
     vcfIsNotNone_commands=[
