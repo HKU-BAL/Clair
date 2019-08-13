@@ -129,7 +129,7 @@ def Run(args):
         if args.workers is not None:
             optional_options.append(CommandOption('workers', args.workers))
         if args.fast_plotting is not None:
-            optional_options.append(CommandOption('fast_plotting', args.fast_plotting))
+            optional_options.append(CommandOptionWithNoValue('fast_plotting', args.fast_plotting))
 
     command_string = executable_command_string_from(required_commands + optional_options)
 

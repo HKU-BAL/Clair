@@ -139,6 +139,10 @@ def Run(args):
     else:
         qual = ""
 
+    if args.fast_plotting:
+        fast_plotting = CommandOptionWithNoValue('fast_plotting')
+    else:
+        fast_plotting = ""
 
     if args.threads == None:
         numCpus = multiprocessing.cpu_count()
@@ -213,7 +217,7 @@ def Run(args):
         CommandOption('workers',args.workers),
         CommandOption('ref_fn',ref_fn),
         qual,
-        CommandOptionWithNoValue('fast_plotting') if args.fast_plotting else "",
+        fast_plotting,
         debug
     ]
 
