@@ -142,7 +142,7 @@ def Run(args):
     if args.fast_plotting:
         fast_plotting = CommandOptionWithNoValue('fast_plotting')
     else:
-        ""
+        fast_plotting = ""
 
     if args.threads == None:
         numCpus = multiprocessing.cpu_count()
