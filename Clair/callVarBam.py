@@ -23,7 +23,7 @@ def command_string_from(command):
     elif isinstance(command, ExecuteCommand):
         return " ".join([command.bin, command.bin_value])
     else:
-        return ""
+        return command
 
 
 def executable_command_string_from(commands):
