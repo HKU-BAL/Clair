@@ -110,10 +110,10 @@ def Run(args):
     if args.considerleftedge:
         considerleftedge = CommandOptionWithNoValue('considerleftedge')
     else:
-        considerleftedge=""
+        considerleftedge = ""
 
     if args.log_path:
-        log_path = CommandOption('log_path',log_path)
+        log_path = CommandOption('log_path',args.log_path)
     else:
         log_path = ""
 
