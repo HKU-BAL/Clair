@@ -102,11 +102,7 @@ def Run(args):
     threshold = args.threshold
     minCoverage = args.minCoverage
     sampleName = args.sampleName
-    qual = args.qual
-    fast_plotting= args.fast_plotting
     ctgName = args.ctgName
-    ctgStart=args.ctgStart
-    ctgEnd=args.ctgEnd
 
     if ctgName == None:
         sys.exit("--ctgName must be specified. You can call variants on multiple chromosomes simultaneously.")
@@ -137,6 +133,16 @@ def Run(args):
     else:
         ctgStart = ""
         ctgEnd = ""
+
+    if args.qual:
+        qual = CommandOption('qual',args.qual)
+    else:
+        qual = ""
+
+    if args.fast_plotting:
+        fast_plotting = CommandOptionWithNoValue('fast_plotting')
+    else:
+        ""
 
     if args.threads == None:
         numCpus = multiprocessing.cpu_count()
@@ -208,7 +214,7 @@ def Run(args):
         log_path,
         CommandOption('max_plot',args.max_plot),
         CommandOption('parallel_level',args.parallel_path),
-        CommandOption('worker',args.workers),
+        CommandOption('workers',args.workers),
         CommandOption('ref_fn',ref_fn),
         qual,
         fast_plotting,
