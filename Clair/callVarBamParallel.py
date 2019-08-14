@@ -107,6 +107,7 @@ def Run(args):
     ]
 
     optional_options = []
+    activation_only_commands= []
     vcf_fn = CheckFileExist(args.vcf_fn) if args.vcf_fn else None
     if vcf_fn is not None:
         optional_options.append(CommandOption('vcf_fn', vcf_fn))
@@ -119,17 +120,17 @@ def Run(args):
     if args.pysam_for_all_indel_bases:
         optional_options.append(CommandOptionWithNoValue('pysam_for_all_indel_bases'))
     if args.activation_only is not None:
-        optional_options.append(CommandOptionWithNoValue('activation_only'))
+        activation_only_commands.append(CommandOptionWithNoValue('activation_only'))
         if args.log_path is not None:
-            optional_options.append(CommandOption('log_path', args.log_path))
+            activation_only_commands.append(CommandOption('log_path', args.log_path))
         if args.max_plot is not None:
-            optional_options.append(CommandOption('max_plot', args.max_plot))
+            activation_only_commands.append(CommandOption('max_plot', args.max_plot))
         if args.parallel_level is not None:
-            optional_options.append(CommandOption('parallel_level', args.parallel_level))
+            activation_only_commandss.append(CommandOption('parallel_level', args.parallel_level))
         if args.workers is not None:
-            optional_options.append(CommandOption('workers', args.workers))
+            activation_only_commands.append(CommandOption('workers', args.workers))
         if args.fast_plotting is not None:
-            optional_options.append(CommandOptionWithNoValue('fast_plotting'))
+            activation_only_commands.append(CommandOptionWithNoValue('fast_plotting'))
 
     command_string = executable_command_string_from(required_commands + optional_options)
 
@@ -159,20 +160,14 @@ def Run(args):
                     CommandOption('ctgEnd', end),
                     CommandOption('call_fn', output_fn)
                 ]
-                if is_bed_file_provided:
-                    if chromName in tree and len(tree[chromName].search(start, end)) != 0:
-                        additional_options.append(CommandOption('bed_fn', bed_fn))
-                        print(command_string + " " + executable_command_string_from(additional_options))
+                if is_bed_file_provided and chromName in tree and len(tree[chromName].search(start, end)) != 0:
+                    additional_options.append(CommandOption('bed_fn', bed_fn))
+
+                if args.activation_only:
+                    print(command_string + " " + executable_command_string_from(additional_options+activation_only_commands))
                 else:
-                    print(command_string + " " + executable_command_string_from(additional_options))
-                # if (
-                #     is_bed_file_provided and
-                #     chromName in tree and
-                #     len(tree[chromName].search(start, end)) != 0
-                # ):
-                #     additional_options.append(CommandOption('bed_fn', bed_fn))
-                #
-                # print(command_string + " " + executable_command_string_from(additional_options))
+                    print(command_string + " " + executable_command_string_from(
+                                additional_options))
 
 
 if __name__ == "__main__":
