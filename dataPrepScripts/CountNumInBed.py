@@ -21,7 +21,7 @@ def Calc(args):
         if name not in tree:
             tree[name] = intervaltree.IntervalTree()
         begin = int(row[1])
-        end = int(row[2])-1
+        end = int(row[2])
         if end == begin: end += 1
         tree[name].addi(begin, end)
     f.stdout.close()
@@ -66,4 +66,3 @@ if __name__ == "__main__":
         sys.exit(1)
 
     Run(args)
-

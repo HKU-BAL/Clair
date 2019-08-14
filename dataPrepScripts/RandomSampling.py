@@ -51,7 +51,7 @@ def MakeCandidates( args ):
             if name not in tree:
                 tree[name] = intervaltree.IntervalTree()
             begin = int(row[1])
-            last = int(row[2])-1
+            last = int(row[2])
             if last == begin: last += 1
             tree[name].addi(begin, last)
         f.stdout.close()
@@ -110,4 +110,3 @@ if __name__ == "__main__":
         sys.exit(1)
 
     MakeCandidates(args)
-
