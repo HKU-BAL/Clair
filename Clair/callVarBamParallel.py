@@ -126,7 +126,7 @@ def Run(args):
         if args.max_plot is not None:
             activation_only_commands.append(CommandOption('max_plot', args.max_plot))
         if args.parallel_level is not None:
-            activation_only_commandss.append(CommandOption('parallel_level', args.parallel_level))
+            activation_only_commands.append(CommandOption('parallel_level', args.parallel_level))
         if args.workers is not None:
             activation_only_commands.append(CommandOption('workers', args.workers))
         if args.fast_plotting is not None:
