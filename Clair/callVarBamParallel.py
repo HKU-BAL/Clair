@@ -159,14 +159,20 @@ def Run(args):
                     CommandOption('ctgEnd', end),
                     CommandOption('call_fn', output_fn)
                 ]
-                if (
-                    is_bed_file_provided and
-                    chromName in tree and
-                    len(tree[chromName].search(start, end)) != 0
-                ):
-                    additional_options.append(CommandOption('bed_fn', bed_fn))
-
-                print(command_string + " " + executable_command_string_from(additional_options))
+                if is_bed_file_provided:
+                    if chromName in tree and len(tree[chromName].search(start, end)) != 0:
+                        additional_options.append(CommandOption('bed_fn', bed_fn))
+                        print(command_string + " " + executable_command_string_from(additional_options))
+                else:
+                    print(command_string + " " + executable_command_string_from(additional_options))
+                # if (
+                #     is_bed_file_provided and
+                #     chromName in tree and
+                #     len(tree[chromName].search(start, end)) != 0
+                # ):
+                #     additional_options.append(CommandOption('bed_fn', bed_fn))
+                #
+                # print(command_string + " " + executable_command_string_from(additional_options))
 
 
 if __name__ == "__main__":

@@ -103,7 +103,6 @@ def Run(args):
     minCoverage = args.minCoverage
     sampleName = args.sampleName
     ctgName = args.ctgName
-
     if ctgName == None:
         sys.exit("--ctgName must be specified. You can call variants on multiple chromosomes simultaneously.")
 
@@ -206,7 +205,8 @@ def Run(args):
         CommandOption('call_fn',call_fn),
         CommandOption('bam_fn',bam_fn),
         CommandOption('sampleName',sampleName),
-        CommandOption('threads',numCpus)
+        CommandOption('threads',numCpus),
+        pysam_for_all_indel_bases
     ]
 
     activationOnly_commands=[
