@@ -1144,10 +1144,10 @@ if __name__ == "__main__":
     parser.add_argument('--sampleName', type=str, default="SAMPLE",
                         help="Define the sample name to be shown in the VCF file")
 
-    parser.add_argument('--showRef', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--showRef', action='store_true',
                         help="Show reference calls, optional")
 
-    parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--debug', action='store_true',
                         help="Debug mode, optional")
 
     parser.add_argument('--ref_fn', type=str, default=None,
@@ -1174,7 +1174,7 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--workers', type=int, default=8,
                         help="The number of workers in plotting, default: %(default)s")
 
-    parser.add_argument('--pysam_for_all_indel_bases', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
 
     args = parser.parse_args()

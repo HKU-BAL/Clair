@@ -201,7 +201,7 @@ if __name__ == "__main__":
     parser.add_argument('--output_prefix', type=str, default=None,
                         help="Output prefix")
 
-    parser.add_argument('--includingAllContigs', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--includingAllContigs', action='store_true',
                         help="Call variants on all contigs, default: chr{1..22,X,Y,M,MT} and {1..22,X,Y,MT}")
 
     parser.add_argument('--tensorflowThreads', type=int, default=4,
@@ -249,10 +249,10 @@ if __name__ == "__main__":
     parser.add_argument('--fast_plotting', action='store_true',
                         help="Enable fast plotting.")
 
-    parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--debug', action='store_true',
                         help="Debug mode, optional")
 
-    parser.add_argument('--pysam_for_all_indel_bases', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
 
     args = parser.parse_args()
