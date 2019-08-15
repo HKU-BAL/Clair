@@ -241,7 +241,7 @@ if __name__ == "__main__":
                         help="Input a checkpoint for testing or continue training")
 
     # learning rate, with default value stated in param
-    parser.add_argument('--learning_rate', type=float, default=param.initialLearningRate,
+    parser.add_argument('--learning_rate', type=float, default=param.clr_min_lr,
                         help="Set the initial learning rate, default: %(default)s")
 
     # l2 regularization
