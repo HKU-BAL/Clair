@@ -37,9 +37,9 @@ def new_confusion_matrix_with_dimension(size):
 
 
 def validate_model(m, dataset_info):
-    dataset_size = dataset_info["dataset_size"]
-    x_array_compressed = dataset_info["x_array_compressed"]
-    y_array_compressed = dataset_info["y_array_compressed"]
+    dataset_size = dataset_info.dataset_size
+    x_array_compressed = dataset_info.x_array_compressed
+    y_array_compressed = dataset_info.y_array_compressed
 
     print("[INFO] Testing on validation dataset ...")
     prediction_start_time = time.time()

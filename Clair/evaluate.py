@@ -11,8 +11,6 @@ import clair_model as cv
 from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
-base2num = dict(zip("ACGT", (0, 1, 2, 3)))
-num2base = dict(zip((0, 1, 2, 3), "ACGT"))
 
 
 def f1_score(confusion_matrix):
@@ -36,9 +34,9 @@ def new_confusion_matrix_with_dimension(size):
 
 
 def evaluate_model(m, dataset_info):
-    dataset_size = dataset_info["dataset_size"]
-    x_array_compressed = dataset_info["x_array_compressed"]
-    y_array_compressed = dataset_info["y_array_compressed"]
+    dataset_size = dataset_info.dataset_size
+    x_array_compressed = dataset_info.x_array_compressed
+    y_array_compressed = dataset_info.y_array_compressed
 
     logging.info("[INFO] Testing on the training and validation dataset ...")
     prediction_start_time = time.time()

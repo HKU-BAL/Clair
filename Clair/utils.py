@@ -27,6 +27,21 @@ VariantLength = VariantLengthNamedTuple(
 )
 
 OutputLabelNamedTuple = namedtuple('BasePredictNamedTuple', ['output_label_count', 'y_start_index', 'y_end_index'])
+DatasetInfo = namedtuple('DatasetInfo', [
+    'dataset_size',
+    'x_array_compressed',
+    'y_array_compressed',
+    'position_array_compressed',
+    'dataset_info_from'
+])
+TrainingConfig = namedtuple('TrainingConfig', [
+    'dataset_info',
+    'learning_rate',
+    'l2_regularization_lambda',
+    'output_file_path_prefix',
+    'model_initalization_file_path',
+    'summary_writer'
+])
 
 BASE_CHANGE = OutputLabelNamedTuple(
     output_label_count=21,
@@ -463,7 +478,12 @@ def DecompressArray_with_order(array, start, num, maximum, read_index_list=None)
     return nprt, num, endFlag
 
 
-def dataset_info_from(binary_file_path, tensor_file_path=None, variant_file_path=None, bed_file_path=None):
+def dataset_info_from(
+    binary_file_path,
+    tensor_file_path=None,
+    variant_file_path=None,
+    bed_file_path=None,
+):
     logging.info("[INFO] Loading dataset...")
 
     if binary_file_path != None:
@@ -480,12 +500,65 @@ def dataset_info_from(binary_file_path, tensor_file_path=None, variant_file_path
 
     logging.info("[INFO] The size of dataset: {}".format(dataset_size))
 
-    return dict(
+    return DatasetInfo(
         dataset_size=dataset_size,
         x_array_compressed=x_array_compressed,
         y_array_compressed=y_array_compressed,
-        position_array_compressed=position_array_compressed
+        position_array_compressed=position_array_compressed,
     )
+
+
+def training_config_from(
+    dataset_info,
+    learning_rate,
+    l2_regularization_lambda,
+    output_file_path_prefix,
+    model_initalization_file_path,
+    summary_writer
+):
+    return TrainingConfig(
+        dataset_info=dataset_info,
+        learning_rate=learning_rate,
+        l2_regularization_lambda=l2_regularization_lambda,
+        output_file_path_prefix=output_file_path_prefix,
+        model_initalization_file_path=model_initalization_file_path,
+        summary_writer=summary_writer
+    )
+
+
+def new_mini_batch(data_index, validation_data_start_index, dataset_info, tensor_block_index_list):
+    dataset_size = dataset_info.dataset_size
+    x_array_compressed = dataset_info.x_array_compressed
+    y_array_compressed = dataset_info.y_array_compressed
+    training_batch_size = param.trainBatchSize
+    validation_batch_size = param.predictBatchSize
+
+    if data_index >= dataset_size:
+        return None, None, 0
+
+    # calculate new batch size according to dataset index
+    # train: 0 - validation_data_start_index - 1, validation: validation_data_start_index - dataset_size
+    if (
+        data_index < validation_data_start_index and
+        (validation_data_start_index - data_index) < training_batch_size
+    ):
+        batch_size = validation_data_start_index - data_index
+    elif data_index < validation_data_start_index:
+        batch_size = training_batch_size
+    elif data_index >= validation_data_start_index and (data_index % validation_batch_size) != 0:
+        batch_size = validation_batch_size - (data_index % validation_batch_size)
+    elif data_index >= validation_data_start_index:
+        batch_size = validation_batch_size
+
+    # extract features(x) and labels(y) for current batch
+    x_batch, x_num, x_end_flag = decompress_array_with_order(
+        x_array_compressed, data_index, batch_size, dataset_size, tensor_block_index_list)
+    y_batch, y_num, y_end_flag = decompress_array_with_order(
+        y_array_compressed, data_index, batch_size, dataset_size, tensor_block_index_list)
+    if x_num != y_num or x_end_flag != y_end_flag:
+        sys.exit("Inconsistency between decompressed arrays: %d/%d" % (x_num, y_num))
+
+    return x_batch, y_batch, x_num
 
 
 # function aliases
