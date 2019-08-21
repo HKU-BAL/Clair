@@ -40,21 +40,27 @@ def train_model(m, training_config):
     training_losses = []
     validation_losses = []
 
-    if model_initalization_file_path != None:
+    if model_initalization_file_path is not None:
         m.restore_parameters(os.path.abspath(model_initalization_file_path))
 
     logging.info("[INFO] Start training...")
     logging.info("[INFO] Learning rate: %.2e" % m.set_learning_rate(learning_rate))
     logging.info("[INFO] L2 regularization lambda: %.2e" % m.set_l2_regularization_lambda(l2_regularization_lambda))
 
-    tensor_block_index_list = np.arange(int(np.ceil(float(dataset_size) / param.bloscBlockSize)), dtype=int)
-
     # Model Constants
     training_start_time = time.time()
-    no_of_training_examples = int(dataset_size*param.trainingDatasetPercentage)
-    validation_data_start_index = no_of_training_examples + 1
-    no_of_validation_examples = dataset_size - validation_data_start_index
-    validation_start_block = int(validation_data_start_index / param.bloscBlockSize) - 1
+    no_of_training_examples = (
+        dataset_info.no_of_training_examples_from_train_binary or int(dataset_size * param.trainingDatasetPercentage)
+    )
+    no_of_validation_examples = dataset_info.dataset_size - no_of_training_examples
+    no_of_blosc_blocks = utils.no_of_blosc_blocks_from(
+        dataset_info=dataset_info,
+        no_of_training_examples=no_of_training_examples,
+        blosc_block_size=param.bloscBlockSize
+    )
+    no_of_training_blosc_blocks = int(no_of_training_examples / param.bloscBlockSize)
+    tensor_block_index_list = np.arange(no_of_blosc_blocks, dtype=int)
+
     total_numbers_of_iterations = np.ceil(no_of_training_examples / param.trainBatchSize+1) + \
         np.ceil(no_of_validation_examples/param.predictBatchSize+1)
     step_size = param.stepsizeConstant * total_numbers_of_iterations
@@ -68,6 +74,8 @@ def train_model(m, training_config):
     training_loss_sum = 0
     validation_loss_sum = 0
     data_index = 0
+    blosc_index = 0
+    first_blosc_block_data_index = 0
     x_batch = None
     y_batch = None
     global_step = 0
@@ -79,8 +87,8 @@ def train_model(m, training_config):
     l2_loss_sum = 0
 
     while epoch_count <= param.maxEpoch:
-        is_training = data_index < validation_data_start_index
-        is_validation = data_index >= validation_data_start_index
+        is_training = data_index < no_of_training_examples
+        is_validation = not is_training
         is_with_batch_data = x_batch is not None and y_batch is not None
 
         # threads for either train or validation
@@ -92,9 +100,12 @@ def train_model(m, training_config):
         for t in thread_pool:
             t.start()
 
-        next_x_batch, next_y_batch, batch_size = utils.new_mini_batch(
+        next_x_batch, next_y_batch, next_first_blosc_block_data_index, next_blosc_start_index = utils.new_mini_batch(
             data_index=data_index,
-            validation_data_start_index=validation_data_start_index,
+            blosc_start_index=blosc_index,
+            first_blosc_block_data_index=first_blosc_block_data_index,
+            no_of_training_examples=no_of_training_examples,
+            no_of_blosc_blocks=no_of_blosc_blocks,
             dataset_info=dataset_info,
             tensor_block_index_list=tensor_block_index_list,
         )
@@ -106,7 +117,7 @@ def train_model(m, training_config):
         # add training loss or validation loss
         if is_with_batch_data and is_training:
             training_loss_sum += m.trainLossRTVal
-            if summary_writer != None:
+            if summary_writer is not None:
                 summary = m.trainSummaryRTVal
                 summary_writer.add_summary(summary, epoch_count)
         elif is_with_batch_data and is_validation:
@@ -117,7 +128,10 @@ def train_model(m, training_config):
             indel_length_loss_sum_2 += m.indel_length_loss_2
             l2_loss_sum += m.l2_loss
 
+        batch_size = np.shape(next_x_batch)[0]
         data_index += batch_size
+        blosc_index = next_blosc_start_index
+        first_blosc_block_data_index = next_first_blosc_block_data_index
 
         # if not go through whole dataset yet (have next x_batch and y_batch data), continue the process
         if next_x_batch is not None and next_y_batch is not None:
@@ -157,6 +171,8 @@ def train_model(m, training_config):
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
+        blosc_index = 0
+        first_blosc_block_data_index = 0
         x_batch = None
         y_batch = None
 
@@ -167,7 +183,7 @@ def train_model(m, training_config):
         l2_loss_sum = 0
 
         # shuffle data on each epoch
-        tensor_block_index_list = shuffle_first_n_items(tensor_block_index_list, validation_start_block)
+        tensor_block_index_list = shuffle_first_n_items(tensor_block_index_list, no_of_training_blosc_blocks)
         logging.info("[INFO] Shuffled: " + ' '.join(
             [str(x) for x in np.append(tensor_block_index_list[:5], tensor_block_index_list[-5:])]
         ))
@@ -189,6 +205,10 @@ if __name__ == "__main__":
     # binary file path
     parser.add_argument('--bin_fn', type=str, default=None,
                         help="Binary tensor input generated by tensor2Bin.py, tensor_fn, var_fn and bed_fn will be ignored")
+    parser.add_argument('--train_bin_fn', type=str, default=None,
+                        help="Train Binary, used together with --validation_bin_fn (would ignore: bin_fn, tensor_fn, var_fn, bed_fn)")
+    parser.add_argument('--validation_bin_fn', type=str, default=None,
+                        help="Validation Binary, used together with --train_bin_fn (would ignore: bin_fn, tensor_fn, var_fn, bed_fn)")
 
     # tensor file path
     parser.add_argument('--tensor_fn', type=str, default="vartensors", help="Tensor input")
@@ -236,6 +256,8 @@ if __name__ == "__main__":
         tensor_file_path=args.tensor_fn,
         variant_file_path=args.var_fn,
         bed_file_path=args.bed_fn,
+        train_binary_file_path=args.train_bin_fn,
+        validation_binary_file_path=args.validation_bin_fn,
     )
     training_config = utils.training_config_from(
         dataset_info=dataset_info,
