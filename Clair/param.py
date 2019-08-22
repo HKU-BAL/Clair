@@ -15,7 +15,7 @@ trainBatchSize = 10000
 predictBatchSize = 10000
 initialLearningRate = 0.001
 learningRateDecay = 0.1
-maxLearningRateSwitch = 6
+maxLearningRateSwitch = 3
 trainingDatasetPercentage = 0.9
 
 #clr param
