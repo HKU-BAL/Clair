@@ -446,34 +446,33 @@ def decompress_array(
         data_rows, next_first_blosc_block_data_index and next_blosc_start_index
 
     Note:
-        blosc_start_index is inclusive and blosc_end_index is exclusive.
-        next_first_blosc_block_data_index and next_blosc_start_index is inclusive.
+        blosc_start_index, next_first_blosc_block_data_index and next_blosc_start_index is inclusive.
     """
-    data_rows = np.array([])
+    data_rows = []
+    no_of_data_rows = 0
     for i in xrange(blosc_start_index, no_of_blosc_blocks):
         new_data_rows = blosc.unpack_array(array[i if read_index_list is None else read_index_list[i]])
+        no_of_data_rows += len(new_data_rows)
+        data_rows.append(new_data_rows)
 
         if i == blosc_start_index and first_blosc_block_data_index > 0:
-            new_data_rows = new_data_rows[first_blosc_block_data_index:]
-            return new_data_rows, 0, i+1
+            return np.concatenate(data_rows[:])[first_blosc_block_data_index:], 0, i+1
 
-        data_rows = np.append(data_rows, new_data_rows)
-
-        # if # of data rows greater than or equal to no_of_data_rows_to_retrieve, trim it and return
-        no_of_data_rows = np.shape(data_rows)[0]
         if no_of_data_rows >= no_of_data_rows_to_retrieve:
             extra_no_of_data_rows = no_of_data_rows % no_of_data_rows_to_retrieve
             next_blosc_start_index = i+1 if extra_no_of_data_rows == 0 else i
             next_first_blosc_block_data_index = (
                 0 if extra_no_of_data_rows == 0 else (np.shape(new_data_rows)[0] - extra_no_of_data_rows)
             )
+            return (
+                np.concatenate(data_rows[:])[0:no_of_data_rows_to_retrieve],
+                next_first_blosc_block_data_index,
+                next_blosc_start_index
+            )
 
-            data_rows = data_rows[0:no_of_data_rows_to_retrieve]
-            return data_rows, next_first_blosc_block_data_index, next_blosc_start_index
-
-    if np.shape(data_rows)[0] <= 0:
+    if no_of_data_rows <= 0:
         return None, -1, -1
-    return data_rows, -1, -1
+    return np.concatenate(data_rows[:]), -1, -1
 
 
 def dataset_info_from(
@@ -600,7 +599,7 @@ def no_of_blosc_blocks_from(
     no_of_training_examples,
     blosc_block_size,
 ):
-    if dataset_info.is_separate_train_and_validation_binary:
+    if dataset_info.is_separated_train_and_validation_binary:
         no_of_validation_examples = dataset_info.dataset_size - no_of_training_examples
         no_of_training_blocks = int(np.ceil(float(no_of_training_examples) / blosc_block_size))
         no_of_validation_blocks = int(np.ceil(float(no_of_validation_examples) / blosc_block_size))
