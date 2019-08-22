@@ -127,7 +127,7 @@ def evaluate_model(m, dataset_info):
             confusion_matrix_indel_length_1[true_label_index_1][predict_label_index_1] += 1
             confusion_matrix_indel_length_2[true_label_index_2][predict_label_index_2] += 1
 
-        if blosc_index == -1 or first_blosc_block_data_index == -1:
+        if next_x_first_blosc_block_data_index >= 0 and next_x_blosc_index >= 0:
             break
 
     logging.info("[INFO] Prediciton time elapsed: %.2f s" % (time.time() - prediction_start_time))

@@ -133,8 +133,8 @@ def train_model(m, training_config):
         blosc_index = next_blosc_start_index
         first_blosc_block_data_index = next_first_blosc_block_data_index
 
-        # if not go through whole dataset yet (have next x_batch and y_batch data), continue the process
-        if next_x_batch is not None and next_y_batch is not None:
+        # if not go through whole dataset yet, continue the process
+        if next_first_blosc_block_data_index >= 0 and next_blosc_start_index >= 0:
             x_batch = next_x_batch
             y_batch = next_y_batch
             learning_rate, global_step, max_learning_rate = m.clr(
