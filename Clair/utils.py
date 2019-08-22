@@ -452,8 +452,8 @@ def decompress_array(
     no_of_data_rows = 0
     for i in xrange(blosc_start_index, no_of_blosc_blocks):
         new_data_rows = blosc.unpack_array(array[i if read_index_list is None else read_index_list[i]])
-        no_of_data_rows += len(new_data_rows)
         data_rows.append(new_data_rows)
+        no_of_data_rows += len(new_data_rows)
 
         if i == blosc_start_index and first_blosc_block_data_index > 0:
             return np.concatenate(data_rows[:])[first_blosc_block_data_index:], 0, i+1
@@ -462,7 +462,7 @@ def decompress_array(
             extra_no_of_data_rows = no_of_data_rows % no_of_data_rows_to_retrieve
             next_blosc_start_index = i+1 if extra_no_of_data_rows == 0 else i
             next_first_blosc_block_data_index = (
-                0 if extra_no_of_data_rows == 0 else (np.shape(new_data_rows)[0] - extra_no_of_data_rows)
+                0 if extra_no_of_data_rows == 0 else (len(new_data_rows) - extra_no_of_data_rows)
             )
             return (
                 np.concatenate(data_rows[:])[0:no_of_data_rows_to_retrieve],
