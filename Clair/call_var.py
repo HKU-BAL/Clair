@@ -13,7 +13,7 @@ from itertools import izip
 
 import utils
 import clair_model as cv
-from utils import BaseChange, base_change_label_from, Genotype, genotype_string_from, VariantLength
+from utils import GT21, base_change_label_from, Genotype, genotype_string_from, VariantLength
 
 import pysam
 
@@ -23,8 +23,6 @@ base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 minimum_variant_length_that_need_infer = VariantLength.max
 maximum_variant_length_that_need_infer = 50
 inferred_indel_length_minimum_allele_frequency = 0.125
-
-Predictions = namedtuple('Predictions', ['base_change', 'genotype', 'variant_lengths'])
 flanking_base_number = param.flankingBaseNum
 
 
@@ -35,203 +33,70 @@ class Channel(IntEnum):
     SNP = 3
 
 
-def is_reference_from(prediction):
-    is_genotype_match = prediction.genotype == Genotype.homo_reference
-    return is_genotype_match
-
-
-def is_homo_SNP_from(prediction):
-    is_genotype_match = prediction.genotype == Genotype.homo_variant
-    is_base_change_match = (
-        prediction.base_change == BaseChange.AA or
-        prediction.base_change == BaseChange.CC or
-        prediction.base_change == BaseChange.GG or
-        prediction.base_change == BaseChange.TT
-    )
-    is_variant_length_match = prediction.variant_lengths[0] == 0 and prediction.variant_lengths[1] == 0
-    votes = (
-        (1 if is_base_change_match else 0) +
-        (1 if is_genotype_match else 0) +
-        (1 if is_variant_length_match else 0)
-    )
-    return votes >= 3
-
-
-def is_hetero_SNP_from(prediction):
-    is_genotype_match = (
-        prediction.genotype == Genotype.hetero_variant or
-        prediction.genotype == Genotype.hetero_variant_multi
-    )
-    is_base_change_match = (
-        prediction.base_change == BaseChange.AC or
-        prediction.base_change == BaseChange.AG or
-        prediction.base_change == BaseChange.AT or
-        prediction.base_change == BaseChange.CG or
-        prediction.base_change == BaseChange.CT or
-        prediction.base_change == BaseChange.GT
-    )
-    is_variant_length_match = prediction.variant_lengths[0] == 0 and prediction.variant_lengths[1] == 0
-    votes = (
-        (1 if is_genotype_match else 0) +
-        (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
-    )
-    return votes >= 3
-
-
-def is_homo_insertion_from(prediction):
-    is_genotype_match = prediction.genotype == Genotype.homo_variant
-    is_base_change_match = prediction.base_change == BaseChange.InsIns
-    is_variant_length_match = (
-        prediction.variant_lengths[0] > 0 and
-        prediction.variant_lengths[1] > 0 and
-        prediction.variant_lengths[0] == prediction.variant_lengths[1]
-    )
-    votes = (
-        (1 if is_genotype_match else 0) +
-        (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
-    )
-    return votes >= 3
-
-
-def is_hetero_insertion_from(prediction):
-    is_genotype_match = (
-        prediction.genotype == Genotype.hetero_variant or
-        prediction.genotype == Genotype.hetero_variant_multi
-    )
-    is_base_change_match = (
-        prediction.base_change == BaseChange.InsIns or
-        prediction.base_change == BaseChange.AIns or
-        prediction.base_change == BaseChange.CIns or
-        prediction.base_change == BaseChange.GIns or
-        prediction.base_change == BaseChange.TIns
-    )
-    is_variant_length_match = prediction.variant_lengths[0] >= 0 and prediction.variant_lengths[1] > 0
-    votes = (
-        (1 if is_genotype_match else 0) +
-        (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
-    )
-    return votes >= 3
-
-
-def is_homo_deletion_from(prediction):
-    is_genotype_match = prediction.genotype == Genotype.homo_variant
-    is_base_change_match = prediction.base_change == BaseChange.DelDel
-    is_variant_length_match = (
-        prediction.variant_lengths[0] < 0 and
-        prediction.variant_lengths[1] < 0 and
-        prediction.variant_lengths[0] == prediction.variant_lengths[1]
-    )
-    votes = (
-        (1 if is_genotype_match else 0) +
-        (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
-    )
-    return votes >= 3
-
-
-def is_hetero_deletion_from(prediction):
-    is_genotype_match = (
-        prediction.genotype == Genotype.hetero_variant or
-        prediction.genotype == Genotype.hetero_variant_multi
-    )
-    is_base_change_match = (
-        prediction.base_change == BaseChange.DelDel or
-        prediction.base_change == BaseChange.ADel or
-        prediction.base_change == BaseChange.CDel or
-        prediction.base_change == BaseChange.GDel or
-        prediction.base_change == BaseChange.TDel
-    )
-    is_variant_length_match = prediction.variant_lengths[0] < 0 and prediction.variant_lengths[1] <= 0
-    votes = (
-        (1 if is_genotype_match else 0) +
-        (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
-    )
-    return votes >= 3
-
-
-def is_insertion_and_deletion_from(prediction):
-    is_genotype_match = (
-        prediction.genotype == Genotype.hetero_variant or
-        prediction.genotype == Genotype.hetero_variant_multi
-    )
-    is_base_change_match = prediction.base_change == BaseChange.InsDel
-    is_variant_length_match = prediction.variant_lengths[0] < 0 and prediction.variant_lengths[1] > 0
-    votes = (
-        (1 if is_genotype_match else 0) +
-        (1 if is_base_change_match else 0) +
-        (1 if is_variant_length_match else 0)
-    )
-    return votes >= 3
-
-
 def homo_SNP_bases_from(base_change_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[BaseChange.AA],
-        base_change_probabilities[BaseChange.CC],
-        base_change_probabilities[BaseChange.GG],
-        base_change_probabilities[BaseChange.TT],
+        base_change_probabilities[GT21.AA],
+        base_change_probabilities[GT21.CC],
+        base_change_probabilities[GT21.GG],
+        base_change_probabilities[GT21.TT],
     ])
     output_bases = [
-        base_change_label_from(BaseChange.AA),
-        base_change_label_from(BaseChange.CC),
-        base_change_label_from(BaseChange.GG),
-        base_change_label_from(BaseChange.TT)
+        base_change_label_from(GT21.AA),
+        base_change_label_from(GT21.CC),
+        base_change_label_from(GT21.GG),
+        base_change_label_from(GT21.TT)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0], output_bases[1]
 
 
 def hetero_SNP_bases_from(base_change_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[BaseChange.AC],
-        base_change_probabilities[BaseChange.AG],
-        base_change_probabilities[BaseChange.AT],
-        base_change_probabilities[BaseChange.CG],
-        base_change_probabilities[BaseChange.CT],
-        base_change_probabilities[BaseChange.GT]
+        base_change_probabilities[GT21.AC],
+        base_change_probabilities[GT21.AG],
+        base_change_probabilities[GT21.AT],
+        base_change_probabilities[GT21.CG],
+        base_change_probabilities[GT21.CT],
+        base_change_probabilities[GT21.GT]
     ])
     output_bases = [
-        base_change_label_from(BaseChange.AC),
-        base_change_label_from(BaseChange.AG),
-        base_change_label_from(BaseChange.AT),
-        base_change_label_from(BaseChange.CG),
-        base_change_label_from(BaseChange.CT),
-        base_change_label_from(BaseChange.GT)
+        base_change_label_from(GT21.AC),
+        base_change_label_from(GT21.AG),
+        base_change_label_from(GT21.AT),
+        base_change_label_from(GT21.CG),
+        base_change_label_from(GT21.CT),
+        base_change_label_from(GT21.GT)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0], output_bases[1]
 
 
 def hetero_insert_base_from(base_change_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[BaseChange.AIns],
-        base_change_probabilities[BaseChange.CIns],
-        base_change_probabilities[BaseChange.GIns],
-        base_change_probabilities[BaseChange.TIns]
+        base_change_probabilities[GT21.AIns],
+        base_change_probabilities[GT21.CIns],
+        base_change_probabilities[GT21.GIns],
+        base_change_probabilities[GT21.TIns]
     ])
     output_bases = [
-        base_change_label_from(BaseChange.AIns),
-        base_change_label_from(BaseChange.CIns),
-        base_change_label_from(BaseChange.GIns),
-        base_change_label_from(BaseChange.TIns)
+        base_change_label_from(GT21.AIns),
+        base_change_label_from(GT21.CIns),
+        base_change_label_from(GT21.GIns),
+        base_change_label_from(GT21.TIns)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0]
 
 
 def hetero_delete_base_from(base_change_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[BaseChange.ADel],
-        base_change_probabilities[BaseChange.CDel],
-        base_change_probabilities[BaseChange.GDel],
-        base_change_probabilities[BaseChange.TDel]
+        base_change_probabilities[GT21.ADel],
+        base_change_probabilities[GT21.CDel],
+        base_change_probabilities[GT21.GDel],
+        base_change_probabilities[GT21.TDel]
     ])
     output_bases = [
-        base_change_label_from(BaseChange.ADel),
-        base_change_label_from(BaseChange.CDel),
-        base_change_label_from(BaseChange.GDel),
-        base_change_label_from(BaseChange.TDel)
+        base_change_label_from(GT21.ADel),
+        base_change_label_from(GT21.CDel),
+        base_change_label_from(GT21.GDel),
+        base_change_label_from(GT21.TDel)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0]
 
@@ -408,51 +273,158 @@ def print_debug_message_with(
     )
 
 
-def no_of_insertion_bases_from(is_homo_insertion, is_hetero_insertion, variant_lengths):
+def insertion_length_tuple_from(
+    variant_length_probabilities_1,
+    variant_length_probabilities_2,
+    is_hetero_Ins=False,
+    is_hetero_InsIns=False
+):
     """
     get tuple with values:
-        - longest expected # of insertion bases to call
-        - variant length 1 for variant calling
-        - variant length 2 for variant calling
+        - variant_length 1 and 2 for variant calling
+        - probability for selected base length combinations
+        - variant_length_1 <= variant_length_2
     """
-    variant_length, variant_length_1, variant_length_2 = -1, -1, -1
-    if is_homo_insertion:
-        variant_length_1 = 1 if variant_lengths[0] <= 0 else variant_lengths[0]
-        variant_length_2 = 1 if variant_lengths[1] <= 0 else variant_lengths[1]
-        variant_length = min(variant_length_1, variant_length_2)
-    elif is_hetero_insertion:
-        variant_length_1 = 0 if variant_lengths[0] <= 0 else variant_lengths[0]
-        variant_length_2 = 0 if variant_lengths[1] <= 0 else variant_lengths[1]
-        variant_length = max(variant_length_1, variant_length_2)
+    maximum_probability = 0
 
-    if variant_length_2 < variant_length_1:
-        variant_length_1, variant_length_2 = variant_length_2, variant_length_1
+    # ACGT Ins
+    if is_hetero_Ins:
+        variant_length = -1
+        for i in xrange(1, VariantLength.max + 1):
+            temp_probability = (
+                variant_length_probabilities_1[0 + VariantLength.index_offset] *
+                variant_length_probabilities_2[i + VariantLength.index_offset]
+            )
+            if temp_probability > maximum_probability:
+                variant_length = i
+                maximum_probability = temp_probability
+            temp_probability = (
+                variant_length_probabilities_1[i + VariantLength.index_offset] *
+                variant_length_probabilities_2[0 + VariantLength.index_offset]
+            )
+            if temp_probability > maximum_probability:
+                variant_length = i
+                maximum_probability = temp_probability
+        return 0, variant_length, maximum_probability
 
-    return variant_length, variant_length_1, variant_length_2
+    # hetero InsIns
+    if is_hetero_InsIns:
+        variant_length_1, variant_length_2 = -1, -1
+        for i in xrange(1, VariantLength.max + 1):
+            for j in xrange(1, VariantLength.max + 1):
+                # note: one kind of InsIns is same # of insertion bases but different kind of ACGT
+                temp_probability = (
+                    variant_length_probabilities_1[i + VariantLength.index_offset] *
+                    variant_length_probabilities_2[j + VariantLength.index_offset]
+                )
+                if temp_probability > maximum_probability:
+                    variant_length_1, variant_length_2 = (i, j) if i <= j else (j, i)
+                    maximum_probability = temp_probability
+        return variant_length_1, variant_length_2, maximum_probability
+
+    # homo Ins
+    variant_length = 0
+    for i in xrange(1, VariantLength.max + 1):
+        temp_probability = (
+            variant_length_probabilities_1[i + VariantLength.index_offset] *
+            variant_length_probabilities_2[i + VariantLength.index_offset]
+        )
+        if temp_probability <= maximum_probability:
+            continue
+        variant_length = i
+        maximum_probability = temp_probability
+    return variant_length, variant_length, maximum_probability
 
 
-def no_of_deletion_bases_from(is_homo_deletion, is_hetero_deletion, variant_lengths):
+def deletion_length_tuple_from(
+    variant_length_probabilities_1,
+    variant_length_probabilities_2,
+    is_hetero_Del=False,
+    is_hetero_DelDel=False,
+):
     """
     get tuple with values:
-        - longest expected # of deletion bases to call
-        - variant length 1 for variant calling
-        - variant length 2 for variant calling
+        - variant length 1 and 2 for variant calling
+        - probability for selected base length combinations
     """
-    variant_length, variant_length_1, variant_length_2 = -1, -1, -1
-    if is_homo_deletion:
-        variant_length_1 = 1 if variant_lengths[0] >= 0 else -variant_lengths[0]
-        variant_length_2 = 1 if variant_lengths[1] >= 0 else -variant_lengths[1]
-        variant_length = min(variant_length_1, variant_length_2)
-    elif is_hetero_deletion:
-        variant_length_1 = 0 if variant_lengths[0] >= 0 else -variant_lengths[0]
-        variant_length_2 = 0 if variant_lengths[1] >= 0 else -variant_lengths[1]
-        variant_length = max(variant_length_1, variant_length_2)
-        variant_length = variant_length if variant_length > 0 else 1
+    maximum_probability = 0
 
-    if variant_length_2 < variant_length_1:
-        variant_length_1, variant_length_2 = variant_length_2, variant_length_1
+    # ACGT Del
+    if is_hetero_Del:
+        variant_length = -1
+        for i in xrange(1, VariantLength.max + 1):
+            temp_probability = (
+                variant_length_probabilities_1[0 + VariantLength.index_offset] *
+                variant_length_probabilities_2[-i + VariantLength.index_offset]
+            )
+            if temp_probability > maximum_probability:
+                variant_length = i
+                maximum_probability = temp_probability
+            temp_probability = (
+                variant_length_probabilities_1[-i + VariantLength.index_offset] *
+                variant_length_probabilities_2[0 + VariantLength.index_offset]
+            )
+            if temp_probability > maximum_probability:
+                variant_length = i
+                maximum_probability = temp_probability
+        return 0, variant_length, maximum_probability
 
-    return variant_length, variant_length_1, variant_length_2
+    # hetero DelDel
+    if is_hetero_DelDel:
+        variant_length_1, variant_length_2 = -1, -1
+        for i in xrange(1, VariantLength.max + 1):
+            for j in xrange(1, VariantLength.max + 1):
+                if i == j:
+                    continue
+                temp_probability = (
+                    variant_length_probabilities_1[-i + VariantLength.index_offset] *
+                    variant_length_probabilities_2[-j + VariantLength.index_offset]
+                )
+                if temp_probability > maximum_probability:
+                    variant_length_1, variant_length_2 = (i, j) if i <= j else (j, i)
+                    maximum_probability = temp_probability
+        return variant_length_1, variant_length_2, maximum_probability
+
+    # homo Del
+    variant_length = 0
+    for i in xrange(1, VariantLength.max + 1):
+        temp_probability = (
+            variant_length_probabilities_1[-i + VariantLength.index_offset] *
+            variant_length_probabilities_2[-i + VariantLength.index_offset]
+        )
+        if temp_probability <= maximum_probability:
+            continue
+        variant_length = i
+        maximum_probability = temp_probability
+    return variant_length, variant_length, maximum_probability
+
+
+def insertion_and_deletion_length_tuple_from(variant_length_probabilities_1, variant_length_probabilities_2):
+    """
+    get tuple with values:
+        - variant length 1 for variant calling (deletion)
+        - variant_length 2 for variant calling (insertion)
+        - probability for selected base length combinations
+    """
+    maximum_probability = 0
+    variant_length_1, variant_length_2 = -1, -1
+    for i in xrange(1, VariantLength.max + 1):
+        for j in xrange(1, VariantLength.max + 1):
+            temp_probability = (
+                variant_length_probabilities_1[i + VariantLength.index_offset] *
+                variant_length_probabilities_2[-j + VariantLength.index_offset]
+            )
+            if temp_probability > maximum_probability:
+                maximum_probability = temp_probability
+                variant_length_1, variant_length_2 = j, i
+            temp_probability = (
+                variant_length_probabilities_1[-i + VariantLength.index_offset] *
+                variant_length_probabilities_2[j + VariantLength.index_offset]
+            )
+            if temp_probability > maximum_probability:
+                maximum_probability = temp_probability
+                variant_length_1, variant_length_2 = i, j
+    return variant_length_1, variant_length_2, maximum_probability
 
 
 def inferred_insertion_bases_from(tensor_input):
@@ -616,7 +588,7 @@ def Output(
     for (
         x,
         chr_pos_seq,
-        base_change_probabilities,
+        gt21_probabilities,
         genotype_probabilities,
         variant_length_probabilities_1,
         variant_length_probabilities_2
@@ -628,42 +600,129 @@ def Output(
         batch_variant_length_probabilities_1,
         batch_variant_length_probabilities_2
     ):
-        variant_lengths = [
-            np.argmax(variant_length_probabilities_1) - VariantLength.index_offset,
-            np.argmax(variant_length_probabilities_2) - VariantLength.index_offset,
-        ]
-        variant_lengths.sort()
-
-        prediction = Predictions(
-            base_change=np.argmax(base_change_probabilities),
-            genotype=np.argmax(genotype_probabilities),
-            variant_lengths=variant_lengths
-        )
-
-        is_reference = is_reference_from(prediction)
-        if not is_debug and not is_show_reference and is_reference:
-            continue
-
-        is_homo_SNP = is_homo_SNP_from(prediction)
-        is_hetero_SNP = is_hetero_SNP_from(prediction)
-        is_homo_insertion = is_homo_insertion_from(prediction)
-        is_hetero_insertion = is_hetero_insertion_from(prediction)
-        is_homo_deletion = is_homo_deletion_from(prediction)
-        is_hetero_deletion = is_hetero_deletion_from(prediction)
-        is_insertion_and_deletion = is_insertion_and_deletion_from(prediction)
-
-        is_SNP = is_homo_SNP or is_hetero_SNP
-        is_insertion = is_homo_insertion or is_hetero_insertion
-        is_deletion = is_homo_deletion or is_hetero_deletion
-
         # get chromosome, position and reference bases
         # with flanking "flanking_base_number" flanking bases at position
         chromosome, position, reference_sequence = chr_pos_seq.split(":")
         position = int(position)
 
+        # calculate all possible variant cases probabilities for comparison
+        homo_reference_probability = genotype_probabilities[Genotype.homo_reference]
+        homo_variant_probability = genotype_probabilities[Genotype.homo_variant]
+        hetero_variant_probability = genotype_probabilities[Genotype.hetero_variant]
+        zero_variant_length_probability = (
+            variant_length_probabilities_1[0 + VariantLength.index_offset] *
+            variant_length_probabilities_2[0 + VariantLength.index_offset]
+        )
+        insert_length, _, homo_insert_variant_length_probability = insertion_length_tuple_from(
+            variant_length_probabilities_1, variant_length_probabilities_2
+        )
+        delete_length, _, homo_delete_variant_length_probability = deletion_length_tuple_from(
+            variant_length_probabilities_1, variant_length_probabilities_2
+        )
+        _hetero_ACGT_Ins_length_1, hetero_ACGT_Ins_length_2, hetero_ACGT_Ins_variant_length_probability = (
+            insertion_length_tuple_from(
+                variant_length_probabilities_1, variant_length_probabilities_2, is_hetero_Ins=True
+            )
+        )
+        hetero_InsIns_length_1, hetero_InsIns_length_2, hetero_InsIns_variant_length_probability = (
+            insertion_length_tuple_from(
+                variant_length_probabilities_1, variant_length_probabilities_2, is_hetero_InsIns=True
+            )
+        )
+        _hetero_ACGT_Del_length_1, hetero_ACGT_Del_length_2, hetero_ACGT_Del_variant_length_probability = (
+            deletion_length_tuple_from(
+                variant_length_probabilities_1, variant_length_probabilities_2, is_hetero_Del=True
+            )
+        )
+        hetero_DelDel_length_1, hetero_DelDel_length_2, hetero_DelDel_variant_length_probability = (
+            deletion_length_tuple_from(
+                variant_length_probabilities_1, variant_length_probabilities_2, is_hetero_DelDel=True
+            )
+        )
+        hetero_InsDel_length_1, hetero_InsDel_length_2, hetero_InsDel_variant_length_probability = (
+            insertion_and_deletion_length_tuple_from(variant_length_probabilities_1, variant_length_probabilities_2)
+        )
+
+        reference_base = reference_sequence[position_center]
+        reference_base_change = utils.base_change_enum_from(reference_base+reference_base)
+        homo_Ref_probability = (
+            gt21_probabilities[reference_base_change] * zero_variant_length_probability * homo_reference_probability
+        )
+        homo_SNP_probability = max(
+            gt21_probabilities[GT21.AA],
+            gt21_probabilities[GT21.CC],
+            gt21_probabilities[GT21.GG],
+            gt21_probabilities[GT21.TT],
+        ) * zero_variant_length_probability * homo_variant_probability
+        hetero_SNP_probability = max(
+            gt21_probabilities[GT21.AC],
+            gt21_probabilities[GT21.AG],
+            gt21_probabilities[GT21.AT],
+            gt21_probabilities[GT21.CG],
+            gt21_probabilities[GT21.CT],
+            gt21_probabilities[GT21.GT],
+        ) * zero_variant_length_probability * hetero_variant_probability
+        homo_insert_probability = (
+            gt21_probabilities[GT21.InsIns] * homo_insert_variant_length_probability * homo_variant_probability
+        )
+        homo_delete_probability = (
+            gt21_probabilities[GT21.DelDel] * homo_delete_variant_length_probability * homo_variant_probability
+        )
+        hetero_ACGT_Ins_probability = max(
+            gt21_probabilities[GT21.AIns],
+            gt21_probabilities[GT21.CIns],
+            gt21_probabilities[GT21.GIns],
+            gt21_probabilities[GT21.TIns],
+        ) * hetero_ACGT_Ins_variant_length_probability * hetero_variant_probability
+        hetero_InsIns_probability = (
+            gt21_probabilities[GT21.InsIns] * hetero_InsIns_variant_length_probability * hetero_variant_probability
+        )
+        hetero_ACGT_Del_probability = max(
+            gt21_probabilities[GT21.ADel],
+            gt21_probabilities[GT21.CDel],
+            gt21_probabilities[GT21.GDel],
+            gt21_probabilities[GT21.TDel],
+        ) * hetero_ACGT_Del_variant_length_probability * hetero_variant_probability
+        hetero_DelDel_probability = (
+            gt21_probabilities[GT21.DelDel] * hetero_DelDel_variant_length_probability * hetero_variant_probability
+        )
+        hetero_InsDel_probability = (
+            gt21_probabilities[GT21.InsDel] * hetero_InsDel_variant_length_probability * hetero_variant_probability
+        )
+        maximum_probability = max(
+            homo_Ref_probability,
+            homo_SNP_probability,
+            hetero_SNP_probability,
+            homo_insert_probability,
+            homo_delete_probability,
+            hetero_ACGT_Ins_probability,
+            hetero_InsIns_probability,
+            hetero_ACGT_Del_probability,
+            hetero_DelDel_probability,
+            hetero_InsDel_probability,
+        )
+
+        is_reference = maximum_probability == homo_Ref_probability
+        if not is_debug and not is_show_reference and is_reference:
+            continue
+
+        is_homo_SNP = maximum_probability == homo_SNP_probability
+        is_hetero_SNP = maximum_probability == hetero_SNP_probability
+        is_homo_insertion = maximum_probability == homo_insert_probability
+        is_hetero_ACGT_Ins = maximum_probability == hetero_ACGT_Ins_probability
+        is_hetero_InsIns = maximum_probability == hetero_InsIns_probability
+        is_homo_deletion = maximum_probability == homo_delete_probability
+        is_hetero_ACGT_Del = maximum_probability == hetero_ACGT_Del_probability
+        is_hetero_DelDel = maximum_probability == hetero_DelDel_probability
+        is_insertion_and_deletion = maximum_probability == hetero_InsDel_probability
+
+        is_SNP = is_homo_SNP or is_hetero_SNP
+        is_insertion = is_homo_insertion or is_hetero_ACGT_Ins or is_hetero_InsIns
+        is_deletion = is_homo_deletion or is_hetero_ACGT_Del or is_hetero_DelDel
+
         # quality score
         quality_score = quality_score_from(
-            base_change_probabilities,
+            gt21_probabilities,
             genotype_probabilities,
             variant_length_probabilities_1,
             variant_length_probabilities_2
@@ -684,7 +743,7 @@ def Output(
                 call_fh,
                 chromosome,
                 position,
-                base_change_probabilities,
+                gt21_probabilities,
                 genotype_probabilities,
                 variant_length_probabilities_1,
                 variant_length_probabilities_2,
@@ -697,7 +756,7 @@ def Output(
             genotype_string = genotype_string_from(Genotype.homo_reference)
         elif is_homo_SNP or is_homo_insertion or is_homo_deletion:
             genotype_string = genotype_string_from(Genotype.homo_variant)
-        elif is_hetero_SNP or is_hetero_deletion or is_hetero_insertion:
+        elif is_hetero_SNP or is_hetero_ACGT_Ins or is_hetero_InsIns or is_hetero_ACGT_Del or is_hetero_DelDel:
             genotype_string = genotype_string_from(Genotype.hetero_variant)
         elif is_insertion_and_deletion:
             genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
@@ -710,12 +769,12 @@ def Output(
             alternate_base = reference_base
 
         elif is_homo_SNP:
-            base1, base2 = homo_SNP_bases_from(base_change_probabilities)
+            base1, base2 = homo_SNP_bases_from(gt21_probabilities)
             reference_base = reference_sequence[position_center]
             alternate_base = base1 if base1 != reference_base else base2
 
         elif is_hetero_SNP:
-            base1, base2 = hetero_SNP_bases_from(base_change_probabilities)
+            base1, base2 = hetero_SNP_bases_from(gt21_probabilities)
             reference_base = reference_sequence[position_center]
             is_multi = base1 != reference_base and base2 != reference_base
             if is_multi:
@@ -725,17 +784,22 @@ def Output(
                 alternate_base = base1 if base1 != reference_base else base2
 
         elif is_insertion:
-            variant_length, variant_length_1, variant_length_2 = no_of_insertion_bases_from(
-                is_homo_insertion, is_hetero_insertion, variant_lengths=prediction.variant_lengths
-            )
+            variant_length = 0
+            if is_homo_insertion:
+                variant_length = insert_length
+            elif is_hetero_ACGT_Ins:
+                variant_length = hetero_ACGT_Ins_length_2
+            elif is_hetero_InsIns:
+                variant_length = hetero_InsIns_length_2
 
+            is_hetero_insertion = is_hetero_ACGT_Ins or is_hetero_InsIns
             if is_hetero_insertion and variant_length <= 0:
                 print_debug_message_with(
                     is_debug,
                     call_fh,
                     chromosome,
                     position,
-                    base_change_probabilities,
+                    gt21_probabilities,
                     genotype_probabilities,
                     variant_length_probabilities_1,
                     variant_length_probabilities_2,
@@ -758,25 +822,9 @@ def Output(
             if is_inferred_insertion_bases:
                 length_guess = insertion_length
 
-            hetero_insert_base = hetero_insert_base_from(base_change_probabilities)
-            is_SNP_Ins_multi = (
-                is_hetero_insertion and
-                insertion_length > 0 and
-                (
-                    prediction.base_change == BaseChange.AIns or
-                    prediction.base_change == BaseChange.CIns or
-                    prediction.base_change == BaseChange.GIns or
-                    prediction.base_change == BaseChange.TIns
-                ) and
-                variant_length_1 == 0 and variant_length_2 > 0 and
-                hetero_insert_base != reference_base
-            )
-            is_Ins_Ins_multi = (
-                is_hetero_insertion and
-                insertion_length > 0 and
-                prediction.base_change == BaseChange.InsIns and
-                variant_length_1 > 0 and variant_length_2 > 0
-            )
+            hetero_insert_base = hetero_insert_base_from(gt21_probabilities) if is_hetero_ACGT_Ins else ""
+            is_SNP_Ins_multi = is_hetero_ACGT_Ins and hetero_insert_base != reference_base
+            is_Ins_Ins_multi = is_hetero_InsIns
 
             if is_SNP_Ins_multi:
                 alternate_base = "{},{}".format(hetero_insert_base, alternate_base)
@@ -787,11 +835,11 @@ def Output(
                         sam_file=sam_file,
                         contig=chromosome,
                         position=position,
-                        minimum_insertion_length=variant_length_1,
-                        maximum_insertion_length=maximum_variant_length_from(variant_length_1),
+                        minimum_insertion_length=hetero_InsIns_length_1,
+                        maximum_insertion_length=maximum_variant_length_from(hetero_InsIns_length_1),
                         insertion_bases_to_ignore=insertion_bases
                     ) or
-                    insertion_bases[0:variant_length_1]
+                    insertion_bases[0:hetero_InsIns_length_1]
                 )
                 alternate_base_1 = reference_base + another_insertion_bases
                 alternate_base_2 = alternate_base
@@ -800,17 +848,22 @@ def Output(
                     genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
         elif is_deletion:
-            variant_length, variant_length_1, variant_length_2 = no_of_deletion_bases_from(
-                is_homo_deletion, is_hetero_deletion, variant_lengths=prediction.variant_lengths
-            )
+            variant_length = 0
+            if is_homo_deletion:
+                variant_length = delete_length
+            elif is_hetero_ACGT_Del:
+                variant_length = hetero_ACGT_Del_length_2
+            elif is_hetero_DelDel:
+                variant_length = hetero_DelDel_length_2
 
+            is_hetero_deletion = is_hetero_ACGT_Del or is_hetero_DelDel
             if is_hetero_deletion and variant_length <= 0:
                 print_debug_message_with(
                     is_debug,
                     call_fh,
                     chromosome,
                     position,
-                    base_change_probabilities,
+                    gt21_probabilities,
                     genotype_probabilities,
                     variant_length_probabilities_1,
                     variant_length_probabilities_2,
@@ -835,26 +888,9 @@ def Output(
             if is_inferred_deletion_bases:
                 length_guess = deletion_length
 
-            hetero_delete_base = hetero_delete_base_from(base_change_probabilities)
-            is_SNP_Del_multi = (
-                is_hetero_deletion and
-                deletion_length > 0 and
-                (
-                    prediction.base_change == BaseChange.ADel or
-                    prediction.base_change == BaseChange.CDel or
-                    prediction.base_change == BaseChange.GDel or
-                    prediction.base_change == BaseChange.TDel
-                ) and
-                variant_length_1 == 0 and variant_length_2 > 0 and
-                hetero_delete_base != reference_base[0]
-            )
-            is_Del_Del_multi = (
-                is_hetero_deletion and
-                deletion_length > 0 and
-                prediction.base_change == BaseChange.DelDel and
-                variant_length_1 > 0 and variant_length_2 > 0 and
-                variant_length_1 != variant_length_2
-            )
+            hetero_delete_base = hetero_delete_base_from(gt21_probabilities) if is_hetero_ACGT_Del else ""
+            is_SNP_Del_multi = is_hetero_ACGT_Del and hetero_delete_base != reference_base[0]
+            is_Del_Del_multi = is_hetero_DelDel
 
             if is_SNP_Del_multi:
                 alternate_base_1 = alternate_base
@@ -863,7 +899,7 @@ def Output(
                 genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
             elif is_Del_Del_multi:
                 alternate_base_1 = alternate_base
-                alternate_base_2 = reference_base[0] + reference_base[variant_length_1 + 1:]
+                alternate_base_2 = reference_base[0] + reference_base[hetero_DelDel_length_1 + 1:]
                 if (
                     alternate_base_1 != alternate_base_2 and
                     reference_base != alternate_base_1 and
@@ -875,7 +911,7 @@ def Output(
         elif is_insertion_and_deletion:
             insertion_bases, insertion_length, _ = insertion_bases_from(
                 tensor_input=x,
-                variant_length=1 if prediction.variant_lengths[1] <= 0 else prediction.variant_lengths[1],
+                variant_length=hetero_InsDel_length_2,
                 sam_file=sam_file,
                 contig=chromosome,
                 position=position,
@@ -883,7 +919,7 @@ def Output(
             )
             deletion_bases, deletion_length, _ = deletion_bases_from(
                 tensor_input=x,
-                variant_length=1 if prediction.variant_lengths[0] >= 0 else -prediction.variant_lengths[0],
+                variant_length=hetero_InsDel_length_1,
                 sam_file=sam_file,
                 fasta_file=fasta_file,
                 contig=chromosome,
@@ -905,7 +941,7 @@ def Output(
                 call_fh,
                 chromosome,
                 position,
-                base_change_probabilities,
+                gt21_probabilities,
                 genotype_probabilities,
                 variant_length_probabilities_1,
                 variant_length_probabilities_2,
@@ -964,7 +1000,7 @@ def Output(
                 call_fh,
                 chromosome,
                 position,
-                base_change_probabilities,
+                gt21_probabilities,
                 genotype_probabilities,
                 variant_length_probabilities_1,
                 variant_length_probabilities_2,
@@ -1104,7 +1140,7 @@ def Test(args, m, utils):
                 num2 = num3
                 XBatch2 = XBatch3
                 posBatch2 = posBatch3
-            #print >> sys.stderr, end, end2, end3, terminate
+            # print >> sys.stderr, end, end2, end3, terminate
             if terminate == 1:
                 break
     elif end2 == 1:

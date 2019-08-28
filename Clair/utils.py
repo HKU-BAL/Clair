@@ -66,7 +66,7 @@ VARIANT_LENGTH_2 = OutputLabelNamedTuple(
 )
 
 
-class BaseChange(IntEnum):
+class GT21(IntEnum):
     AA = 0
     AC = 1
     AG = 2
@@ -118,27 +118,27 @@ def base_change_label_from(base_change_enum):
 
 def base_change_enum_from(base_change_label):
     return {
-        'AA': BaseChange.AA,
-        'AC': BaseChange.AC,
-        'AG': BaseChange.AG,
-        'AT': BaseChange.AT,
-        'CC': BaseChange.CC,
-        'CG': BaseChange.CG,
-        'CT': BaseChange.CT,
-        'GG': BaseChange.GG,
-        'GT': BaseChange.GT,
-        'TT': BaseChange.TT,
-        'DelDel': BaseChange.DelDel,
-        'ADel': BaseChange.ADel,
-        'CDel': BaseChange.CDel,
-        'GDel': BaseChange.GDel,
-        'TDel': BaseChange.TDel,
-        'InsIns': BaseChange.InsIns,
-        'AIns': BaseChange.AIns,
-        'CIns': BaseChange.CIns,
-        'GIns': BaseChange.GIns,
-        'TIns': BaseChange.TIns,
-        'InsDel': BaseChange.InsDel,
+        'AA': GT21.AA,
+        'AC': GT21.AC,
+        'AG': GT21.AG,
+        'AT': GT21.AT,
+        'CC': GT21.CC,
+        'CG': GT21.CG,
+        'CT': GT21.CT,
+        'GG': GT21.GG,
+        'GT': GT21.GT,
+        'TT': GT21.TT,
+        'DelDel': GT21.DelDel,
+        'ADel': GT21.ADel,
+        'CDel': GT21.CDel,
+        'GDel': GT21.GDel,
+        'TDel': GT21.TDel,
+        'InsIns': GT21.InsIns,
+        'AIns': GT21.AIns,
+        'CIns': GT21.CIns,
+        'GIns': GT21.GIns,
+        'TIns': GT21.TIns,
+        'InsDel': GT21.InsDel,
     }[base_change_label]
 
 
@@ -167,7 +167,7 @@ def mix_two_partial_labels(label1, label2):
         return label1 + label2
 
     # InsDel
-    return base_change_label_from(BaseChange.InsDel)
+    return base_change_label_from(GT21.InsDel)
 
 
 class Genotype(IntEnum):
