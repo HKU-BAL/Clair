@@ -1050,6 +1050,77 @@ def log_activation(args, m, utils):
             break
     print("Finished plotting %d" % num_plotted)
 
+def set_values(*args):
+    return args
+
+def check_end_equals_zero(end1,num1, Xbatch1, posBatch1, end2,num2,Xbatch2,posBatch2):
+    if end1 == 0:
+        return end2, num2, Xbatch2, posBatch2
+    else:
+        return end1, num1, Xbatch1, posBatch1
+
+def recursive_method(**kwargs):
+
+    param = dict(
+        end = end,
+        args = args,
+        call_fh = call_fh,
+        num = num,
+        XBatch = XBatch,
+        posBatch = posBatch,
+        base = base,
+        gt = gt,
+        l1 = l1,
+        sam_file = sam_file,
+        fasta_file = fasta_file,
+        end2 = end2,
+        XBatch2 = Xbatch2,
+        num2 = num2,
+        posBatch2 = posBatch2,
+        tensorGenerator = tensorGenerator,
+        terminate = terminate
+    )
+
+    for key, value in kwargs.items():
+        if key in params.keys():
+            params[key] = value
+        else:
+            print("Info: the parameter %s, with value %s is not supported" % (key, value))
+
+    if param['end'] == 1:
+        terminate = 1
+    threadPool = []
+    if param['end'] == 0:
+        threadPool.append(Thread(target=m.predict, args=(param['XBatch2'], True)))
+    threadPool.append(
+        Thread(
+            target=Output,
+            args=(param['args'], param['call_fh'], param['num'], param['XBatch'], param['posBatch'],
+                  param['base'], param['gt'], param['l1'], param['l2'],
+                  param['sam_file'], param['fasta_file'])
+        )
+    )
+    for t in threadPool:
+        t.start()
+    if param['end2'] == 0:
+        end3, num3, XBatch3, posBatch3 = next(param['tensorGenerator'])
+    for t in threadPool:
+        t.join()
+    base, gt, l1, l2 = set_values(m.predictBaseRTVal, \
+                                  m.predictGenotypeRTVal, \
+                                  m.predictIndelLengthRTVal1, \
+                                  m.predictIndelLengthRTVal2)
+    end, num, Xbatch, posBatch = check_end_equals_zero(param['end'], param['num'], param['Xbath'], param['posBatch'],
+                                                       parma['end2'], param['num2'], param['Xbatch2'], param['posBatch2'])
+    end2, num2, Xbatch2, posBatch2 = check_end_equals_zero(param['end2'], param['num2'], param['Xbatch2'], param['posBatch2'],
+                                                           end3, num3, Xbatch3, posBatch3)
+    # print >> sys.stderr, end, end2, end3, terminate
+    if terminate == 1:
+        pass
+    else:
+        return recursive_method(end, Xbatch2, args, call_fh, num, Xbatch, posBatch, base, gt, l1, l2, sam_file, fasta_file,
+                                tensorGenerator, end2, num2, Xbatch2, posBatch2, terminate)
+
 
 def Test(args, m, utils):
     call_fh = open(args.call_fn, "w")
@@ -1061,56 +1132,22 @@ def Test(args, m, utils):
     tensorGenerator = utils.GetTensor(args.tensor_fn, param.predictBatchSize)
     logging.info("Calling variants ...")
     predictStart = time.time()
-    end = 0
-    end2 = 0
     terminate = 0
     end2, num2, XBatch2, posBatch2 = next(tensorGenerator)
     m.predict(XBatch2, result_caching=True)
-    base = m.predictBaseRTVal
-    gt = m.predictGenotypeRTVal
-    l1 = m.predictIndelLengthRTVal1
-    l2 = m.predictIndelLengthRTVal2
+    base, gt,l1,l2 = set_values(m.predictBaseRTVal,\
+                                m.predictGenotypeRTVal,\
+                                m.predictIndelLengthRTVal1,\
+                                m.predictIndelLengthRTVal2)
     if end2 == 0:
-        end = end2
-        num = num2
-        XBatch = XBatch2
-        posBatch = posBatch2
+        end, num, XBatch, posBatch = set_values(end2,
+                                                num2,
+                                                XBatch2,
+                                                posBatch2)
         end2, num2, XBatch2, posBatch2 = next(tensorGenerator)
-        while True:
-            if end == 1:
-                terminate = 1
-            threadPool = []
-            if end == 0:
-                threadPool.append(Thread(target=m.predict, args=(XBatch2, True)))
-            threadPool.append(
-                Thread(
-                    target=Output,
-                    args=(args, call_fh, num, XBatch, posBatch, base, gt, l1, l2, sam_file, fasta_file)
-                )
-            )
-            for t in threadPool:
-                t.start()
-            if end2 == 0:
-                end3, num3, XBatch3, posBatch3 = next(tensorGenerator)
-            for t in threadPool:
-                t.join()
-            base = m.predictBaseRTVal
-            gt = m.predictGenotypeRTVal
-            l1 = m.predictIndelLengthRTVal1
-            l2 = m.predictIndelLengthRTVal2
-            if end == 0:
-                end = end2
-                num = num2
-                XBatch = XBatch2
-                posBatch = posBatch2
-            if end2 == 0:
-                end2 = end3
-                num2 = num3
-                XBatch2 = XBatch3
-                posBatch2 = posBatch3
-            #print >> sys.stderr, end, end2, end3, terminate
-            if terminate == 1:
-                break
+        recursive_method(end, Xbatch2, args, call_fh, num, Xbatch, posBatch,
+                         base, gt, l1, l2, sam_file, fasta_file, tensorGenerator,
+                         end2, num2, Xbatch2, posBatch2, terminate)
     elif end2 == 1:
         Output(args, call_fh, num2, XBatch2, posBatch2, base, gt, l1, l2, sam_file, fasta_file)
 
