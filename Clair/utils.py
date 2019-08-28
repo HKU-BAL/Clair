@@ -27,6 +27,22 @@ VariantLength = VariantLengthNamedTuple(
 )
 
 OutputLabelNamedTuple = namedtuple('BasePredictNamedTuple', ['output_label_count', 'y_start_index', 'y_end_index'])
+DatasetInfo = namedtuple('DatasetInfo', [
+    'dataset_size',
+    'x_array_compressed',
+    'y_array_compressed',
+    'position_array_compressed',
+    'no_of_training_examples_from_train_binary',
+    'is_separated_train_and_validation_binary',
+])
+TrainingConfig = namedtuple('TrainingConfig', [
+    'dataset_info',
+    'learning_rate',
+    'l2_regularization_lambda',
+    'output_file_path_prefix',
+    'model_initalization_file_path',
+    'summary_writer'
+])
 
 BASE_CHANGE = OutputLabelNamedTuple(
     output_label_count=21,
@@ -417,56 +433,74 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
     return total, XArrayCompressed, YArrayCompressed, posArrayCompressed
 
 
-def DecompressArray(array, start, num, maximum):
-    endFlag = 0
-    if start + num >= maximum:
-        num = maximum - start
-        endFlag = 1
-    leftEnd = start % param.bloscBlockSize
-    startingBlock = int(start / param.bloscBlockSize)
-    maximumBlock = int((start+num-1) / param.bloscBlockSize)
-    rt = []
-    rt.append(blosc.unpack_array(array[startingBlock]))
-    startingBlock += 1
-    if startingBlock <= maximumBlock:
-        for i in xrange(startingBlock, (maximumBlock+1)):
-            rt.append(blosc.unpack_array(array[i]))
-    nprt = np.concatenate(rt[:])
-    if leftEnd != 0 or num % param.bloscBlockSize != 0:
-        nprt = nprt[leftEnd:(leftEnd+num)]
+def decompress_array(
+    array,
+    blosc_start_index,
+    first_blosc_block_data_index,
+    no_of_data_rows_to_retrieve,
+    no_of_blosc_blocks,
+    read_index_list=None
+):
+    """
+    Return:
+        data_rows, next_first_blosc_block_data_index and next_blosc_start_index
 
-    return nprt, num, endFlag
+    Note:
+        blosc_start_index, next_first_blosc_block_data_index and next_blosc_start_index is inclusive.
+    """
+    data_rows = []
+    no_of_data_rows = 0
+    for i in xrange(blosc_start_index, no_of_blosc_blocks):
+        new_data_rows = blosc.unpack_array(array[i if read_index_list is None else read_index_list[i]])
+        data_rows.append(new_data_rows)
+        no_of_data_rows += len(new_data_rows)
 
+        if i == blosc_start_index and first_blosc_block_data_index > 0:
+            return np.concatenate(data_rows[:])[first_blosc_block_data_index:], 0, i+1
 
-def DecompressArray_with_order(array, start, num, maximum, read_index_list=None):
-    endFlag = 0
-    if start + num >= maximum:
-        num = maximum - start
-        endFlag = 1
-    leftEnd = start % param.bloscBlockSize
-    startingBlock = int(start / param.bloscBlockSize)
-    maximumBlock = int((start+num-1) / param.bloscBlockSize)
-    rt = []
-    rt.append(blosc.unpack_array(array[startingBlock]))
-    startingBlock += 1
-    if startingBlock <= maximumBlock:
-        if read_index_list is None:
-            for i in xrange(startingBlock, (maximumBlock+1)):
-                rt.append(blosc.unpack_array(array[i]))
-        else:
-            for i in xrange(startingBlock, (maximumBlock+1)):
-                rt.append(blosc.unpack_array(array[read_index_list[i]]))
-    nprt = np.concatenate(rt[:])
-    if leftEnd != 0 or num % param.bloscBlockSize != 0:
-        nprt = nprt[leftEnd:(leftEnd+num)]
+        if no_of_data_rows >= no_of_data_rows_to_retrieve:
+            extra_no_of_data_rows = no_of_data_rows % no_of_data_rows_to_retrieve
+            next_blosc_start_index = i+1 if extra_no_of_data_rows == 0 else i
+            next_first_blosc_block_data_index = (
+                0 if extra_no_of_data_rows == 0 else (len(new_data_rows) - extra_no_of_data_rows)
+            )
+            return (
+                np.concatenate(data_rows[:])[0:no_of_data_rows_to_retrieve],
+                next_first_blosc_block_data_index,
+                next_blosc_start_index
+            )
 
-    return nprt, num, endFlag
+    if no_of_data_rows <= 0:
+        return None, -1, -1
+    return np.concatenate(data_rows[:]), -1, -1
 
 
-def dataset_info_from(binary_file_path, tensor_file_path=None, variant_file_path=None, bed_file_path=None):
+def dataset_info_from(
+    binary_file_path,
+    tensor_file_path=None,
+    variant_file_path=None,
+    bed_file_path=None,
+    train_binary_file_path=None,
+    validation_binary_file_path=None,
+):
     logging.info("[INFO] Loading dataset...")
+    no_of_training_examples_from_train_binary = None
 
-    if binary_file_path != None:
+    if train_binary_file_path is not None and validation_binary_file_path is not None:
+        logging.info("[INFO] Loading compressed data from train and validation binary file path")
+        with open(train_binary_file_path, "rb") as fh:
+            dataset_size = cPickle.load(fh)
+            x_array_compressed = cPickle.load(fh)
+            y_array_compressed = cPickle.load(fh)
+            position_array_compressed = cPickle.load(fh)
+        no_of_training_examples_from_train_binary = dataset_size
+        with open(validation_binary_file_path, "rb") as fh:
+            dataset_size += cPickle.load(fh)
+            x_array_compressed += cPickle.load(fh)
+            y_array_compressed += cPickle.load(fh)
+            position_array_compressed += cPickle.load(fh)
+
+    elif binary_file_path != None:
         logging.info("[INFO] Loading compressed data from binary file path")
         with open(binary_file_path, "rb") as fh:
             dataset_size = cPickle.load(fh)
@@ -480,12 +514,98 @@ def dataset_info_from(binary_file_path, tensor_file_path=None, variant_file_path
 
     logging.info("[INFO] The size of dataset: {}".format(dataset_size))
 
-    return dict(
+    return DatasetInfo(
         dataset_size=dataset_size,
         x_array_compressed=x_array_compressed,
         y_array_compressed=y_array_compressed,
-        position_array_compressed=position_array_compressed
+        position_array_compressed=position_array_compressed,
+        no_of_training_examples_from_train_binary=no_of_training_examples_from_train_binary,
+        is_separated_train_and_validation_binary=no_of_training_examples_from_train_binary is not None,
     )
+
+
+def training_config_from(
+    dataset_info,
+    learning_rate,
+    l2_regularization_lambda,
+    output_file_path_prefix,
+    model_initalization_file_path,
+    summary_writer
+):
+    return TrainingConfig(
+        dataset_info=dataset_info,
+        learning_rate=learning_rate,
+        l2_regularization_lambda=l2_regularization_lambda,
+        output_file_path_prefix=output_file_path_prefix,
+        model_initalization_file_path=model_initalization_file_path,
+        summary_writer=summary_writer
+    )
+
+
+def new_mini_batch(
+    data_index,
+    blosc_start_index,
+    first_blosc_block_data_index,
+    no_of_training_examples,
+    no_of_blosc_blocks,
+    dataset_info,
+    tensor_block_index_list
+):
+    """
+    Return:
+        x_batch, y_batch, next_first_blosc_block_data_index, next_blosc_index
+    """
+    if blosc_start_index >= no_of_blosc_blocks:
+        return None, None, -1, -1
+
+    x_array_compressed = dataset_info.x_array_compressed
+    y_array_compressed = dataset_info.y_array_compressed
+    training_batch_size = param.trainBatchSize
+    validation_batch_size = param.predictBatchSize
+    is_training = data_index < no_of_training_examples
+    is_validation = not is_training
+
+    # calculate new batch size according to dataset index
+    # train: 0 - validation_data_start_index - 1, validation: validation_data_start_index - dataset_size
+    if is_training and (no_of_training_examples - data_index) < training_batch_size:
+        batch_size = no_of_training_examples - data_index
+    elif is_training:
+        batch_size = training_batch_size
+    elif is_validation:
+        batch_size = validation_batch_size
+
+    def decompress_array_from(array):
+        return decompress_array(
+            array=array,
+            blosc_start_index=blosc_start_index,
+            first_blosc_block_data_index=first_blosc_block_data_index,
+            no_of_data_rows_to_retrieve=batch_size,
+            no_of_blosc_blocks=no_of_blosc_blocks,
+            read_index_list=tensor_block_index_list
+        )
+    x_batch, next_x_first_blosc_block_data_index, next_x_blosc_index = decompress_array_from(x_array_compressed)
+    y_batch, _next_x_first_blosc_block_data_index, next_y_blosc_index = decompress_array_from(y_array_compressed)
+
+    x_batch_size, y_batch_size = np.shape(x_batch)[0], np.shape(y_batch)[0]
+    x_end_flag, y_end_flag = next_x_blosc_index == -1, next_y_blosc_index == -1
+    if x_batch_size != y_batch_size or x_end_flag != y_end_flag:
+        sys.exit("[ERROR] Inconsistency between decompressed arrays: %d/%d" % (x_batch_size, y_batch_size))
+
+    return x_batch, y_batch, next_x_first_blosc_block_data_index, next_x_blosc_index
+
+
+def no_of_blosc_blocks_from(
+    dataset_info,
+    no_of_training_examples,
+    blosc_block_size,
+):
+    if dataset_info.is_separated_train_and_validation_binary:
+        no_of_validation_examples = dataset_info.dataset_size - no_of_training_examples
+        no_of_training_blocks = int(np.ceil(float(no_of_training_examples) / blosc_block_size))
+        no_of_validation_blocks = int(np.ceil(float(no_of_validation_examples) / blosc_block_size))
+        return no_of_training_blocks + no_of_validation_blocks
+
+    return int(np.ceil(float(dataset_info.dataset_size) / blosc_block_size))
 
 
 # function aliases
@@ -503,11 +623,3 @@ def get_tensor(tensor_fn, num):
 
 def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
     return GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle, is_allow_duplicate_chr_pos)
-
-
-def decompress_array(array, start, num, maximum):
-    return DecompressArray(array, start, num, maximum)
-
-
-def decompress_array_with_order(array, start, num, maximum, read_index_list=None):
-    return DecompressArray_with_order(array, start, num, maximum, read_index_list)

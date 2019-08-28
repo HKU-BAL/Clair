@@ -9,10 +9,9 @@ import param
 import utils
 import clair_model as cv
 from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
+from itertools import izip
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
-base2num = dict(zip("ACGT", (0, 1, 2, 3)))
-num2base = dict(zip((0, 1, 2, 3), "ACGT"))
 
 
 def f1_score(confusion_matrix):
@@ -36,19 +35,25 @@ def new_confusion_matrix_with_dimension(size):
 
 
 def evaluate_model(m, dataset_info):
-    dataset_size = dataset_info["dataset_size"]
-    x_array_compressed = dataset_info["x_array_compressed"]
-    y_array_compressed = dataset_info["y_array_compressed"]
+    dataset_size = dataset_info.dataset_size
+    x_array_compressed = dataset_info.x_array_compressed
+    y_array_compressed = dataset_info.y_array_compressed
 
     logging.info("[INFO] Testing on the training and validation dataset ...")
     prediction_start_time = time.time()
     prediction_batch_size = param.predictBatchSize
-    # no_of_training_examples = int(dataset_size*param.trainingDatasetPercentage)
-    # validation_data_start_index = no_of_training_examples + 1
 
-    dataset_index = 0
-    x_end_flag = 0
-    y_end_flag = 0
+    no_of_training_examples = (
+        dataset_info.no_of_training_examples_from_train_binary or int(dataset_size * param.trainingDatasetPercentage)
+    )
+    no_of_blosc_blocks = utils.no_of_blosc_blocks_from(
+        dataset_info=dataset_info,
+        no_of_training_examples=no_of_training_examples,
+        blosc_block_size=param.bloscBlockSize
+    )
+
+    blosc_index = 0
+    first_blosc_block_data_index = 0
 
     confusion_matrix_base = new_confusion_matrix_with_dimension(BASE_CHANGE.output_label_count)
     confusion_matrix_genotype = new_confusion_matrix_with_dimension(GENOTYPE.output_label_count)
@@ -57,20 +62,29 @@ def evaluate_model(m, dataset_info):
 
     all_base_count = top_1_count = top_2_count = 0
 
-    while dataset_index < dataset_size:
-        if x_end_flag != 0 or y_end_flag != 0:
-            break
-
-        x_batch, _, x_end_flag = utils.decompress_array(
-            x_array_compressed, dataset_index, prediction_batch_size, dataset_size)
-        y_batch, _, y_end_flag = utils.decompress_array(
-            y_array_compressed, dataset_index, prediction_batch_size, dataset_size)
+    while True:
+        x_batch, next_x_first_blosc_block_data_index, next_x_blosc_index = utils.decompress_array(
+            array=x_array_compressed,
+            blosc_start_index=blosc_index,
+            first_blosc_block_data_index=first_blosc_block_data_index,
+            no_of_data_rows_to_retrieve=prediction_batch_size,
+            no_of_blosc_blocks=no_of_blosc_blocks,
+        )
+        y_batch, _next_y_first_blosc_block_data_index, _next_y_blosc_index = utils.decompress_array(
+            array=y_array_compressed,
+            blosc_start_index=blosc_index,
+            first_blosc_block_data_index=first_blosc_block_data_index,
+            no_of_data_rows_to_retrieve=prediction_batch_size,
+            no_of_blosc_blocks=no_of_blosc_blocks,
+        )
         minibatch_base_prediction, minibatch_genotype_prediction, \
             minibatch_indel_length_prediction_1, minibatch_indel_length_prediction_2 = m.predict(x_batch)
-        dataset_index += prediction_batch_size
+
+        blosc_index = next_x_blosc_index
+        first_blosc_block_data_index = next_x_first_blosc_block_data_index
 
         # update confusion matrix for base prediction
-        for base_change_prediction, base_change_label in zip(
+        for base_change_prediction, base_change_label in izip(
             minibatch_base_prediction,
             y_batch[:, BASE_CHANGE.y_start_index:BASE_CHANGE.y_end_index]
         ):
@@ -87,14 +101,14 @@ def evaluate_model(m, dataset_info):
                 top_2_count += 1
 
         # update confusion matrix for genotype
-        for genotype_prediction, true_genotype_label in zip(
+        for genotype_prediction, true_genotype_label in izip(
             minibatch_genotype_prediction,
             y_batch[:, GENOTYPE.y_start_index:GENOTYPE.y_end_index]
         ):
             confusion_matrix_genotype[np.argmax(true_genotype_label)][np.argmax(genotype_prediction)] += 1
 
         # update confusion matrix for indel length 1 and 2
-        for indel_length_prediction_1, true_indel_length_label_1, indel_length_prediction_2, true_indel_length_label_2 in zip(
+        for indel_length_prediction_1, true_indel_length_label_1, indel_length_prediction_2, true_indel_length_label_2 in izip(
             minibatch_indel_length_prediction_1,
             y_batch[:, VARIANT_LENGTH_1.y_start_index:VARIANT_LENGTH_1.y_end_index],
             minibatch_indel_length_prediction_2,
@@ -112,6 +126,9 @@ def evaluate_model(m, dataset_info):
 
             confusion_matrix_indel_length_1[true_label_index_1][predict_label_index_1] += 1
             confusion_matrix_indel_length_2[true_label_index_2][predict_label_index_2] += 1
+
+        if not (next_x_first_blosc_block_data_index >= 0 and next_x_blosc_index >= 0):
+            break
 
     logging.info("[INFO] Prediciton time elapsed: %.2f s" % (time.time() - prediction_start_time))
 
@@ -151,6 +168,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--bin_fn', type=str, default=None,
                         help="Binary tensor input generated by tensor2Bin.py, tensor_fn, var_fn and bed_fn will be ignored")
+    parser.add_argument('--train_bin_fn', type=str, default=None,
+                        help="Train Binary, used together with --validation_bin_fn (would ignore: bin_fn, tensor_fn, var_fn, bed_fn)")
+    parser.add_argument('--validation_bin_fn', type=str, default=None,
+                        help="Validation Binary, used together with --train_bin_fn (would ignore: bin_fn, tensor_fn, var_fn, bed_fn)")
 
     parser.add_argument('--tensor_fn', type=str, default="vartensors",
                         help="Tensor input")
@@ -181,7 +202,9 @@ if __name__ == "__main__":
         binary_file_path=args.bin_fn,
         tensor_file_path=args.tensor_fn,
         variant_file_path=args.var_fn,
-        bed_file_path=args.bed_fn
+        bed_file_path=args.bed_fn,
+        train_binary_file_path=args.train_bin_fn,
+        validation_binary_file_path=args.validation_bin_fn,
     )
 
     model_initalization_file_path = args.chkpnt_fn

@@ -244,16 +244,12 @@ def quality_score_from(
 ):
     sorted_base_change_probabilities = np.sort(base_change_probabilities)[::-1]
     sorted_genotype_probabilities = np.sort(genotype_probabilities)[::-1]
-
-    return min(
-        int(round(
-            (-10 * log(e, 10)) * log(
-                (np.sum(sorted_base_change_probabilities[1]) * np.sum(sorted_genotype_probabilities[1]) + 1e-300) /
-                (sorted_base_change_probabilities[0] * sorted_genotype_probabilities[0] + 1e-300)
-            )
-        )),
-        999
+    tmp = (-10 * log(e, 10)) * log(
+        (np.sum(sorted_base_change_probabilities[1]) * np.sum(sorted_genotype_probabilities[1]) + 1e-300) /
+        (sorted_base_change_probabilities[0] * sorted_genotype_probabilities[0] + 1e-300)
     )
+
+    return int(round(tmp * tmp))
 
 
 def filtration_value_from(quality_score_for_pass, quality_score):
