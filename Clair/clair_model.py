@@ -678,12 +678,12 @@ class Clair(object):
                        target_tensor=Y_indel_length_label_2,
                     )
 
-                    self.regularization_L2_loss_without_lambda = tf.add_n([
-                        tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name
-                    ])
-                    self.regularization_L2_loss = (
-                        self.regularization_L2_loss_without_lambda * self.regularization_L2_lambda_placeholder
-                    )
+                self.regularization_L2_loss_without_lambda = tf.add_n([
+                    tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'bias' not in v.name
+                ])
+                self.regularization_L2_loss = (
+                    self.regularization_L2_loss_without_lambda * self.regularization_L2_lambda_placeholder
+                )
 
                 # Weighted average of losses
                 self.total_loss = tf.reduce_sum(
