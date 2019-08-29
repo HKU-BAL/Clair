@@ -289,7 +289,7 @@ def insertion_length_tuple_from(
 
     # ACGT Ins
     if is_hetero_Ins:
-        variant_length = -1
+        variant_length = 0
         for i in xrange(1, VariantLength.max + 1):
             temp_probability = (
                 variant_length_probabilities_1[0 + VariantLength.index_offset] *
@@ -309,7 +309,7 @@ def insertion_length_tuple_from(
 
     # hetero InsIns
     if is_hetero_InsIns:
-        variant_length_1, variant_length_2 = -1, -1
+        variant_length_1, variant_length_2 = 0, 0
         for i in xrange(1, VariantLength.max + 1):
             for j in xrange(1, VariantLength.max + 1):
                 # note: one kind of InsIns is same # of insertion bases but different kind of ACGT
@@ -351,7 +351,7 @@ def deletion_length_tuple_from(
 
     # ACGT Del
     if is_hetero_Del:
-        variant_length = -1
+        variant_length = 0
         for i in xrange(1, VariantLength.max + 1):
             temp_probability = (
                 variant_length_probabilities_1[0 + VariantLength.index_offset] *
@@ -371,7 +371,7 @@ def deletion_length_tuple_from(
 
     # hetero DelDel
     if is_hetero_DelDel:
-        variant_length_1, variant_length_2 = -1, -1
+        variant_length_1, variant_length_2 = 0, 0
         for i in xrange(1, VariantLength.max + 1):
             for j in xrange(1, VariantLength.max + 1):
                 if i == j:
@@ -823,8 +823,10 @@ def Output(
                 length_guess = insertion_length
 
             hetero_insert_base = hetero_insert_base_from(gt21_probabilities) if is_hetero_ACGT_Ins else ""
-            is_SNP_Ins_multi = is_hetero_ACGT_Ins and hetero_insert_base != reference_base
-            is_Ins_Ins_multi = is_hetero_InsIns
+            is_SNP_Ins_multi = (
+                is_hetero_ACGT_Ins and insertion_length > 0 and hetero_insert_base != reference_base
+            )
+            is_Ins_Ins_multi = is_hetero_InsIns and insertion_length > 0
 
             if is_SNP_Ins_multi:
                 alternate_base = "{},{}".format(hetero_insert_base, alternate_base)
@@ -889,8 +891,10 @@ def Output(
                 length_guess = deletion_length
 
             hetero_delete_base = hetero_delete_base_from(gt21_probabilities) if is_hetero_ACGT_Del else ""
-            is_SNP_Del_multi = is_hetero_ACGT_Del and hetero_delete_base != reference_base[0]
-            is_Del_Del_multi = is_hetero_DelDel
+            is_SNP_Del_multi = (
+                is_hetero_ACGT_Del and deletion_length > 0 and hetero_delete_base != reference_base[0]
+            )
+            is_Del_Del_multi = is_hetero_DelDel and deletion_length > 0
 
             if is_SNP_Del_multi:
                 alternate_base_1 = alternate_base
