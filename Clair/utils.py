@@ -171,6 +171,7 @@ def mix_two_partial_labels(label1, label2):
 
 
 class Genotype(IntEnum):
+    unknown = -1
     homo_reference = 0          # 0/0
     homo_variant = 1            # 1/1
     hetero_variant = 2          # 0/1 OR 1/2

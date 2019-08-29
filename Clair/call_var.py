@@ -101,22 +101,6 @@ def hetero_delete_base_from(base_change_probabilities):
     return output_bases[0]
 
 
-def quality_score_from(
-    base_change_probabilities,
-    genotype_probabilities,
-    variant_length_probabilities_1,
-    variant_length_probabilities_2
-):
-    sorted_base_change_probabilities = np.sort(base_change_probabilities)[::-1]
-    sorted_genotype_probabilities = np.sort(genotype_probabilities)[::-1]
-    tmp = (-10 * log(e, 10)) * log(
-        (np.sum(sorted_base_change_probabilities[1]) * np.sum(sorted_genotype_probabilities[1]) + 1e-300) /
-        (sorted_base_change_probabilities[0] * sorted_genotype_probabilities[0] + 1e-300)
-    )
-
-    return int(round(tmp * tmp))
-
-
 def filtration_value_from(quality_score_for_pass, quality_score):
     if quality_score_for_pass is None:
         return "."
@@ -561,6 +545,54 @@ def deletion_bases_from(
         return deletion_bases, len(deletion_bases), need_inferred_variant_length
 
 
+def quality_score_from(
+    reference_base,
+    alternate_base,
+    genotype_string,
+    gt21_probabilities,
+    genotype_probabilities,
+):
+    genotype_1, genotype_2 = int(genotype_string[0]), int(genotype_string[2])
+    if genotype_1 > genotype_2:
+        genotype_1, genotype_2 = genotype_2, genotype_1
+
+    alternate_arr = alternate_base.split(',')
+    if len(alternate_arr) == 1:
+        alternate_arr = (
+            [reference_base if genotype_1 == 0 or genotype_2 == 0 else alternate_arr[0]] +
+            alternate_arr
+        )
+    partial_labels = [utils.partial_label_from(reference_base, alternate) for alternate in alternate_arr]
+    gt21_label = utils.mix_two_partial_labels(partial_labels[0], partial_labels[1])
+    gt21 = utils.base_change_enum_from(gt21_label)
+
+    is_homo_reference = genotype_1 == 0 and genotype_2 == 0
+    is_homo_variant = not is_homo_reference and genotype_1 == genotype_2
+    is_hetero_variant = not is_homo_reference and not is_homo_variant
+    is_multi = not is_homo_variant and genotype_1 != 0 and genotype_2 != 0
+    genotype = Genotype.unknown
+    if is_homo_reference:
+        genotype = Genotype.homo_reference
+    elif is_homo_variant:
+        genotype = Genotype.homo_variant
+    elif is_hetero_variant and not is_multi:
+        genotype = Genotype.hetero_variant
+    elif is_hetero_variant and is_multi:
+        genotype = Genotype.hetero_variant
+        # genotype = Genotype.hetero_variant_multi
+
+    if genotype == Genotype.unknown:
+        return 0
+    tmp = (-10 * log(e, 10)) * (
+        log(
+            ((1.0 - gt21_probabilities[gt21] * genotype_probabilities[genotype]) + 1e-300) /
+            (gt21_probabilities[gt21] * genotype_probabilities[genotype] + 1e-300)
+        )
+    ) + 33
+
+    return int(round(tmp * tmp))
+
+
 def Output(
     args,
     call_fh,
@@ -719,17 +751,6 @@ def Output(
         is_SNP = is_homo_SNP or is_hetero_SNP
         is_insertion = is_homo_insertion or is_hetero_ACGT_Ins or is_hetero_InsIns
         is_deletion = is_homo_deletion or is_hetero_ACGT_Del or is_hetero_DelDel
-
-        # quality score
-        quality_score = quality_score_from(
-            gt21_probabilities,
-            genotype_probabilities,
-            variant_length_probabilities_1,
-            variant_length_probabilities_2
-        )
-
-        # filtration value
-        filtration_value = filtration_value_from(quality_score_for_pass=args.qual, quality_score=quality_score)
 
         # Initialize other variables
         length_guess = 0
@@ -997,6 +1018,18 @@ def Output(
             information_string = "."
         else:
             information_string = ";".join(info)
+
+        # quality score
+        quality_score = quality_score_from(
+            reference_base,
+            alternate_base,
+            genotype_string,
+            gt21_probabilities,
+            genotype_probabilities,
+        )
+
+        # filtration value
+        filtration_value = filtration_value_from(quality_score_for_pass=args.qual, quality_score=quality_score)
 
         if is_debug:
             print_debug_message_with(
