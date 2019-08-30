@@ -1062,6 +1062,7 @@ def check_end_equals_zero(end1,num1, Xbatch1, posBatch1, end2,num2,Xbatch2,posBa
 def recursive_method(**kwargs):
 
     param = dict(
+        clair = m,
         end = end,
         args = args,
         call_fh = call_fh,
@@ -1087,8 +1088,11 @@ def recursive_method(**kwargs):
         else:
             print("Info: the parameter %s, with value %s is not supported" % (key, value))
 
+    m = param['clair']
+
     if param['end'] == 1:
         terminate = 1
+        param['terminate'] = terminate
     threadPool = []
     if param['end'] == 0:
         threadPool.append(Thread(target=m.predict, args=(param['XBatch2'], True)))
@@ -1114,11 +1118,11 @@ def recursive_method(**kwargs):
                                                        parma['end2'], param['num2'], param['Xbatch2'], param['posBatch2'])
     end2, num2, Xbatch2, posBatch2 = check_end_equals_zero(param['end2'], param['num2'], param['Xbatch2'], param['posBatch2'],
                                                            end3, num3, Xbatch3, posBatch3)
-    # print >> sys.stderr, end, end2, end3, terminate
-    if terminate == 1:
+
+    if terminate == 1 or param['terminate'] == 1:
         pass
     else:
-        return recursive_method(end, Xbatch2, args, call_fh, num, Xbatch, posBatch, base, gt, l1, l2, sam_file, fasta_file,
+        return recursive_method(m, end, Xbatch2, args, call_fh, num, Xbatch, posBatch, base, gt, l1, l2, sam_file, fasta_file,
                                 tensorGenerator, end2, num2, Xbatch2, posBatch2, terminate)
 
 
@@ -1139,15 +1143,17 @@ def Test(args, m, utils):
                                 m.predictGenotypeRTVal,\
                                 m.predictIndelLengthRTVal1,\
                                 m.predictIndelLengthRTVal2)
+
     if end2 == 0:
         end, num, XBatch, posBatch = set_values(end2,
                                                 num2,
                                                 XBatch2,
                                                 posBatch2)
         end2, num2, XBatch2, posBatch2 = next(tensorGenerator)
-        recursive_method(end, Xbatch2, args, call_fh, num, Xbatch, posBatch,
+        recursive_method(m, end, Xbatch2, args, call_fh, num, Xbatch, posBatch,
                          base, gt, l1, l2, sam_file, fasta_file, tensorGenerator,
                          end2, num2, Xbatch2, posBatch2, terminate)
+
     elif end2 == 1:
         Output(args, call_fh, num2, XBatch2, posBatch2, base, gt, l1, l2, sam_file, fasta_file)
 
