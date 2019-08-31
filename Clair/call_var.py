@@ -69,38 +69,6 @@ def hetero_SNP_bases_from(base_change_probabilities):
     return output_bases[0], output_bases[1]
 
 
-def hetero_insert_base_from(base_change_probabilities):
-    output_bases_probabilities = np.array([
-        base_change_probabilities[GT21.AIns],
-        base_change_probabilities[GT21.CIns],
-        base_change_probabilities[GT21.GIns],
-        base_change_probabilities[GT21.TIns]
-    ])
-    output_bases = [
-        base_change_label_from(GT21.AIns),
-        base_change_label_from(GT21.CIns),
-        base_change_label_from(GT21.GIns),
-        base_change_label_from(GT21.TIns)
-    ][np.argmax(output_bases_probabilities)]
-    return output_bases[0]
-
-
-def hetero_delete_base_from(base_change_probabilities):
-    output_bases_probabilities = np.array([
-        base_change_probabilities[GT21.ADel],
-        base_change_probabilities[GT21.CDel],
-        base_change_probabilities[GT21.GDel],
-        base_change_probabilities[GT21.TDel]
-    ])
-    output_bases = [
-        base_change_label_from(GT21.ADel),
-        base_change_label_from(GT21.CDel),
-        base_change_label_from(GT21.GDel),
-        base_change_label_from(GT21.TDel)
-    ][np.argmax(output_bases_probabilities)]
-    return output_bases[0]
-
-
 def filtration_value_from(quality_score_for_pass, quality_score):
     if quality_score_for_pass is None:
         return "."
@@ -143,7 +111,7 @@ def insertion_bases_using_pysam_from(
 ):
     insertion_bases_dict = defaultdict(lambda: 0)
 
-    def high_order_func(pileup_column):
+    def lambda_function(pileup_column):
         if pileup_column.reference_pos != position - 1:
             return
 
@@ -164,7 +132,7 @@ def insertion_bases_using_pysam_from(
                 insertion_bases != insertion_bases_to_ignore
             ):
                 insertion_bases_dict[insertion_bases] = insertion_bases_dict[insertion_bases] + 1
-    pileup(sam_file, contig, position, position+1, func=high_order_func)
+    pileup(sam_file, contig, position, position+1, func=lambda_function)
 
     return max(insertion_bases_dict, key=insertion_bases_dict.get) if len(insertion_bases_dict) > 0 else ""
 
@@ -179,7 +147,7 @@ def deletion_bases_using_pysam_from(
 ):
     deletion_bases_dict = defaultdict(lambda: 0)
 
-    def high_order_func(pileup_column):
+    def lambda_function(pileup_column):
         if pileup_column.reference_pos != position - 1:
             return
 
@@ -199,7 +167,7 @@ def deletion_bases_using_pysam_from(
 
             if minimum_deletion_length <= no_of_deletion_bases <= maximum_deletion_length:
                 deletion_bases_dict[deletion_bases] = deletion_bases_dict[deletion_bases] + 1
-    pileup(sam_file, contig, position, position+1, func=high_order_func)
+    pileup(sam_file, contig, position, position+1, func=lambda_function)
 
     return max(deletion_bases_dict, key=deletion_bases_dict.get) if len(deletion_bases_dict) > 0 else ""
 
@@ -257,158 +225,88 @@ def print_debug_message_with(
     )
 
 
-def insertion_length_tuple_from(
-    variant_length_probabilities_1,
-    variant_length_probabilities_2,
-    is_hetero_Ins=False,
-    is_hetero_InsIns=False
-):
-    """
-    get tuple with values:
-        - variant_length 1 and 2 for variant calling
-        - probability for selected base length combinations
-        - variant_length_1 <= variant_length_2
-    """
-    maximum_probability = 0
+def homo_Ins_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2, extra_probability):
+    return [(
+        i,
+        variant_length_probabilities_1[i + VariantLength.index_offset] *
+        variant_length_probabilities_2[i + VariantLength.index_offset] * extra_probability
+    ) for i in xrange(1, VariantLength.max + 1)]
 
-    # ACGT Ins
-    if is_hetero_Ins:
-        variant_length = 0
-        for i in xrange(1, VariantLength.max + 1):
-            temp_probability = (
-                variant_length_probabilities_1[0 + VariantLength.index_offset] *
-                variant_length_probabilities_2[i + VariantLength.index_offset]
-            )
-            if temp_probability > maximum_probability:
-                variant_length = i
-                maximum_probability = temp_probability
-            temp_probability = (
-                variant_length_probabilities_1[i + VariantLength.index_offset] *
-                variant_length_probabilities_2[0 + VariantLength.index_offset]
-            )
-            if temp_probability > maximum_probability:
-                variant_length = i
-                maximum_probability = temp_probability
-        return 0, variant_length, maximum_probability
 
-    # hetero InsIns
-    if is_hetero_InsIns:
-        variant_length_1, variant_length_2 = 0, 0
-        for i in xrange(1, VariantLength.max + 1):
-            for j in xrange(1, VariantLength.max + 1):
-                # note: one kind of InsIns is same # of insertion bases but different kind of ACGT
-                temp_probability = (
-                    variant_length_probabilities_1[i + VariantLength.index_offset] *
-                    variant_length_probabilities_2[j + VariantLength.index_offset]
-                )
-                if temp_probability > maximum_probability:
-                    variant_length_1, variant_length_2 = (i, j) if i <= j else (j, i)
-                    maximum_probability = temp_probability
-        return variant_length_1, variant_length_2, maximum_probability
-
-    # homo Ins
-    variant_length = 0
-    for i in xrange(1, VariantLength.max + 1):
-        temp_probability = (
+def hetero_Ins_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2):
+    return [(
+        i,
+        max(
+            variant_length_probabilities_1[0 + VariantLength.index_offset] *
+            variant_length_probabilities_2[i + VariantLength.index_offset],
             variant_length_probabilities_1[i + VariantLength.index_offset] *
-            variant_length_probabilities_2[i + VariantLength.index_offset]
+            variant_length_probabilities_2[0 + VariantLength.index_offset],
         )
-        if temp_probability <= maximum_probability:
-            continue
-        variant_length = i
-        maximum_probability = temp_probability
-    return variant_length, variant_length, maximum_probability
+    ) for i in xrange(1, VariantLength.max + 1)]
 
 
-def deletion_length_tuple_from(
-    variant_length_probabilities_1,
-    variant_length_probabilities_2,
-    is_hetero_Del=False,
-    is_hetero_DelDel=False,
-):
-    """
-    get tuple with values:
-        - variant length 1 and 2 for variant calling
-        - probability for selected base length combinations
-    """
-    maximum_probability = 0
-
-    # ACGT Del
-    if is_hetero_Del:
-        variant_length = 0
-        for i in xrange(1, VariantLength.max + 1):
-            temp_probability = (
-                variant_length_probabilities_1[0 + VariantLength.index_offset] *
-                variant_length_probabilities_2[-i + VariantLength.index_offset]
-            )
-            if temp_probability > maximum_probability:
-                variant_length = i
-                maximum_probability = temp_probability
-            temp_probability = (
-                variant_length_probabilities_1[-i + VariantLength.index_offset] *
-                variant_length_probabilities_2[0 + VariantLength.index_offset]
-            )
-            if temp_probability > maximum_probability:
-                variant_length = i
-                maximum_probability = temp_probability
-        return 0, variant_length, maximum_probability
-
-    # hetero DelDel
-    if is_hetero_DelDel:
-        variant_length_1, variant_length_2 = 0, 0
-        for i in xrange(1, VariantLength.max + 1):
-            for j in xrange(1, VariantLength.max + 1):
-                if i == j:
-                    continue
-                temp_probability = (
-                    variant_length_probabilities_1[-i + VariantLength.index_offset] *
-                    variant_length_probabilities_2[-j + VariantLength.index_offset]
-                )
-                if temp_probability > maximum_probability:
-                    variant_length_1, variant_length_2 = (i, j) if i <= j else (j, i)
-                    maximum_probability = temp_probability
-        return variant_length_1, variant_length_2, maximum_probability
-
-    # homo Del
-    variant_length = 0
-    for i in xrange(1, VariantLength.max + 1):
-        temp_probability = (
-            variant_length_probabilities_1[-i + VariantLength.index_offset] *
-            variant_length_probabilities_2[-i + VariantLength.index_offset]
-        )
-        if temp_probability <= maximum_probability:
-            continue
-        variant_length = i
-        maximum_probability = temp_probability
-    return variant_length, variant_length, maximum_probability
-
-
-def insertion_and_deletion_length_tuple_from(variant_length_probabilities_1, variant_length_probabilities_2):
-    """
-    get tuple with values:
-        - variant length 1 for variant calling (deletion)
-        - variant_length 2 for variant calling (insertion)
-        - probability for selected base length combinations
-    """
-    maximum_probability = 0
-    variant_length_1, variant_length_2 = -1, -1
+def hetero_InsIns_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2, extra_probability):
+    probabilities = []
     for i in xrange(1, VariantLength.max + 1):
         for j in xrange(1, VariantLength.max + 1):
-            temp_probability = (
+            # note: one kind of InsIns is same # of insertion bases but different kind of ACGT
+            probabilities.append((
+                (i, j) if i <= j else (j, i),
                 variant_length_probabilities_1[i + VariantLength.index_offset] *
-                variant_length_probabilities_2[-j + VariantLength.index_offset]
-            )
-            if temp_probability > maximum_probability:
-                maximum_probability = temp_probability
-                variant_length_1, variant_length_2 = j, i
-            temp_probability = (
+                variant_length_probabilities_2[j + VariantLength.index_offset] * extra_probability
+            ))
+    return probabilities
+
+
+def homo_Del_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2, extra_probability):
+    return [(
+        i,
+        variant_length_probabilities_1[-i + VariantLength.index_offset] *
+        variant_length_probabilities_2[-i + VariantLength.index_offset] * extra_probability
+    ) for i in xrange(1, VariantLength.max + 1)]
+
+
+def hetero_Del_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2):
+    return [(
+        i,
+        max(
+            variant_length_probabilities_1[0 + VariantLength.index_offset] *
+            variant_length_probabilities_2[-i + VariantLength.index_offset],
+            variant_length_probabilities_1[-i + VariantLength.index_offset] *
+            variant_length_probabilities_2[0 + VariantLength.index_offset],
+        )
+    ) for i in xrange(1, VariantLength.max + 1)]
+
+
+def hetero_DelDel_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2, extra_probability):
+    probabilities = []
+    for i in xrange(1, VariantLength.max + 1):
+        for j in xrange(1, VariantLength.max + 1):
+            if i == j:
+                continue
+            probabilities.append((
+                (i, j) if i < j else (j, i),
                 variant_length_probabilities_1[-i + VariantLength.index_offset] *
-                variant_length_probabilities_2[j + VariantLength.index_offset]
-            )
-            if temp_probability > maximum_probability:
-                maximum_probability = temp_probability
-                variant_length_1, variant_length_2 = i, j
-    return variant_length_1, variant_length_2, maximum_probability
+                variant_length_probabilities_2[-j + VariantLength.index_offset] * extra_probability
+            ))
+    return probabilities
+
+
+def hetero_InsDel_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2, extra_probability):
+    probabilities = []
+    for i in xrange(1, VariantLength.max + 1):
+        for j in xrange(1, VariantLength.max + 1):
+            probabilities.append((
+                (j, i),
+                variant_length_probabilities_1[i + VariantLength.index_offset] *
+                variant_length_probabilities_2[-j + VariantLength.index_offset] * extra_probability
+            ))
+            probabilities.append((
+                (i, j),
+                variant_length_probabilities_1[-i + VariantLength.index_offset] *
+                variant_length_probabilities_2[j + VariantLength.index_offset] * extra_probability
+            ))
+    return probabilities
 
 
 def inferred_insertion_bases_from(tensor_input):
@@ -471,7 +369,7 @@ def insertion_bases_from(
     is_using_pysam_for_all_indel_bases_output
 ):
     """
-        Return (insertion_bases, insertion bases length, is_inferred) tuple
+        Return (insertion_bases, insertion bases length) tuple
     """
     if is_using_pysam_for_all_indel_bases_output:
         insertion_bases = insertion_bases_using_pysam_from(
@@ -481,12 +379,12 @@ def insertion_bases_from(
             minimum_insertion_length=variant_length,
             maximum_insertion_length=maximum_variant_length_from(variant_length)
         )
-        return insertion_bases, len(insertion_bases), False
+        return insertion_bases, len(insertion_bases)
 
     need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
     if not need_inferred_variant_length:
         insertion_bases = insertion_bases_using_tensor(tensor_input, variant_length)
-        return insertion_bases, len(insertion_bases), False
+        return insertion_bases, len(insertion_bases)
 
     insertion_bases = insertion_bases_using_pysam_from(
         sam_file=sam_file,
@@ -496,10 +394,10 @@ def insertion_bases_from(
     )
     insertion_length = len(insertion_bases)
     if insertion_length > 0:
-        return insertion_bases, insertion_length, False
+        return insertion_bases, insertion_length
     else:
         insertion_bases = inferred_insertion_bases_from(tensor_input)
-        return insertion_bases, len(insertion_bases), True
+        return insertion_bases, len(insertion_bases)
 
 
 def deletion_bases_from(
@@ -513,7 +411,7 @@ def deletion_bases_from(
     is_using_pysam_for_all_indel_bases_output
 ):
     """
-        Return (deletion_bases, deletion bases length, is_inferred) tuple
+        Return (deletion_bases, deletion bases length) tuple
     """
     if is_using_pysam_for_all_indel_bases_output:
         deletion_bases = deletion_bases_using_pysam_from(
@@ -524,7 +422,7 @@ def deletion_bases_from(
             minimum_deletion_length=variant_length,
             maximum_deletion_length=maximum_variant_length_from(variant_length)
         )
-        return deletion_bases, len(deletion_bases), False
+        return deletion_bases, len(deletion_bases)
 
     deletion_bases = ""
     need_inferred_variant_length = variant_length >= minimum_variant_length_that_need_infer
@@ -538,11 +436,9 @@ def deletion_bases_from(
         )
 
     have_long_deletion_bases = need_inferred_variant_length and len(deletion_bases) >= flanking_base_number
-    if have_long_deletion_bases:
-        return deletion_bases, len(deletion_bases), False
-    else:
+    if not have_long_deletion_bases:
         deletion_bases = reference_sequence[flanking_base_number + 1:flanking_base_number + variant_length + 1]
-        return deletion_bases, len(deletion_bases), need_inferred_variant_length
+    return deletion_bases, len(deletion_bases)
 
 
 def quality_score_from(
@@ -580,17 +476,335 @@ def quality_score_from(
     elif is_hetero_variant and is_multi:
         genotype = Genotype.hetero_variant
         # genotype = Genotype.hetero_variant_multi
-
-    if genotype == Genotype.unknown:
+    else:
         return 0
-    tmp = (-10 * log(e, 10)) * (
-        log(
-            ((1.0 - gt21_probabilities[gt21] * genotype_probabilities[genotype]) + 1e-300) /
-            (gt21_probabilities[gt21] * genotype_probabilities[genotype] + 1e-300)
-        )
-    ) + 33
+
+    p = gt21_probabilities[gt21] * genotype_probabilities[genotype]
+    tmp = max(
+        (-10 * log(e, 10)) * log(((1.0 - p) + 1e-300) / (p + 1e-300)) + 16,
+        0
+    )
 
     return int(round(tmp * tmp))
+
+
+def output_from(
+    x,
+    reference_sequence,
+    contig,
+    position,
+    tensor_position_center,
+    gt21_probabilities,
+    genotype_probabilities,
+    variant_length_probabilities_1,
+    variant_length_probabilities_2,
+    insertion_bases_using,
+    deletion_bases_using,
+    insertion_bases_using_pysam_using,
+):
+    # calculate all possible variant cases probabilities for comparison
+    homo_reference_probability = genotype_probabilities[Genotype.homo_reference]
+    homo_variant_probability = genotype_probabilities[Genotype.homo_variant]
+    hetero_variant_probability = genotype_probabilities[Genotype.hetero_variant]
+    variant_length_0_probability = (
+        variant_length_probabilities_1[0 + VariantLength.index_offset] *
+        variant_length_probabilities_2[0 + VariantLength.index_offset]
+    )
+
+    reference_base = reference_sequence[tensor_position_center]
+    reference_gt21 = utils.base_change_enum_from(reference_base + reference_base)
+    homo_Ref_probability = (
+        variant_length_0_probability * homo_reference_probability * gt21_probabilities[reference_gt21]
+    )
+
+    homo_SNP_probabilities = [(
+        variant_length_0_probability * homo_variant_probability * gt21_probabilities[gt21]
+    ) for gt21 in [GT21.AA, GT21.CC, GT21.GG, GT21.TT]]
+    hetero_SNP_probabilities = [(
+        variant_length_0_probability * hetero_variant_probability * gt21_probabilities[gt21]
+    ) for gt21 in [GT21.AC, GT21.AG, GT21.AT, GT21.CG, GT21.CT, GT21.GT]]
+
+    # Insertion
+    homo_Ins_lengths, homo_Ins_probabilities = zip(*homo_Ins_tuples_from(
+        variant_length_probabilities_1, variant_length_probabilities_2,
+        homo_variant_probability * gt21_probabilities[GT21.InsIns]
+    ))
+    homo_Ins_lengths, homo_Ins_probabilities = list(homo_Ins_lengths), list(homo_Ins_probabilities)
+    hetero_InsIns_length_tuples, hetero_InsIns_probabilities = zip(*hetero_InsIns_tuples_from(
+        variant_length_probabilities_1, variant_length_probabilities_2,
+        hetero_variant_probability * gt21_probabilities[GT21.InsIns]
+    ))
+    hetero_InsIns_length_tuples, hetero_InsIns_probabilities = (
+        list(hetero_InsIns_length_tuples), list(hetero_InsIns_probabilities)
+    )
+    hetero_ACGT_Ins_tuples = []
+    for length_tuples, p in hetero_Ins_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2):
+        for gt21, hetero_base in [(GT21.AIns, "A"), (GT21.CIns, "C"), (GT21.GIns, "G"), (GT21.TIns, "T")]:
+            hetero_ACGT_Ins_tuples.append((
+                hetero_base,
+                length_tuples,
+                p * gt21_probabilities[gt21] * hetero_variant_probability
+            ))
+    hetero_ACGT_Ins_bases, hetero_ACGT_Ins_lengths, hetero_ACGT_Ins_probabilities = zip(*hetero_ACGT_Ins_tuples)
+    hetero_ACGT_Ins_bases, hetero_ACGT_Ins_lengths, hetero_ACGT_Ins_probabilities = (
+        list(hetero_ACGT_Ins_bases), list(hetero_ACGT_Ins_lengths), list(hetero_ACGT_Ins_probabilities)
+    )
+
+    # Deletion
+    homo_Del_lengths, homo_Del_probabilities = zip(*homo_Del_tuples_from(
+        variant_length_probabilities_1, variant_length_probabilities_2,
+        homo_variant_probability * gt21_probabilities[GT21.DelDel]
+    ))
+    homo_Del_lengths, homo_Del_probabilities = list(homo_Del_lengths), list(homo_Del_probabilities)
+    hetero_DelDel_length_tuples, hetero_DelDel_probabilities = zip(*hetero_DelDel_tuples_from(
+        variant_length_probabilities_1, variant_length_probabilities_2,
+        hetero_variant_probability * gt21_probabilities[GT21.DelDel]
+    ))
+    hetero_DelDel_length_tuples, hetero_DelDel_probabilities = (
+        list(hetero_DelDel_length_tuples), list(hetero_DelDel_probabilities)
+    )
+    hetero_ACGT_Del_tuples = []
+    for length_tuples, p in hetero_Del_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2):
+        for gt21, hetero_base in [(GT21.ADel, "A"), (GT21.CDel, "C"), (GT21.GDel, "G"), (GT21.TDel, "T")]:
+            hetero_ACGT_Del_tuples.append((
+                hetero_base,
+                length_tuples,
+                p * gt21_probabilities[gt21] * hetero_variant_probability
+            ))
+    hetero_ACGT_Del_bases, hetero_ACGT_Del_lengths, hetero_ACGT_Del_probabilities = zip(*hetero_ACGT_Del_tuples)
+    hetero_ACGT_Del_bases, hetero_ACGT_Del_lengths, hetero_ACGT_Del_probabilities = (
+        list(hetero_ACGT_Del_bases), list(hetero_ACGT_Del_lengths), list(hetero_ACGT_Del_probabilities)
+    )
+
+    # InsDel
+    hetero_InsDel_length_tuples, hetero_InsDel_probabilities = zip(*hetero_InsDel_tuples_from(
+        variant_length_probabilities_1, variant_length_probabilities_2,
+        hetero_variant_probability * gt21_probabilities[GT21.InsDel]
+    ))
+    hetero_InsDel_length_tuples, hetero_InsDel_probabilities = (
+        list(hetero_InsDel_length_tuples), list(hetero_InsDel_probabilities)
+    )
+
+    reference_base, alternate_base = None, None
+    while reference_base is None or alternate_base is None:
+        maximum_probability = max(
+            homo_Ref_probability,
+            max(homo_SNP_probabilities),
+            max(hetero_SNP_probabilities),
+            max(homo_Ins_probabilities) if len(homo_Ins_probabilities) else 0,
+            max(homo_Del_probabilities) if len(homo_Del_probabilities) else 0,
+            max(hetero_ACGT_Ins_probabilities) if len(hetero_ACGT_Ins_probabilities) else 0,
+            max(hetero_InsIns_probabilities) if len(hetero_InsIns_probabilities) else 0,
+            max(hetero_ACGT_Del_probabilities) if len(hetero_ACGT_Del_probabilities) else 0,
+            max(hetero_DelDel_probabilities) if len(hetero_DelDel_probabilities) else 0,
+            max(hetero_InsDel_probabilities) if len(hetero_InsDel_probabilities) else 0,
+        )
+
+        is_reference = maximum_probability == homo_Ref_probability
+        if is_reference:
+            return (
+                (True, False, False, False, False, False, False, False, False, False),
+                (None, None)
+            )
+
+        is_homo_SNP = maximum_probability in homo_SNP_probabilities
+        is_hetero_SNP = maximum_probability in hetero_SNP_probabilities
+        is_homo_insertion = maximum_probability in homo_Ins_probabilities
+        is_hetero_ACGT_Ins = maximum_probability in hetero_ACGT_Ins_probabilities
+        is_hetero_InsIns = maximum_probability in hetero_InsIns_probabilities
+        is_homo_deletion = maximum_probability in homo_Del_probabilities
+        is_hetero_ACGT_Del = maximum_probability in hetero_ACGT_Del_probabilities
+        is_hetero_DelDel = maximum_probability in hetero_DelDel_probabilities
+        is_insertion_and_deletion = maximum_probability in hetero_InsDel_probabilities
+
+        if is_reference:
+            reference_base = reference_sequence[tensor_position_center]
+            alternate_base = reference_base
+
+        elif is_homo_SNP:
+            base1, base2 = homo_SNP_bases_from(gt21_probabilities)
+            reference_base = reference_sequence[tensor_position_center]
+            alternate_base = base1 if base1 != reference_base else base2
+
+        elif is_hetero_SNP:
+            base1, base2 = hetero_SNP_bases_from(gt21_probabilities)
+            reference_base = reference_sequence[tensor_position_center]
+            is_multi = base1 != reference_base and base2 != reference_base
+            if is_multi:
+                alternate_base = "{},{}".format(base1, base2)
+            else:
+                alternate_base = base1 if base1 != reference_base else base2
+
+        elif is_homo_insertion:
+            idx = homo_Ins_probabilities.index(maximum_probability)
+            variant_length = homo_Ins_lengths[idx]
+            del homo_Ins_probabilities[idx]
+            del homo_Ins_lengths[idx]
+
+            insertion_bases, insertion_length = insertion_bases_using(
+                tensor_input=x, variant_length=variant_length, contig=contig, position=position
+            )
+            if insertion_length == 0:
+                continue
+            reference_base = reference_sequence[tensor_position_center]
+            alternate_base = reference_base + insertion_bases
+
+        elif is_hetero_ACGT_Ins:
+            idx = hetero_ACGT_Ins_probabilities.index(maximum_probability)
+            variant_length = hetero_ACGT_Ins_lengths[idx]
+            hetero_Ins_base = hetero_ACGT_Ins_bases[idx]
+            del hetero_ACGT_Ins_probabilities[idx]
+            del hetero_ACGT_Ins_lengths[idx]
+            del hetero_ACGT_Ins_bases[idx]
+
+            insertion_bases, insertion_length = insertion_bases_using(
+                tensor_input=x, variant_length=variant_length, contig=contig, position=position
+            )
+            if insertion_length == 0:
+                continue
+            reference_base = reference_sequence[tensor_position_center]
+            alternate_base = reference_base + insertion_bases
+
+            is_SNP_Ins_multi = hetero_Ins_base != reference_base
+            if is_SNP_Ins_multi:
+                alternate_base = "{},{}".format(hetero_Ins_base, alternate_base)
+
+        elif is_hetero_InsIns:
+            idx = hetero_InsIns_probabilities.index(maximum_probability)
+            variant_length_1, variant_length_2 = hetero_InsIns_length_tuples[idx]
+            del hetero_InsIns_probabilities[idx]
+            del hetero_InsIns_length_tuples[idx]
+
+            insertion_bases, insertion_length = insertion_bases_using(
+                tensor_input=x, variant_length=variant_length_2, contig=contig, position=position
+            )
+            if insertion_length == 0:
+                continue
+            reference_base = reference_sequence[tensor_position_center]
+            alternate_base = reference_base + insertion_bases
+
+            another_insertion_bases = (
+                insertion_bases_using_pysam_using(
+                    contig=contig,
+                    position=position,
+                    minimum_insertion_length=variant_length_1,
+                    maximum_insertion_length=maximum_variant_length_from(variant_length_1),
+                    insertion_bases_to_ignore=insertion_bases
+                ) or
+                insertion_bases[0:variant_length_1]
+            )
+            alternate_base_1 = reference_base + another_insertion_bases
+            alternate_base_2 = alternate_base
+            if alternate_base_1 != alternate_base_2:
+                alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
+            else:
+                reference_base, alternate_base = None, None
+
+        elif is_homo_deletion:
+            idx = homo_Del_probabilities.index(maximum_probability)
+            variant_length = homo_Del_lengths[idx]
+            del homo_Del_probabilities[idx]
+            del homo_Del_lengths[idx]
+
+            deletion_bases, deletion_length = deletion_bases_using(
+                tensor_input=x,
+                variant_length=variant_length,
+                contig=contig,
+                position=position,
+                reference_sequence=reference_sequence,
+            )
+            if deletion_length == 0:
+                continue
+            reference_base = reference_sequence[tensor_position_center] + deletion_bases
+            alternate_base = reference_base[0]
+
+        elif is_hetero_ACGT_Del:
+            idx = hetero_ACGT_Del_probabilities.index(maximum_probability)
+            variant_length = hetero_ACGT_Del_lengths[idx]
+            hetero_Del_base = hetero_ACGT_Del_bases[idx]
+            del hetero_ACGT_Del_probabilities[idx]
+            del hetero_ACGT_Del_lengths[idx]
+            del hetero_ACGT_Del_bases[idx]
+
+            deletion_bases, deletion_length = deletion_bases_using(
+                tensor_input=x,
+                variant_length=variant_length,
+                contig=contig,
+                position=position,
+                reference_sequence=reference_sequence,
+            )
+            if deletion_length == 0:
+                continue
+            reference_base = reference_sequence[tensor_position_center] + deletion_bases
+            alternate_base = reference_base[0]
+
+            is_SNP_Del_multi = hetero_Del_base != reference_base[0]
+            if is_SNP_Del_multi:
+                alternate_base_1 = alternate_base
+                alternate_base_2 = hetero_Del_base + reference_base[1:]
+                alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
+
+        elif is_hetero_DelDel:
+            idx = hetero_DelDel_probabilities.index(maximum_probability)
+            variant_length_1, variant_length_2 = hetero_DelDel_length_tuples[idx]
+            del hetero_DelDel_probabilities[idx]
+            del hetero_DelDel_length_tuples[idx]
+
+            deletion_bases, deletion_length = deletion_bases_using(
+                tensor_input=x,
+                variant_length=variant_length_2,
+                contig=contig,
+                position=position,
+                reference_sequence=reference_sequence,
+            )
+            if deletion_length == 0:
+                continue
+            reference_base = reference_sequence[tensor_position_center] + deletion_bases
+            alternate_base = reference_base[0]
+
+            alternate_base_1 = alternate_base
+            alternate_base_2 = reference_base[0] + reference_base[variant_length_1 + 1:]
+            if (
+                alternate_base_1 != alternate_base_2 and
+                reference_base != alternate_base_1 and reference_base != alternate_base_2
+            ):
+                alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
+            else:
+                reference_base, alternate_base = None, None
+
+        elif is_insertion_and_deletion:
+            idx = hetero_InsDel_probabilities.index(maximum_probability)
+            variant_length_1, variant_length_2 = hetero_InsDel_length_tuples[idx]
+            del hetero_InsDel_probabilities[idx]
+            del hetero_InsDel_length_tuples[idx]
+
+            insertion_bases, insertion_length = insertion_bases_using(
+                tensor_input=x, variant_length=variant_length_2, contig=contig, position=position
+            )
+            deletion_bases, deletion_length = deletion_bases_using(
+                tensor_input=x,
+                variant_length=variant_length_1,
+                contig=contig,
+                position=position,
+                reference_sequence=reference_sequence,
+            )
+            if insertion_length == 0 or deletion_length == 0:
+                continue
+            reference_base = reference_sequence[tensor_position_center] + deletion_bases
+            alternate_base = "{},{}".format(
+                reference_base[0],
+                reference_base[0] + insertion_bases + reference_base[1:]
+            )
+
+    return (
+        (
+            is_reference, is_homo_SNP, is_hetero_SNP,
+            is_homo_insertion, is_hetero_ACGT_Ins, is_hetero_InsIns,
+            is_homo_deletion, is_hetero_ACGT_Del, is_hetero_DelDel,
+            is_insertion_and_deletion
+        ),
+        (reference_base, alternate_base)
+    )
 
 
 def Output(
@@ -613,9 +827,48 @@ def Output(
         )
 
     is_show_reference = args.showRef
-    position_center = flanking_base_number
+    tensor_position_center = flanking_base_number
     is_debug = True if args.debug is True else False
     is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
+    information_string = "."
+
+    def insertion_bases_using(tensor_input, variant_length, contig, position):
+        return insertion_bases_from(
+            sam_file=sam_file,
+            tensor_input=tensor_input,
+            variant_length=variant_length,
+            contig=contig,
+            position=position,
+            is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
+        )
+
+    def deletion_bases_using(tensor_input, variant_length, contig, position, reference_sequence):
+        return deletion_bases_from(
+            tensor_input=tensor_input,
+            variant_length=variant_length,
+            sam_file=sam_file,
+            fasta_file=fasta_file,
+            contig=contig,
+            position=position,
+            reference_sequence=reference_sequence,
+            is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
+        )
+
+    def insertion_bases_using_pysam_using(
+        contig,
+        position,
+        minimum_insertion_length,
+        maximum_insertion_length,
+        insertion_bases_to_ignore
+    ):
+        return insertion_bases_using_pysam_from(
+            sam_file=sam_file,
+            contig=contig,
+            position=position,
+            minimum_insertion_length=minimum_insertion_length,
+            maximum_insertion_length=maximum_insertion_length,
+            insertion_bases_to_ignore=insertion_bases_to_ignore
+        )
 
     for (
         x,
@@ -637,127 +890,10 @@ def Output(
         chromosome, position, reference_sequence = chr_pos_seq.split(":")
         position = int(position)
 
-        # calculate all possible variant cases probabilities for comparison
-        homo_reference_probability = genotype_probabilities[Genotype.homo_reference]
-        homo_variant_probability = genotype_probabilities[Genotype.homo_variant]
-        hetero_variant_probability = genotype_probabilities[Genotype.hetero_variant]
-        zero_variant_length_probability = (
-            variant_length_probabilities_1[0 + VariantLength.index_offset] *
-            variant_length_probabilities_2[0 + VariantLength.index_offset]
-        )
-        insert_length, _, homo_insert_variant_length_probability = insertion_length_tuple_from(
-            variant_length_probabilities_1, variant_length_probabilities_2
-        )
-        delete_length, _, homo_delete_variant_length_probability = deletion_length_tuple_from(
-            variant_length_probabilities_1, variant_length_probabilities_2
-        )
-        _hetero_ACGT_Ins_length_1, hetero_ACGT_Ins_length_2, hetero_ACGT_Ins_variant_length_probability = (
-            insertion_length_tuple_from(
-                variant_length_probabilities_1, variant_length_probabilities_2, is_hetero_Ins=True
-            )
-        )
-        hetero_InsIns_length_1, hetero_InsIns_length_2, hetero_InsIns_variant_length_probability = (
-            insertion_length_tuple_from(
-                variant_length_probabilities_1, variant_length_probabilities_2, is_hetero_InsIns=True
-            )
-        )
-        _hetero_ACGT_Del_length_1, hetero_ACGT_Del_length_2, hetero_ACGT_Del_variant_length_probability = (
-            deletion_length_tuple_from(
-                variant_length_probabilities_1, variant_length_probabilities_2, is_hetero_Del=True
-            )
-        )
-        hetero_DelDel_length_1, hetero_DelDel_length_2, hetero_DelDel_variant_length_probability = (
-            deletion_length_tuple_from(
-                variant_length_probabilities_1, variant_length_probabilities_2, is_hetero_DelDel=True
-            )
-        )
-        hetero_InsDel_length_1, hetero_InsDel_length_2, hetero_InsDel_variant_length_probability = (
-            insertion_and_deletion_length_tuple_from(variant_length_probabilities_1, variant_length_probabilities_2)
-        )
-
-        reference_base = reference_sequence[position_center]
-        reference_base_change = utils.base_change_enum_from(reference_base+reference_base)
-        homo_Ref_probability = (
-            gt21_probabilities[reference_base_change] * zero_variant_length_probability * homo_reference_probability
-        )
-        homo_SNP_probability = max(
-            gt21_probabilities[GT21.AA],
-            gt21_probabilities[GT21.CC],
-            gt21_probabilities[GT21.GG],
-            gt21_probabilities[GT21.TT],
-        ) * zero_variant_length_probability * homo_variant_probability
-        hetero_SNP_probability = max(
-            gt21_probabilities[GT21.AC],
-            gt21_probabilities[GT21.AG],
-            gt21_probabilities[GT21.AT],
-            gt21_probabilities[GT21.CG],
-            gt21_probabilities[GT21.CT],
-            gt21_probabilities[GT21.GT],
-        ) * zero_variant_length_probability * hetero_variant_probability
-        homo_insert_probability = (
-            gt21_probabilities[GT21.InsIns] * homo_insert_variant_length_probability * homo_variant_probability
-        )
-        homo_delete_probability = (
-            gt21_probabilities[GT21.DelDel] * homo_delete_variant_length_probability * homo_variant_probability
-        )
-        hetero_ACGT_Ins_probability = max(
-            gt21_probabilities[GT21.AIns],
-            gt21_probabilities[GT21.CIns],
-            gt21_probabilities[GT21.GIns],
-            gt21_probabilities[GT21.TIns],
-        ) * hetero_ACGT_Ins_variant_length_probability * hetero_variant_probability
-        hetero_InsIns_probability = (
-            gt21_probabilities[GT21.InsIns] * hetero_InsIns_variant_length_probability * hetero_variant_probability
-        )
-        hetero_ACGT_Del_probability = max(
-            gt21_probabilities[GT21.ADel],
-            gt21_probabilities[GT21.CDel],
-            gt21_probabilities[GT21.GDel],
-            gt21_probabilities[GT21.TDel],
-        ) * hetero_ACGT_Del_variant_length_probability * hetero_variant_probability
-        hetero_DelDel_probability = (
-            gt21_probabilities[GT21.DelDel] * hetero_DelDel_variant_length_probability * hetero_variant_probability
-        )
-        hetero_InsDel_probability = (
-            gt21_probabilities[GT21.InsDel] * hetero_InsDel_variant_length_probability * hetero_variant_probability
-        )
-        maximum_probability = max(
-            homo_Ref_probability,
-            homo_SNP_probability,
-            hetero_SNP_probability,
-            homo_insert_probability,
-            homo_delete_probability,
-            hetero_ACGT_Ins_probability,
-            hetero_InsIns_probability,
-            hetero_ACGT_Del_probability,
-            hetero_DelDel_probability,
-            hetero_InsDel_probability,
-        )
-
-        is_reference = maximum_probability == homo_Ref_probability
-        if not is_debug and not is_show_reference and is_reference:
-            continue
-
-        is_homo_SNP = maximum_probability == homo_SNP_probability
-        is_hetero_SNP = maximum_probability == hetero_SNP_probability
-        is_homo_insertion = maximum_probability == homo_insert_probability
-        is_hetero_ACGT_Ins = maximum_probability == hetero_ACGT_Ins_probability
-        is_hetero_InsIns = maximum_probability == hetero_InsIns_probability
-        is_homo_deletion = maximum_probability == homo_delete_probability
-        is_hetero_ACGT_Del = maximum_probability == hetero_ACGT_Del_probability
-        is_hetero_DelDel = maximum_probability == hetero_DelDel_probability
-        is_insertion_and_deletion = maximum_probability == hetero_InsDel_probability
-
-        is_SNP = is_homo_SNP or is_hetero_SNP
-        is_insertion = is_homo_insertion or is_hetero_ACGT_Ins or is_hetero_InsIns
-        is_deletion = is_homo_deletion or is_hetero_ACGT_Del or is_hetero_DelDel
-
-        # Initialize other variables
-        length_guess = 0
-        info = []
-
         # read depth
-        read_depth = sum(x[position_center, :, Channel.delete] + x[position_center, :, Channel.reference])
+        read_depth = sum(
+            x[tensor_position_center, :, Channel.delete] + x[tensor_position_center, :, Channel.reference]
+        )
         if read_depth == 0:
             print_debug_message_with(
                 is_debug,
@@ -772,195 +908,30 @@ def Output(
             )
             continue
 
-        # geno type string, would changed to 1/2 later if is multi
-        if is_reference:
-            genotype_string = genotype_string_from(Genotype.homo_reference)
-        elif is_homo_SNP or is_homo_insertion or is_homo_deletion:
-            genotype_string = genotype_string_from(Genotype.homo_variant)
-        elif is_hetero_SNP or is_hetero_ACGT_Ins or is_hetero_InsIns or is_hetero_ACGT_Del or is_hetero_DelDel:
-            genotype_string = genotype_string_from(Genotype.hetero_variant)
-        elif is_insertion_and_deletion:
-            genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
+        (
+            is_reference, is_homo_SNP, is_hetero_SNP,
+            is_homo_insertion, is_hetero_ACGT_Ins, is_hetero_InsIns,
+            is_homo_deletion, is_hetero_ACGT_Del, is_hetero_DelDel,
+            is_insertion_and_deletion
+        ), (reference_base, alternate_base) = output_from(
+            x,
+            reference_sequence,
+            chromosome,
+            position,
+            tensor_position_center,
+            gt21_probabilities,
+            genotype_probabilities,
+            variant_length_probabilities_1,
+            variant_length_probabilities_2,
+            insertion_bases_using,
+            deletion_bases_using,
+            insertion_bases_using_pysam_using,
+        )
 
-        # reference base and alternate base
-        reference_base = ""
-        alternate_base = ""
-        if is_reference:
-            reference_base = reference_sequence[position_center]
-            alternate_base = reference_base
+        if not is_debug and not is_show_reference and is_reference:
+            continue
 
-        elif is_homo_SNP:
-            base1, base2 = homo_SNP_bases_from(gt21_probabilities)
-            reference_base = reference_sequence[position_center]
-            alternate_base = base1 if base1 != reference_base else base2
-
-        elif is_hetero_SNP:
-            base1, base2 = hetero_SNP_bases_from(gt21_probabilities)
-            reference_base = reference_sequence[position_center]
-            is_multi = base1 != reference_base and base2 != reference_base
-            if is_multi:
-                alternate_base = "{},{}".format(base1, base2)
-                genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
-            else:
-                alternate_base = base1 if base1 != reference_base else base2
-
-        elif is_insertion:
-            variant_length = 0
-            if is_homo_insertion:
-                variant_length = insert_length
-            elif is_hetero_ACGT_Ins:
-                variant_length = hetero_ACGT_Ins_length_2
-            elif is_hetero_InsIns:
-                variant_length = hetero_InsIns_length_2
-
-            is_hetero_insertion = is_hetero_ACGT_Ins or is_hetero_InsIns
-            if is_hetero_insertion and variant_length <= 0:
-                print_debug_message_with(
-                    is_debug,
-                    call_fh,
-                    chromosome,
-                    position,
-                    gt21_probabilities,
-                    genotype_probabilities,
-                    variant_length_probabilities_1,
-                    variant_length_probabilities_2,
-                    "is hetero insertion and # of insertion bases predicted is less than 0"
-                )
-                continue
-
-            insertion_bases, insertion_length, is_inferred_insertion_bases = insertion_bases_from(
-                tensor_input=x,
-                variant_length=variant_length,
-                sam_file=sam_file,
-                contig=chromosome,
-                position=position,
-                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
-            )
-            if insertion_length > 0:
-                reference_base = reference_sequence[position_center]
-                alternate_base = reference_base + insertion_bases
-
-            if is_inferred_insertion_bases:
-                length_guess = insertion_length
-
-            hetero_insert_base = hetero_insert_base_from(gt21_probabilities) if is_hetero_ACGT_Ins else ""
-            is_SNP_Ins_multi = (
-                is_hetero_ACGT_Ins and insertion_length > 0 and hetero_insert_base != reference_base
-            )
-            is_Ins_Ins_multi = is_hetero_InsIns and insertion_length > 0
-
-            if is_SNP_Ins_multi:
-                alternate_base = "{},{}".format(hetero_insert_base, alternate_base)
-                genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
-            elif is_Ins_Ins_multi:
-                another_insertion_bases = (
-                    insertion_bases_using_pysam_from(
-                        sam_file=sam_file,
-                        contig=chromosome,
-                        position=position,
-                        minimum_insertion_length=hetero_InsIns_length_1,
-                        maximum_insertion_length=maximum_variant_length_from(hetero_InsIns_length_1),
-                        insertion_bases_to_ignore=insertion_bases
-                    ) or
-                    insertion_bases[0:hetero_InsIns_length_1]
-                )
-                alternate_base_1 = reference_base + another_insertion_bases
-                alternate_base_2 = alternate_base
-                if alternate_base_1 != alternate_base_2:
-                    alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
-                    genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
-
-        elif is_deletion:
-            variant_length = 0
-            if is_homo_deletion:
-                variant_length = delete_length
-            elif is_hetero_ACGT_Del:
-                variant_length = hetero_ACGT_Del_length_2
-            elif is_hetero_DelDel:
-                variant_length = hetero_DelDel_length_2
-
-            is_hetero_deletion = is_hetero_ACGT_Del or is_hetero_DelDel
-            if is_hetero_deletion and variant_length <= 0:
-                print_debug_message_with(
-                    is_debug,
-                    call_fh,
-                    chromosome,
-                    position,
-                    gt21_probabilities,
-                    genotype_probabilities,
-                    variant_length_probabilities_1,
-                    variant_length_probabilities_2,
-                    "is hetero deletion and # of deletion bases predicted is less than 0"
-                )
-                continue
-
-            deletion_bases, deletion_length, is_inferred_deletion_bases = deletion_bases_from(
-                tensor_input=x,
-                variant_length=variant_length,
-                sam_file=sam_file,
-                fasta_file=fasta_file,
-                contig=chromosome,
-                position=position,
-                reference_sequence=reference_sequence,
-                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
-            )
-            if deletion_length > 0:
-                reference_base = reference_sequence[position_center] + deletion_bases
-                alternate_base = reference_base[0]
-
-            if is_inferred_deletion_bases:
-                length_guess = deletion_length
-
-            hetero_delete_base = hetero_delete_base_from(gt21_probabilities) if is_hetero_ACGT_Del else ""
-            is_SNP_Del_multi = (
-                is_hetero_ACGT_Del and deletion_length > 0 and hetero_delete_base != reference_base[0]
-            )
-            is_Del_Del_multi = is_hetero_DelDel and deletion_length > 0
-
-            if is_SNP_Del_multi:
-                alternate_base_1 = alternate_base
-                alternate_base_2 = hetero_delete_base + reference_base[1:]
-                alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
-                genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
-            elif is_Del_Del_multi:
-                alternate_base_1 = alternate_base
-                alternate_base_2 = reference_base[0] + reference_base[hetero_DelDel_length_1 + 1:]
-                if (
-                    alternate_base_1 != alternate_base_2 and
-                    reference_base != alternate_base_1 and
-                    reference_base != alternate_base_2
-                ):
-                    alternate_base = "{},{}".format(alternate_base_1, alternate_base_2)
-                    genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
-
-        elif is_insertion_and_deletion:
-            insertion_bases, insertion_length, _ = insertion_bases_from(
-                tensor_input=x,
-                variant_length=hetero_InsDel_length_2,
-                sam_file=sam_file,
-                contig=chromosome,
-                position=position,
-                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
-            )
-            deletion_bases, deletion_length, _ = deletion_bases_from(
-                tensor_input=x,
-                variant_length=hetero_InsDel_length_1,
-                sam_file=sam_file,
-                fasta_file=fasta_file,
-                contig=chromosome,
-                position=position,
-                reference_sequence=reference_sequence,
-                is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
-            )
-
-            if insertion_length > 0 and deletion_length > 0:
-                reference_base = reference_sequence[position_center] + deletion_bases
-                alternate_base = "{},{}".format(
-                    reference_base[0],
-                    reference_base[0] + insertion_bases + reference_base[1:]
-                )
-
-        if reference_base == "" or alternate_base == "":
+        if reference_base is None or alternate_base is None:
             print_debug_message_with(
                 is_debug,
                 call_fh,
@@ -974,50 +945,52 @@ def Output(
             )
             continue
 
+        # geno type string
+        if is_reference:
+            genotype_string = genotype_string_from(Genotype.homo_reference)
+        elif is_homo_SNP or is_homo_insertion or is_homo_deletion:
+            genotype_string = genotype_string_from(Genotype.homo_variant)
+        elif is_hetero_SNP or is_hetero_ACGT_Ins or is_hetero_InsIns or is_hetero_ACGT_Del or is_hetero_DelDel:
+            genotype_string = genotype_string_from(Genotype.hetero_variant)
+        if "," in str(alternate_base):
+            genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
+
         # allele frequency / supported reads
+        is_SNP = is_homo_SNP or is_hetero_SNP
+        is_insertion = is_homo_insertion or is_hetero_ACGT_Ins or is_hetero_InsIns
+        is_deletion = is_homo_deletion or is_hetero_ACGT_Del or is_hetero_DelDel
         supported_reads_count = 0
         if is_reference:
             supported_reads_count = (
-                x[position_center,   base2num[reference_base], Channel.reference] +
-                x[position_center, base2num[reference_base]+4, Channel.reference]
+                x[tensor_position_center,   base2num[reference_base], Channel.reference] +
+                x[tensor_position_center, base2num[reference_base]+4, Channel.reference]
             )
         elif is_SNP:
-            for base in alternate_base:
+            for base in str(alternate_base):
                 if base == ',':
                     continue
                 supported_reads_count += (
-                    x[position_center,   base2num[base], Channel.SNP] +
-                    x[position_center, base2num[base]+4, Channel.SNP] +
-                    x[position_center,   base2num[base], Channel.reference] +
-                    x[position_center, base2num[base]+4, Channel.reference]
+                    x[tensor_position_center,   base2num[base], Channel.SNP] +
+                    x[tensor_position_center, base2num[base]+4, Channel.SNP] +
+                    x[tensor_position_center,   base2num[base], Channel.reference] +
+                    x[tensor_position_center, base2num[base]+4, Channel.reference]
                 )
         elif is_insertion:
             supported_reads_count = (
-                sum(x[position_center+1, :, Channel.insert]) -
-                sum(x[position_center+1, :, Channel.SNP])
+                sum(x[tensor_position_center+1, :, Channel.insert]) -
+                sum(x[tensor_position_center+1, :, Channel.SNP])
             )
         elif is_deletion:
-            supported_reads_count = sum(x[position_center+1, :, Channel.delete])
+            supported_reads_count = sum(x[tensor_position_center+1, :, Channel.delete])
         elif is_insertion_and_deletion:
             supported_reads_count = (
-                sum(x[position_center+1, :, Channel.insert]) +
-                sum(x[position_center+1, :, Channel.delete]) -
-                sum(x[position_center+1, :, Channel.SNP])
+                sum(x[tensor_position_center+1, :, Channel.insert]) +
+                sum(x[tensor_position_center+1, :, Channel.delete]) -
+                sum(x[tensor_position_center+1, :, Channel.SNP])
             )
         allele_frequency = ((supported_reads_count + 0.0) / read_depth) if read_depth != 0 else 0.0
         if allele_frequency > 1:
             allele_frequency = 1
-
-        # if using inferred indel length, add info LENGUESS
-        if 0 < length_guess < flanking_base_number:
-            info.append("LENGUESS={}".format(length_guess))
-
-        # information string
-        information_string = ""
-        if len(info) == 0:
-            information_string = "."
-        else:
-            information_string = ";".join(info)
 
         # quality score
         quality_score = quality_score_from(
@@ -1066,7 +1039,7 @@ def print_vcf_header(args, call_fh):
     print >> call_fh, '##ALT=<ID=DEL,Description="Deletion">'
     print >> call_fh, '##ALT=<ID=INS,Description="Insertion of novel sequence">'
     print >> call_fh, '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">'
-    print >> call_fh, '##INFO=<ID=LENGUESS,Number=.,Type=Integer,Description="Best guess of the indel length">'
+    # print >> call_fh, '##INFO=<ID=LENGUESS,Number=.,Type=Integer,Description="Best guess of the indel length">'
     print >> call_fh, '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">'
     print >> call_fh, '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">'
     print >> call_fh, '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">'
