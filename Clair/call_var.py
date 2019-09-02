@@ -604,7 +604,7 @@ def output_from(
         if is_reference:
             return (
                 (True, False, False, False, False, False, False, False, False, False),
-                (None, None)
+                (reference_sequence[tensor_position_center], reference_sequence[tensor_position_center])
             )
 
         is_homo_SNP = maximum_probability in homo_SNP_probabilities
