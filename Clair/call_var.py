@@ -1093,10 +1093,6 @@ def log_activation(args, m, utils):
     print("Finished plotting %d" % num_plotted)
 
 
-def set_values(*args):
-    return args
-
-
 def Test(args, m, utils):
     call_fh = open(args.call_fn, "w")
     fasta_file = pysam.FastaFile(filename=args.ref_fn) if args.ref_fn else None
