@@ -17,29 +17,31 @@ ExecuteCommand = namedtuple('ExecuteCommand', ['bin', 'bin_value'])
 
 def command_string_from(command):
     if isinstance(command, CommandOption):
-        return "--{} \"{}\"".format(command.option, command.value)
+        return "--{} \"{}\"".format(command.option, command.value) if command.value is not None else None
     elif isinstance(command, CommandOptionWithNoValue):
         return "--{}".format(command.option)
     elif isinstance(command, ExecuteCommand):
         return " ".join([command.bin, command.bin_value])
+    elif command is None:
+        return None
     else:
         return command
 
 
 def executable_command_string_from(commands):
-    return " ".join(map(command_string_from, commands))
+    return " ".join(list(filter(lambda x: x is not None, list(map(command_string_from, commands)))))
 
 
 class InstancesClass(object):
     def __init__(self):
-        self.EVCInstance = None
-        self.CTInstance = None
-        self.CVInstance = None
+        self.extract_variant_candidate = None
+        self.create_tensor = None
+        self.call_variant = None
 
     def poll(self):
-        self.EVCInstance.poll()
-        self.CTInstance.poll()
-        self.CVInstance.poll()
+        self.extract_variant_candidate.poll()
+        self.create_tensor.poll()
+        self.call_variant.poll()
 
 
 c = InstancesClass()
@@ -47,23 +49,27 @@ c = InstancesClass()
 
 def CheckRtCode(signum, frame):
     c.poll()
-    #print >> sys.stderr, c.EVCInstance.returncode, c.CTInstance.returncode, c.CVInstance.returncode
-    if c.EVCInstance.returncode != None and c.EVCInstance.returncode != 0:
-        c.CTInstance.kill()
-        c.CVInstance.kill()
+    #print >> sys.stderr, c.extract_variant_candidate.returncode, c.create_tensor.returncode, c.call_variant.returncode
+    if c.extract_variant_candidate.returncode != None and c.extract_variant_candidate.returncode != 0:
+        c.create_tensor.kill()
+        c.call_variant.kill()
         sys.exit("ExtractVariantCandidates.py or GetTruth.py exited with exceptions. Exiting...")
 
-    if c.CTInstance.returncode != None and c.CTInstance.returncode != 0:
-        c.EVCInstance.kill()
-        c.CVInstance.kill()
+    if c.create_tensor.returncode != None and c.create_tensor.returncode != 0:
+        c.extract_variant_candidate.kill()
+        c.call_variant.kill()
         sys.exit("CreateTensors.py exited with exceptions. Exiting...")
 
-    if c.CVInstance.returncode != None and c.CVInstance.returncode != 0:
-        c.EVCInstance.kill()
-        c.CTInstance.kill()
-        sys.exit("call_var.py exited with exceptions. Exiting...")
+    if c.call_variant.returncode != None and c.call_variant.returncode != 0:
+        c.extract_variant_candidate.kill()
+        c.create_tensor.kill()
+        sys.exit("call_variant.py exited with exceptions. Exiting...")
 
-    if c.EVCInstance.returncode == None or c.CTInstance.returncode == None or c.CVInstance.returncode == None:
+    if (
+        c.extract_variant_candidate.returncode == None or
+        c.create_tensor.returncode == None or
+        c.call_variant.returncode == None
+    ):
         signal.alarm(5)
 
 
@@ -81,6 +87,14 @@ def CheckCmdExist(cmd):
     return cmd
 
 
+def command_option_from(args_value, option_name, option_value=None):
+    if args_value and option_value is None:
+        return CommandOptionWithNoValue(option_name)
+    if args_value:
+        return CommandOption(option_name, option_value)
+    return None
+
+
 def Run(args):
     basedir = os.path.dirname(__file__)
     EVCBin = CheckFileExist(basedir + "/../dataPrepScripts/ExtractVariantCandidates.py")
@@ -95,7 +109,7 @@ def Run(args):
     bam_fn = CheckFileExist(args.bam_fn)
     ref_fn = CheckFileExist(args.ref_fn)
     vcf_fn = CheckFileExist(args.vcf_fn) if args.vcf_fn != None else None
-    bed_fn = CheckFileExist(args.bed_fn) if args.bed_fn != None else ""
+    bed_fn = CheckFileExist(args.bed_fn) if args.bed_fn != None else None
 
     dcov = args.dcov
     call_fn = args.call_fn
@@ -103,55 +117,31 @@ def Run(args):
     minCoverage = args.minCoverage
     sampleName = args.sampleName
     ctgName = args.ctgName
-    if ctgName == None:
+    if ctgName is None:
         sys.exit("--ctgName must be specified. You can call variants on multiple chromosomes simultaneously.")
 
-    if args.considerleftedge:
-        considerleftedge = CommandOptionWithNoValue('considerleftedge')
-    else:
-        considerleftedge = ""
+    considerleftedge = command_option_from(args.considerleftedge, 'considerleftedge')
+    log_path = command_option_from(args.log_path, 'log_path', option_value=args.log_path)
+    pysam_for_all_indel_bases = command_option_from(args.pysam_for_all_indel_bases, 'pysam_for_all_indel_bases')
+    debug = command_option_from(args.debug, 'debug')
+    qual = command_option_from(args.qual, 'qual', option_value=args.qual)
+    fast_plotting = command_option_from(args.fast_plotting, 'fast_plotting')
 
-    if args.log_path:
-        log_path = CommandOption('log_path',args.log_path)
-    else:
-        log_path = ""
+    ctgStart = None
+    ctgEnd = None
+    if args.ctgStart is not None and args.ctgEnd is not None and int(args.ctgStart) <= int(args.ctgEnd):
+        ctgStart = CommandOption('ctgStart', args.ctgStart)
+        ctgEnd = CommandOption('ctgEnd', args.ctgEnd)
 
-    if args.pysam_for_all_indel_bases:
-        pysam_for_all_indel_bases = CommandOptionWithNoValue('pysam_for_all_indel_bases')
-    else:
-        pysam_for_all_indel_bases = ""
-
-    if args.debug:
-        debug = CommandOptionWithNoValue('debug')
-    else:
-        debug = ""
-
-    if args.ctgStart != None and args.ctgEnd != None and int(args.ctgStart) <= int(args.ctgEnd):
-        ctgStart = CommandOption('ctgStart',args.ctgStart)
-        ctgEnd = CommandOption('ctgEnd',args.ctgEnd)
-    else:
-        ctgStart = ""
-        ctgEnd = ""
-
-    if args.qual:
-        qual = CommandOption('qual',args.qual)
-    else:
-        qual = ""
-
-    if args.fast_plotting:
-        fast_plotting = CommandOptionWithNoValue('fast_plotting')
-    else:
-        fast_plotting = ""
-
-    if args.threads == None:
+    if args.threads is None:
         numCpus = multiprocessing.cpu_count()
     else:
         numCpus = args.threads if args.threads < multiprocessing.cpu_count() else multiprocessing.cpu_count()
 
     maxCpus = multiprocessing.cpu_count()
     _cpuSet = ",".join(str(x) for x in random.sample(xrange(0, maxCpus), numCpus))
-    taskSet = "taskset -c %s" % (_cpuSet)
 
+    taskSet = "taskset -c %s" % (_cpuSet)
     try:
         subprocess.check_output("which %s" % ("taskset"), shell=True)
     except:
@@ -162,93 +152,84 @@ def Run(args):
         print >> sys.stderr, "Delay %d seconds before starting variant calling ..." % (delay)
         time.sleep(delay)
 
-    vcfIsNone_commands=[
+    extract_variant_candidate_command_options = [
         pypyBin,
         EVCBin,
-        CommandOption('bam_fn',bam_fn),
-        CommandOption('ref_fn',ref_fn),
-        CommandOption('bed_fn',bed_fn),
-        CommandOption('ctgName',ctgName),
+        CommandOption('bam_fn', bam_fn),
+        CommandOption('ref_fn', ref_fn),
+        CommandOption('bed_fn', bed_fn),
+        CommandOption('ctgName', ctgName),
         ctgStart,
         ctgEnd,
-        CommandOption('threshold',threshold),
-        CommandOption('minCoverage',minCoverage),
-        CommandOption('samtools',samtoolsBin)
+        CommandOption('threshold', threshold),
+        CommandOption('minCoverage', minCoverage),
+        CommandOption('samtools', samtoolsBin)
     ]
-
-    vcfIsNotNone_commands=[
+    get_truth_command_options = [
         pypyBin,
         GTBin,
-        CommandOption('vcf_fn',vcf_fn),
-        CommandOption('ctgName',ctgName),
+        CommandOption('vcf_fn', vcf_fn),
+        CommandOption('ctgName', ctgName),
         ctgStart,
         ctgEnd
     ]
 
-    required_commands=[
+    create_tensor_command_options = [
         pypyBin,
         CTBin,
-        CommandOption('bam_fn',bam_fn),
-        CommandOption('ref_fn',ref_fn),
-        CommandOption('ctgName',ctgName),
+        CommandOption('bam_fn', bam_fn),
+        CommandOption('ref_fn', ref_fn),
+        CommandOption('ctgName', ctgName),
         ctgStart,
         ctgEnd,
         considerleftedge,
-        CommandOption('samtools',samtoolsBin),
-        CommandOption('dcov',dcov)
+        CommandOption('samtools', samtoolsBin),
+        CommandOption('dcov', dcov)
     ]
 
-    activation_commands=[
+    call_variant_command_options = [
         taskSet,
-        ExecuteCommand('python',CVBin),
+        ExecuteCommand('python', CVBin),
         CommandOption('chkpnt_fn', chkpnt_fn),
-        CommandOption('call_fn',call_fn),
-        CommandOption('bam_fn',bam_fn),
-        CommandOption('sampleName',sampleName),
-        CommandOption('threads',numCpus),
-        pysam_for_all_indel_bases
+        CommandOption('call_fn', call_fn),
+        CommandOption('bam_fn', bam_fn),
+        CommandOption('sampleName', sampleName),
+        CommandOption('threads', numCpus),
+        CommandOption('ref_fn', ref_fn),
+        pysam_for_all_indel_bases,
+        qual,
+        debug
     ]
-
-    activationOnly_commands=[
+    call_variant_with_activation_command_options = [
         CommandOptionWithNoValue('activation_only'),
         log_path,
-        CommandOption('max_plot',args.max_plot),
-        CommandOption('parallel_level',args.parallel_level),
-        CommandOption('workers',args.workers),
-        CommandOption('ref_fn',ref_fn),
-        qual,
+        CommandOption('max_plot', args.max_plot),
+        CommandOption('parallel_level', args.parallel_level),
+        CommandOption('workers', args.workers),
         fast_plotting,
-        debug
     ]
 
-    notActivationOnly_commands=[
-        CommandOption('ref_fn',ref_fn),
-        qual,
-        debug
-    ]
-
-
+    is_true_variant_call = vcf_fn is not None
     try:
-        if vcf_fn == None:
-            c.EVCInstance = subprocess.Popen(
-                shlex.split(executable_command_string_from(vcfIsNone_commands)),
-                stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
-        else:
-            c.EVCInstance = subprocess.Popen(
-                shlex.split(executable_command_string_from(vcfIsNotNone_commands)),
-                stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
-        c.CTInstance = subprocess.Popen(
-            shlex.split(executable_command_string_from(required_commands)),
-            stdin=c.EVCInstance.stdout, stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608)
+        c.extract_variant_candidate = subprocess.Popen(
+            shlex.split(executable_command_string_from(
+                get_truth_command_options if is_true_variant_call else extract_variant_candidate_command_options
+            )),
+            stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608
+        )
 
-        if args.activation_only:
-            c.CVInstance = subprocess.Popen(
-                shlex.split(executable_command_string_from(activation_commands+activationOnly_commands)),
-                stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
-        else:
-            c.CVInstance = subprocess.Popen(
-                shlex.split(executable_command_string_from(activation_commands+notActivationOnly_commands)),
-                stdin=c.CTInstance.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608)
+        c.create_tensor = subprocess.Popen(
+            shlex.split(executable_command_string_from(create_tensor_command_options)),
+            stdin=c.extract_variant_candidate.stdout, stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608
+        )
+
+        c.call_variant = subprocess.Popen(
+            shlex.split(executable_command_string_from(
+                call_variant_command_options +
+                (call_variant_with_activation_command_options if args.activation_only else [])
+            )),
+            stdin=c.create_tensor.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608
+        )
     except Exception as e:
         print >> sys.stderr, e
         sys.exit("Failed to start required processes. Exiting...")
@@ -257,23 +238,17 @@ def Run(args):
     signal.alarm(2)
 
     try:
-        c.CVInstance.wait()
-        c.CTInstance.stdout.close()
-        c.CTInstance.wait()
-        c.EVCInstance.stdout.close()
-        c.EVCInstance.wait()
+        c.call_variant.wait()
+        c.create_tensor.stdout.close()
+        c.create_tensor.wait()
+        c.extract_variant_candidate.stdout.close()
+        c.extract_variant_candidate.wait()
     except KeyboardInterrupt as e:
         print("KeyboardInterrupt received when waiting at CallVarBam, terminating all scripts.")
         try:
-            c.CVInstance.terminate()
-        except Exception as e:
-            print(e.message)
-        try:
-            c.CTInstance.terminate()
-        except Exception as e:
-            print(e.message)
-        try:
-            c.EVCInstance.terminate()
+            c.call_variant.terminate()
+            c.create_tensor.terminate()
+            c.extract_variant_candidate.terminate()
         except Exception as e:
             print(e.message)
 
@@ -282,18 +257,12 @@ def Run(args):
         print("Exception received when waiting at CallVarBam, terminating all scripts.")
         print(e.message)
         try:
-            c.CVInstance.terminate()
+            c.call_variant.terminate()
+            c.create_tensor.terminate()
+            c.extract_variant_candidate.terminate()
         except Exception as e:
             print(e.message)
-        try:
-            c.CTInstance.terminate()
-        except Exception as e:
-            print(e.message)
-        try:
-            c.EVCInstance.terminate()
-        except Exception as e:
-            print("C")
-            print(e.message)
+
         raise e
 
 
