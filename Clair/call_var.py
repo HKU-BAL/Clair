@@ -617,11 +617,7 @@ def output_from(
         is_hetero_DelDel = maximum_probability in hetero_DelDel_probabilities
         is_insertion_and_deletion = maximum_probability in hetero_InsDel_probabilities
 
-        if is_reference:
-            reference_base = reference_sequence[tensor_position_center]
-            alternate_base = reference_base
-
-        elif is_homo_SNP:
+        if is_homo_SNP:
             base1, base2 = homo_SNP_bases_from(gt21_probabilities)
             reference_base = reference_sequence[tensor_position_center]
             alternate_base = base1 if base1 != reference_base else base2
