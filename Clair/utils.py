@@ -205,7 +205,7 @@ def UnpackATensorRecord(a, b, c, *d):
     return a, b, c, np.array(d, dtype=np.float32)
 
 
-def GetTensor(tensor_fn, num):
+def tensor_generator_from(tensor_fn, num):
     if tensor_fn != "PIPE":
         f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         fo = f.stdout
@@ -233,7 +233,7 @@ def GetTensor(tensor_fn, num):
                 x[:, :, :, i] -= x[:, :, :, 0]
             total += c
             print >> sys.stderr, "Processed %d tensors" % total
-            yield 0, c, x, pos
+            yield False, c, x, pos
             c = 0
             rows = np.empty((num, ((2*param.flankingBaseNum+1)*param.matrixRow*param.matrixNum)), dtype=np.float32)
             pos = []
@@ -246,7 +246,7 @@ def GetTensor(tensor_fn, num):
         x[:, :, :, i] -= x[:, :, :, 0]
     total += c
     print >> sys.stderr, "Processed %d tensors" % total
-    yield 1, c, x, pos
+    yield True, c, x, pos
 
 
 def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
@@ -616,10 +616,6 @@ def setup_environment():
 
 def unpack_a_tensor_record(a, b, c, *d):
     return a, b, c, np.array(d, dtype=np.float32)
-
-
-def get_tensor(tensor_fn, num):
-    return GetTensor(tensor_fn, num)
 
 
 def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):

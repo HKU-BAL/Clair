@@ -195,9 +195,9 @@ def Run(args):
     m.restore_parameters(os.path.abspath(args.chkpnt_fn))
 
     if args.activation_only:
-        log_activation(args, m, utils)
+        log_activation(args, m)
     else:
-        Test(args, m, utils)
+        call_variants(args, m)
 
 
 def print_debug_message_with(
@@ -807,7 +807,7 @@ def output_from(
     )
 
 
-def Output(
+def output(
     args,
     call_fh,
     batch_size,
@@ -1057,7 +1057,7 @@ def print_vcf_header(args, call_fh):
     print >> call_fh, '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t%s' % (args.sampleName)
 
 
-def log_activation(args, m, utils):
+def log_activation(args, m):
     if args.log_path is None:
         return
 
@@ -1066,13 +1066,13 @@ def log_activation(args, m, utils):
     if summary_writer is None:
         return
 
-    tensorGenerator = utils.GetTensor(args.tensor_fn, param.predictBatchSize)
+    tensor_generator = utils.tensor_generator_from(args.tensor_fn, param.predictBatchSize)
     logging.info("Plotting activations ...")
 
     num_plotted = 0
     while(num_plotted < args.max_plot or args.max_plot < 0):
         print("Getting next batch")
-        is_end_of_generator, batch_size, batch_X, batch_positions = next(tensorGenerator)
+        is_end_of_generator, batch_size, batch_X, batch_positions = next(tensor_generator)
         print("Batch generation complete %d" % batch_size)
         # strip away the reference string, keeping the chr and coor only
         batch_positions = [s[:s.rfind(":")] for s in batch_positions]
@@ -1088,75 +1088,70 @@ def log_activation(args, m, utils):
         for summary in summaries:
             summary_writer.add_summary(summary)
         num_plotted += min(batch_size, args.max_plot - num_plotted if args.max_plot >= 0 else batch_size)
-        if is_end_of_generator == 1:
+        if is_end_of_generator:
             break
     print("Finished plotting %d" % num_plotted)
 
 
-def Test(args, m, utils):
+def call_variants(args, m):
     call_fh = open(args.call_fn, "w")
     fasta_file = pysam.FastaFile(filename=args.ref_fn) if args.ref_fn else None
     sam_file = pysam.AlignmentFile(args.bam_fn, mode="rb")
 
     print_vcf_header(args, call_fh)
 
-    tensorGenerator = utils.GetTensor(args.tensor_fn, param.predictBatchSize)
+    tensor_generator = utils.tensor_generator_from(args.tensor_fn, param.predictBatchSize)
     logging.info("Calling variants ...")
-    predictStart = time.time()
-    end = 0
-    end2 = 0
-    terminate = 0
-    end2, num2, XBatch2, posBatch2 = next(tensorGenerator)
-    m.predict(XBatch2, result_caching=True)
-    base = m.predictBaseRTVal
-    gt = m.predictGenotypeRTVal
-    l1 = m.predictIndelLengthRTVal1
-    l2 = m.predictIndelLengthRTVal2
-    if end2 == 0:
-        end = end2
-        num = num2
-        XBatch = XBatch2
-        posBatch = posBatch2
-        end2, num2, XBatch2, posBatch2 = next(tensorGenerator)
-        while True:
-            if end == 1:
-                terminate = 1
-            threadPool = []
-            if end == 0:
-                threadPool.append(Thread(target=m.predict, args=(XBatch2, True)))
-            threadPool.append(
+    variant_call_start_time = time.time()
+
+    is_finish_loaded_all_mini_batches = False
+    mini_batches_to_predict = []
+    mini_batches_to_output = []
+
+    while True:
+        thread_pool = []
+
+        if len(mini_batches_to_output) > 0:
+            batch_size, X, batch_chr_pos_seq = mini_batches_to_output.pop(0)
+            gt21, zygosity, variant_length_1, variant_length_2 = (
+                m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2
+            )
+            thread_pool.append(
                 Thread(
-                    target=Output,
-                    args=(args, call_fh, num, XBatch, posBatch, base, gt, l1, l2, sam_file, fasta_file)
+                    target=output,
+                    args=(
+                        args, call_fh,
+                        batch_size, X, batch_chr_pos_seq,
+                        gt21, zygosity, variant_length_1, variant_length_2,
+                        sam_file, fasta_file
+                    )
                 )
             )
-            for t in threadPool:
-                t.start()
-            if end2 == 0:
-                end3, num3, XBatch3, posBatch3 = next(tensorGenerator)
-            for t in threadPool:
-                t.join()
-            base = m.predictBaseRTVal
-            gt = m.predictGenotypeRTVal
-            l1 = m.predictIndelLengthRTVal1
-            l2 = m.predictIndelLengthRTVal2
-            if end == 0:
-                end = end2
-                num = num2
-                XBatch = XBatch2
-                posBatch = posBatch2
-            if end2 == 0:
-                end2 = end3
-                num2 = num3
-                XBatch2 = XBatch3
-                posBatch2 = posBatch3
-            # print >> sys.stderr, end, end2, end3, terminate
-            if terminate == 1:
-                break
-    elif end2 == 1:
-        Output(args, call_fh, num2, XBatch2, posBatch2, base, gt, l1, l2, sam_file, fasta_file)
 
-    logging.info("Total time elapsed: %.2f s" % (time.time() - predictStart))
+        if len(mini_batches_to_predict) > 0:
+            mini_batch = mini_batches_to_predict.pop(0)
+            _, X, _ = mini_batch
+            thread_pool.append(
+                Thread(target=m.predict, args=(X, True))
+            )
+            mini_batches_to_output.append(mini_batch)
+
+        for t in thread_pool:
+            t.start()
+        if not is_finish_loaded_all_mini_batches:
+            is_finish_loaded_all_mini_batches, batch_size, X, batch_chr_pos_seq = next(tensor_generator)
+            if batch_size > 0:
+                mini_batches_to_predict.append((batch_size, X, batch_chr_pos_seq))
+        for t in thread_pool:
+            t.join()
+
+        is_nothing_to_predict_and_output = (
+            len(thread_pool) <= 0 and len(mini_batches_to_predict) <= 0 and len(mini_batches_to_output) <= 0
+        )
+        if is_finish_loaded_all_mini_batches and is_nothing_to_predict_and_output:
+            break
+
+    logging.info("Total time elapsed: %.2f s" % (time.time() - variant_call_start_time))
 
     sam_file.close()
     fasta_file.close()
