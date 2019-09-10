@@ -139,7 +139,7 @@ def Run(args):
     ] if args.activation_only else []
 
     is_bed_file_provided = bed_fn is not None
-    command_string = command_string_from(call_var_bam_command_options)
+    command_string = command_string_from(call_var_bam_command_options + activation_only_command_options)
 
     with open(fai_fn, 'r') as fai_fp:
         for row in fai_fp:
@@ -176,11 +176,7 @@ def Run(args):
                     CommandOption('bed_fn', bed_fn) if is_region_in_bed else None
                 ]
 
-                print(
-                    command_string +
-                    " " +
-                    command_string_from(additional_command_options + activation_only_command_options)
-                )
+                print(command_string + " " + command_string_from(additional_command_options))
 
 
 if __name__ == "__main__":
