@@ -145,37 +145,34 @@ def Run(args):
         for row in fai_fp:
             columns = row.strip().split("\t")
 
-            chromosome_name = columns[0]
-            if not is_include_all_contigs and str(chromosome_name) not in major_contigs:
+            contig_name = columns[0]
+            if not is_include_all_contigs and str(contig_name) not in major_contigs:
                 continue
 
-            region_start = 0
-            chromosome_length = int(columns[1])
-            while region_start < chromosome_length:
-                start = region_start
-                end = region_start + region_chunk_size
-                if end > chromosome_length:
-                    end = chromosome_length
-                output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, chromosome_name, start, end)
-                region_start = end
+            region_start, region_end = 0, 0
+            contig_length = int(columns[1])
+            while region_end < contig_length:
+                region_start = region_end
+                region_end = region_start + region_chunk_size
+                if region_end > contig_length:
+                    region_end = contig_length
+                output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, contig_name, region_start, region_end)
 
                 is_region_in_bed = (
                     is_bed_file_provided and
-                    chromosome_name in tree and len(tree[chromosome_name].search(start, end)) != 0
+                    contig_name in tree and len(tree[contig_name].search(region_start, region_end)) != 0
                 )
-
                 need_output_command = not is_bed_file_provided or is_region_in_bed
                 if not need_output_command:
                     continue
 
                 additional_command_options = [
-                    CommandOption('ctgName', chromosome_name),
-                    CommandOption('ctgStart', start),
-                    CommandOption('ctgEnd', end),
+                    CommandOption('ctgName', contig_name),
+                    CommandOption('ctgStart', region_start),
+                    CommandOption('ctgEnd', region_end),
                     CommandOption('call_fn', output_fn),
                     CommandOption('bed_fn', bed_fn) if is_region_in_bed else None
                 ]
-
                 print(command_string + " " + command_string_from(additional_command_options))
 
 
