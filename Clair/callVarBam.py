@@ -15,21 +15,27 @@ CommandOptionWithNoValue = namedtuple('CommandOptionWithNoValue', ['option'])
 ExecuteCommand = namedtuple('ExecuteCommand', ['bin', 'bin_value'])
 
 
-def command_string_from(command):
+def command_option_string_from(command):
     if isinstance(command, CommandOption):
         return "--{} \"{}\"".format(command.option, command.value) if command.value is not None else None
     elif isinstance(command, CommandOptionWithNoValue):
         return "--{}".format(command.option)
     elif isinstance(command, ExecuteCommand):
         return " ".join([command.bin, command.bin_value])
-    elif command is None:
-        return None
     else:
         return command
 
 
-def executable_command_string_from(commands):
-    return " ".join(list(filter(lambda x: x is not None, list(map(command_string_from, commands)))))
+def command_string_from(command_options):
+    return " ".join(list(filter(lambda x: x is not None, list(map(command_option_string_from, command_options)))))
+
+
+def command_option_from(args_value, option_name, option_value=None):
+    if args_value is None:
+        return None
+    if args_value is True and option_value is None:
+        return CommandOptionWithNoValue(option_name)
+    return CommandOption(option_name, option_value)
 
 
 class InstancesClass(object):
@@ -87,14 +93,6 @@ def CheckCmdExist(cmd):
     return cmd
 
 
-def command_option_from(args_value, option_name, option_value=None):
-    if args_value and option_value is None:
-        return CommandOptionWithNoValue(option_name)
-    if args_value:
-        return CommandOption(option_name, option_value)
-    return None
-
-
 def Run(args):
     basedir = os.path.dirname(__file__)
     EVCBin = CheckFileExist(basedir + "/../dataPrepScripts/ExtractVariantCandidates.py")
@@ -113,7 +111,7 @@ def Run(args):
 
     dcov = args.dcov
     call_fn = args.call_fn
-    threshold = args.threshold
+    af_threshold = args.threshold
     minCoverage = args.minCoverage
     sampleName = args.sampleName
     ctgName = args.ctgName
@@ -161,7 +159,7 @@ def Run(args):
         CommandOption('ctgName', ctgName),
         ctgStart,
         ctgEnd,
-        CommandOption('threshold', threshold),
+        CommandOption('threshold', af_threshold),
         CommandOption('minCoverage', minCoverage),
         CommandOption('samtools', samtoolsBin)
     ]
@@ -207,26 +205,25 @@ def Run(args):
         CommandOption('parallel_level', args.parallel_level),
         CommandOption('workers', args.workers),
         fast_plotting,
-    ]
+    ] if args.activation_only else []
 
     is_true_variant_call = vcf_fn is not None
     try:
         c.extract_variant_candidate = subprocess.Popen(
-            shlex.split(executable_command_string_from(
+            shlex.split(command_string_from(
                 get_truth_command_options if is_true_variant_call else extract_variant_candidate_command_options
             )),
             stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608
         )
 
         c.create_tensor = subprocess.Popen(
-            shlex.split(executable_command_string_from(create_tensor_command_options)),
+            shlex.split(command_string_from(create_tensor_command_options)),
             stdin=c.extract_variant_candidate.stdout, stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608
         )
 
         c.call_variant = subprocess.Popen(
-            shlex.split(executable_command_string_from(
-                call_variant_command_options +
-                (call_variant_with_activation_command_options if args.activation_only else [])
+            shlex.split(command_string_from(
+                call_variant_command_options + call_variant_with_activation_command_options
             )),
             stdin=c.create_tensor.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608
         )
@@ -303,10 +300,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--ctgName', type=str, default=None,
                         help="The name of sequence to be processed, default: %(default)s")
-
     parser.add_argument('--ctgStart', type=int, default=None,
                         help="The 1-based starting position of the sequence to be processed")
-
     parser.add_argument('--ctgEnd', type=int, default=None,
                         help="The 1-based inclusive ending position of the sequence to be processed")
 
@@ -328,29 +323,24 @@ if __name__ == "__main__":
     parser.add_argument('--delay', type=int, default=10,
                         help="Wait a short while for no more than %(default)s to start the job. This is to avoid starting multiple jobs simultaneously that might use up the maximum number of threads allowed, because Tensorflow will create more threads than needed at the beginning of running the program.")
 
-    parser.add_argument('--activation_only', action='store_true',
-                        help="Output activation only, no prediction")
-
-    parser.add_argument('--max_plot', type=int, default=10,
-                        help="The maximum number of plots output, negative number means no limit (plot all), default: %(default)s")
-
-    parser.add_argument('--log_path', type=str, nargs='?', default=None,
-                        help="The path for tensorflow logging, default: %(default)s")
-
-    parser.add_argument('-p', '--parallel_level', type=int, default=2,
-                        help="The level of parallelism in plotting (currently available: 0, 2), default: %(default)s")
-
-    parser.add_argument('--fast_plotting', action='store_true',
-                        help="Enable fast plotting.")
-
-    parser.add_argument('-w', '--workers', type=int, default=8,
-                        help="The number of workers in plotting, default: %(default)s")
-
-    parser.add_argument('--debug', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--debug', action='store_true',
                         help="Debug mode, optional")
 
     parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
+
+    parser.add_argument('--activation_only', action='store_true',
+                        help="Output activation only, no prediction")
+    parser.add_argument('--max_plot', type=int, default=10,
+                        help="The maximum number of plots output, negative number means no limit (plot all), default: %(default)s")
+    parser.add_argument('--log_path', type=str, nargs='?', default=None,
+                        help="The path for tensorflow logging, default: %(default)s")
+    parser.add_argument('-p', '--parallel_level', type=int, default=2,
+                        help="The level of parallelism in plotting (currently available: 0, 2), default: %(default)s")
+    parser.add_argument('--fast_plotting', action='store_true',
+                        help="Enable fast plotting.")
+    parser.add_argument('-w', '--workers', type=int, default=8,
+                        help="The number of workers in plotting, default: %(default)s")
 
     args = parser.parse_args()
 

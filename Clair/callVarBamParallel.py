@@ -7,26 +7,34 @@ import argparse
 import param
 from collections import namedtuple
 
-majorContigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) for a in range(0, 23)+["X", "Y"]})
+major_contigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) for a in range(0, 23)+["X", "Y"]})
 
 CommandOption = namedtuple('CommandOption', ['option', 'value'])
 CommandOptionWithNoValue = namedtuple('CommandOptionWithNoValue', ['option'])
 ExecuteCommand = namedtuple('ExecuteCommand', ['bin', 'bin_value'])
 
 
-def command_string_from(command):
+def command_option_string_from(command):
     if isinstance(command, CommandOption):
-        return "--{} \"{}\"".format(command.option, command.value)
+        return "--{} \"{}\"".format(command.option, command.value) if command.value is not None else None
     elif isinstance(command, CommandOptionWithNoValue):
         return "--{}".format(command.option)
     elif isinstance(command, ExecuteCommand):
         return " ".join([command.bin, command.bin_value])
     else:
-        return ""
+        return command
 
 
-def executable_command_string_from(commands):
-    return " ".join(map(command_string_from, commands))
+def command_string_from(command_options):
+    return " ".join(list(filter(lambda x: x is not None, list(map(command_option_string_from, command_options)))))
+
+
+def command_option_from(args_value, option_name, option_value=None):
+    if args_value is None:
+        return None
+    if args_value is True and option_value is None:
+        return CommandOptionWithNoValue(option_name)
+    return CommandOption(option_name, option_value)
 
 
 def CheckFileExist(fn, sfx=""):
@@ -79,100 +87,100 @@ def Run(args):
     ref_fn = CheckFileExist(args.ref_fn)
     fai_fn = CheckFileExist(args.ref_fn + ".fai")
     bed_fn = CheckFileExist(args.bed_fn) if args.bed_fn is not None else None
-    output_prefix = args.output_prefix
-    threshold = args.threshold
+    vcf_fn = CheckFileExist(args.vcf_fn) if args.vcf_fn else None
 
-    is_bed_file_provided = bed_fn is not None
+    output_prefix = args.output_prefix
+    af_threshold = args.threshold
+
+    tree = intervaltree_from(bed_file_path=bed_fn)
 
     minCoverage = args.minCoverage
     sampleName = args.sampleName
     delay = args.delay
     threads = args.tensorflowThreads
     qual = args.qual
-    includingAllContigs = args.includingAllContigs
-    refChunkSize = args.refChunkSize
+    is_include_all_contigs = args.includingAllContigs
+    region_chunk_size = args.refChunkSize
 
-    required_commands = [
+    considerleftedge = command_option_from(args.considerleftedge, 'considerleftedge')
+    log_path = command_option_from(args.log_path, 'log_path', option_value=args.log_path)
+    pysam_for_all_indel_bases = command_option_from(args.pysam_for_all_indel_bases, 'pysam_for_all_indel_bases')
+    debug = command_option_from(args.debug, 'debug')
+    qual = command_option_from(args.qual, 'qual', option_value=args.qual)
+    fast_plotting = command_option_from(args.fast_plotting, 'fast_plotting')
+
+    call_var_bam_command_options = [
         ExecuteCommand('python', callVarBamBin),
         CommandOption('chkpnt_fn', chkpnt_fn),
         CommandOption('ref_fn', ref_fn),
         CommandOption('bam_fn', bam_fn),
-        CommandOption('threshold', threshold),
+        CommandOption('threshold', af_threshold),
         CommandOption('minCoverage', minCoverage),
         CommandOption('pypy', pypyBin),
         CommandOption('samtools', samtoolsBin),
         CommandOption('delay', delay),
         CommandOption('threads', threads),
         CommandOption('sampleName', sampleName),
+        # optional command options
+        CommandOption('vcf_fn', vcf_fn) if vcf_fn is not None else None,
+        qual,
+        considerleftedge,
+        debug,
+        pysam_for_all_indel_bases,
     ]
 
-    optional_options = []
-    activation_only_commands= []
-    vcf_fn = CheckFileExist(args.vcf_fn) if args.vcf_fn else None
-    if vcf_fn is not None:
-        optional_options.append(CommandOption('vcf_fn', vcf_fn))
-    if args.qual is not None:
-        optional_options.append(CommandOption('qual', qual))
-    if args.considerleftedge:
-        optional_options.append(CommandOptionWithNoValue('considerleftedge'))
-    if args.debug:
-        optional_options.append(CommandOptionWithNoValue('debug'))
-    if args.pysam_for_all_indel_bases:
-        optional_options.append(CommandOptionWithNoValue('pysam_for_all_indel_bases'))
-    if args.activation_only:
-        activation_only_commands.append(CommandOptionWithNoValue('activation_only'))
-        if args.log_path is not None:
-            activation_only_commands.append(CommandOption('log_path', args.log_path))
-        if args.max_plot is not None:
-            activation_only_commands.append(CommandOption('max_plot', args.max_plot))
-        if args.parallel_level is not None:
-            activation_only_commands.append(CommandOption('parallel_level', args.parallel_level))
-        if args.workers is not None:
-            activation_only_commands.append(CommandOption('workers', args.workers))
-        if args.fast_plotting:
-            activation_only_commands.append(CommandOptionWithNoValue('fast_plotting'))
+    activation_only_command_options = [
+        CommandOptionWithNoValue('activation_only'),
+        log_path,
+        CommandOption('max_plot', args.max_plot),
+        CommandOption('parallel_level', args.parallel_level),
+        CommandOption('workers', args.workers),
+        fast_plotting,
+    ] if args.activation_only else []
 
-    command_string = executable_command_string_from(required_commands + optional_options)
-
-    tree = intervaltree_from(bed_file_path=bed_fn)
+    is_bed_file_provided = bed_fn is not None
+    command_string = command_string_from(call_var_bam_command_options)
 
     with open(fai_fn, 'r') as fai_fp:
-        for line in fai_fp:
-            fields = line.strip().split("\t")
+        for row in fai_fp:
+            columns = row.strip().split("\t")
 
-            chromName = fields[0]
-            if includingAllContigs == False and str(chromName) not in majorContigs:
+            chromosome_name = columns[0]
+            if not is_include_all_contigs and str(chromosome_name) not in major_contigs:
                 continue
-            regionStart = 0
-            chromLength = int(fields[1])
 
-            while regionStart < chromLength:
-                start = regionStart
-                end = regionStart + refChunkSize
-                if end > chromLength:
-                    end = chromLength
-                output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, chromName, start, end)
-                regionStart = end
+            region_start = 0
+            chromosome_length = int(columns[1])
+            while region_start < chromosome_length:
+                start = region_start
+                end = region_start + region_chunk_size
+                if end > chromosome_length:
+                    end = chromosome_length
+                output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, chromosome_name, start, end)
+                region_start = end
 
-                additional_options = [
-                    CommandOption('ctgName', chromName),
+                is_region_in_bed = (
+                    is_bed_file_provided and
+                    chromosome_name in tree and len(tree[chromosome_name].search(start, end)) != 0
+                )
+
+                need_output_command = not is_bed_file_provided or is_region_in_bed
+                if not need_output_command:
+                    continue
+
+                additional_command_options = [
+                    CommandOption('ctgName', chromosome_name),
                     CommandOption('ctgStart', start),
                     CommandOption('ctgEnd', end),
-                    CommandOption('call_fn', output_fn)
+                    CommandOption('call_fn', output_fn),
+                    CommandOption('bed_fn', bed_fn) if is_region_in_bed else None
                 ]
 
-                if not is_bed_file_provided:
-                    print(command_string + " " + executable_command_string_from(
-                            additional_options + activation_only_commands if args.activation_only else []))
-
-                if chromName in tree and len(tree[chromName].search(start, end)) != 0:
-                    additional_options.append(CommandOption('bed_fn', bed_fn))
-                    if args.activation_only:
-                        print(command_string + " " + executable_command_string_from(additional_options+activation_only_commands))
-                    else:
-                        print(command_string + " " + executable_command_string_from(
-                                    additional_options))
-
+                print(
+                    command_string +
+                    " " +
+                    command_string_from(additional_command_options + activation_only_command_options)
+                )
 
 
 if __name__ == "__main__":
@@ -231,29 +239,24 @@ if __name__ == "__main__":
     parser.add_argument('--delay', type=int, default=10,
                         help="Wait a short while for no more than %(default)s to start the job. This is to avoid starting multiple jobs simultaneously that might use up the maximum number of threads allowed, because Tensorflow will create more threads than needed at the beginning of running the program.")
 
-    parser.add_argument('--activation_only', action='store_true',
-                        help="Output activation only, no prediction")
-
-    parser.add_argument('--max_plot', type=int, default=10,
-                        help="The maximum number of plots output, negative number means no limit (plot all), default: %(default)s")
-
-    parser.add_argument('--log_path', type=str, nargs='?', default=None,
-                        help="The path for tensorflow logging, default: %(default)s")
-
-    parser.add_argument('-p', '--parallel_level', type=int, default=2,
-                        help="The level of parallelism in plotting (currently available: 0, 2), default: %(default)s")
-
-    parser.add_argument('-w', '--workers', type=int, default=8,
-                        help="The number of workers in plotting, default: %(default)s")
-
-    parser.add_argument('--fast_plotting', action='store_true',
-                        help="Enable fast plotting.")
-
     parser.add_argument('--debug', action='store_true',
                         help="Debug mode, optional")
 
     parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
+
+    parser.add_argument('--activation_only', action='store_true',
+                        help="Output activation only, no prediction")
+    parser.add_argument('--max_plot', type=int, default=10,
+                        help="The maximum number of plots output, negative number means no limit (plot all), default: %(default)s")
+    parser.add_argument('--log_path', type=str, nargs='?', default=None,
+                        help="The path for tensorflow logging, default: %(default)s")
+    parser.add_argument('-p', '--parallel_level', type=int, default=2,
+                        help="The level of parallelism in plotting (currently available: 0, 2), default: %(default)s")
+    parser.add_argument('-w', '--workers', type=int, default=8,
+                        help="The number of workers in plotting, default: %(default)s")
+    parser.add_argument('--fast_plotting', action='store_true',
+                        help="Enable fast plotting.")
 
     args = parser.parse_args()
 
