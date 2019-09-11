@@ -1107,13 +1107,15 @@ def call_variants(args, m):
 
     def load_mini_batch():
         mini_batch = next(tensor_generator)
-        mini_batches_loaded.append(mini_batch)
+        batch_size = mini_batch[1]
+        if batch_size > 0:
+            mini_batches_loaded.append(mini_batch)
 
     while True:
         thread_pool = []
 
         if len(mini_batches_to_output) > 0:
-            _, batch_size, X, batch_chr_pos_seq = mini_batches_to_output.pop(0)
+            batch_size, X, batch_chr_pos_seq = mini_batches_to_output.pop(0)
             gt21, zygosity, variant_length_1, variant_length_2 = (
                 m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2
             )
@@ -1129,7 +1131,7 @@ def call_variants(args, m):
 
         if len(mini_batches_to_predict) > 0:
             mini_batch = mini_batches_to_predict.pop(0)
-            _, _, X, _ = mini_batch
+            X = mini_batch[1]
             thread_pool.append(Thread(target=m.predict, args=(X, True)))
             mini_batches_to_output.append(mini_batch)
 
@@ -1143,10 +1145,8 @@ def call_variants(args, m):
 
         while len(mini_batches_loaded) > 0:
             mini_batch = mini_batches_loaded.pop(0)
-            is_finish_loaded_all_mini_batches, batch_size, _, _ = mini_batch
-            if batch_size <= 0:
-                continue
-            mini_batches_to_predict.append(mini_batch)
+            is_finish_loaded_all_mini_batches, mini_batch_to_predict = mini_batch[0], mini_batch[1:]
+            mini_batches_to_predict.append(mini_batch_to_predict)
 
         is_nothing_to_predict_and_output = (
             len(thread_pool) <= 0 and len(mini_batches_to_predict) <= 0 and len(mini_batches_to_output) <= 0
@@ -1198,19 +1198,14 @@ if __name__ == "__main__":
 
     parser.add_argument('--activation_only', action='store_true',
                         help="Output activation only, no prediction")
-
     parser.add_argument('--max_plot', type=int, default=10,
                         help="The maximum number of plots output, negative number means no limit (plot all), default: %(default)s")
-
     parser.add_argument('--log_path', type=str, nargs='?', default=None,
                         help="The path for tensorflow logging, default: %(default)s")
-
     parser.add_argument('-p', '--parallel_level', type=int, default=2,
                         help="The level of parallelism in plotting (currently available: 0, 2), default: %(default)s")
-
     parser.add_argument('--fast_plotting', action='store_true',
                         help="Enable fast plotting.")
-
     parser.add_argument('-w', '--workers', type=int, default=8,
                         help="The number of workers in plotting, default: %(default)s")
 
