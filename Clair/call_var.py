@@ -1101,45 +1101,52 @@ def call_variants(args, m):
     variant_call_start_time = time.time()
 
     is_finish_loaded_all_mini_batches = False
+    mini_batches_loaded = []
     mini_batches_to_predict = []
     mini_batches_to_output = []
+
+    def load_mini_batch():
+        mini_batch = next(tensor_generator)
+        mini_batches_loaded.append(mini_batch)
 
     while True:
         thread_pool = []
 
         if len(mini_batches_to_output) > 0:
-            batch_size, X, batch_chr_pos_seq = mini_batches_to_output.pop(0)
+            _, batch_size, X, batch_chr_pos_seq = mini_batches_to_output.pop(0)
             gt21, zygosity, variant_length_1, variant_length_2 = (
                 m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2
             )
-            thread_pool.append(
-                Thread(
-                    target=output,
-                    args=(
-                        args, call_fh,
-                        batch_size, X, batch_chr_pos_seq,
-                        gt21, zygosity, variant_length_1, variant_length_2,
-                        sam_file, fasta_file
-                    )
+            thread_pool.append(Thread(
+                target=output,
+                args=(
+                    args, call_fh,
+                    batch_size, X, batch_chr_pos_seq,
+                    gt21, zygosity, variant_length_1, variant_length_2,
+                    sam_file, fasta_file
                 )
-            )
+            ))
 
         if len(mini_batches_to_predict) > 0:
             mini_batch = mini_batches_to_predict.pop(0)
-            _, X, _ = mini_batch
-            thread_pool.append(
-                Thread(target=m.predict, args=(X, True))
-            )
+            _, _, X, _ = mini_batch
+            thread_pool.append(Thread(target=m.predict, args=(X, True)))
             mini_batches_to_output.append(mini_batch)
+
+        if not is_finish_loaded_all_mini_batches:
+            thread_pool.append(Thread(target=load_mini_batch))
 
         for t in thread_pool:
             t.start()
-        if not is_finish_loaded_all_mini_batches:
-            is_finish_loaded_all_mini_batches, batch_size, X, batch_chr_pos_seq = next(tensor_generator)
-            if batch_size > 0:
-                mini_batches_to_predict.append((batch_size, X, batch_chr_pos_seq))
         for t in thread_pool:
             t.join()
+
+        while len(mini_batches_loaded) > 0:
+            mini_batch = mini_batches_loaded.pop(0)
+            is_finish_loaded_all_mini_batches, batch_size, _, _ = mini_batch
+            if batch_size <= 0:
+                continue
+            mini_batches_to_predict.append(mini_batch)
 
         is_nothing_to_predict_and_output = (
             len(thread_pool) <= 0 and len(mini_batches_to_predict) <= 0 and len(mini_batches_to_output) <= 0
