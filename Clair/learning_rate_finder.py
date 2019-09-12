@@ -375,7 +375,7 @@ if __name__ == "__main__":
         variant_file_path=args.var_fn,
         bed_file_path=args.bed_fn
     )
-    training_config = utils.training_config_from(
+    training_config = utils.TrainingConfig(
         dataset_info=dataset_info,
         learning_rate=args.learning_rate,
         l2_regularization_lambda=args.lambd,

@@ -525,24 +525,6 @@ def dataset_info_from(
     )
 
 
-def training_config_from(
-    dataset_info,
-    learning_rate,
-    l2_regularization_lambda,
-    output_file_path_prefix,
-    model_initalization_file_path,
-    summary_writer
-):
-    return TrainingConfig(
-        dataset_info=dataset_info,
-        learning_rate=learning_rate,
-        l2_regularization_lambda=l2_regularization_lambda,
-        output_file_path_prefix=output_file_path_prefix,
-        model_initalization_file_path=model_initalization_file_path,
-        summary_writer=summary_writer
-    )
-
-
 def new_mini_batch(
     data_index,
     blosc_start_index,

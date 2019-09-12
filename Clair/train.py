@@ -329,7 +329,7 @@ if __name__ == "__main__":
         train_binary_file_path=args.train_bin_fn,
         validation_binary_file_path=args.validation_bin_fn,
     )
-    training_config = utils.training_config_from(
+    training_config = utils.TrainingConfig(
         dataset_info=dataset_info,
         learning_rate=args.learning_rate,
         l2_regularization_lambda=args.lambd,
