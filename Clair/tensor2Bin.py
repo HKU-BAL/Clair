@@ -12,7 +12,7 @@ def pickle_dump(obj, file):
 
 
 def Run(args):
-    utils.SetupEnv()
+    utils.setup_environment()
 
     logging.info("Loading the dataset ...")
     total, XArrayCompressed, YArrayCompressed, posArrayCompressed = \

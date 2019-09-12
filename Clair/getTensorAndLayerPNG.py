@@ -15,7 +15,7 @@ def Prepare(args):
     else:
         import clairvoyante_v3 as cv
 
-    utils.SetupEnv()
+    utils.setup_environment()
     m = cv.Clairvoyante()
     m.init()
 
@@ -179,5 +179,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

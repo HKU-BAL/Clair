@@ -190,9 +190,13 @@ def genotype_string_from(genotype):
     return ""
 
 
-def SetupEnv():
+def setup_environment():
+    from tensorflow.python.util import deprecation
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
+
     os.environ["CXX"] = "g++"
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
     blosc.set_nthreads(4)
     gc.enable()
 
@@ -610,9 +614,6 @@ def no_of_blosc_blocks_from(
 
 
 # function aliases
-def setup_environment():
-    return SetupEnv()
-
 
 def unpack_a_tensor_record(a, b, c, *d):
     return a, b, c, np.array(d, dtype=np.float32)

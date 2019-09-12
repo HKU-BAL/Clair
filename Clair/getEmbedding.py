@@ -21,7 +21,7 @@ def prepare_data(args):
     else:
         import clairvoyante_v3 as cv
 
-    utils.SetupEnv()
+    utils.setup_environment()
     m = cv.Clairvoyante()
     m.init()
 
