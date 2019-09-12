@@ -54,17 +54,17 @@ def OutputVariant(args):
         vcf_fp = subprocess.Popen(shlex.split("gzip -fdc %s" % (vcf_fn)), stdout=subprocess.PIPE, bufsize=8388608)
 
     for row in vcf_fp.stdout:
-        row = row.strip().split()
-        if row[0][0] == "#":
+        columns = row.strip().split()
+        if columns[0][0] == "#":
             continue
 
         # position in vcf is 1-based
-        chromosome, position = row[0], row[1]
+        chromosome, position = columns[0], columns[1]
         if chromosome != ctg_name:
             continue
         if is_ctg_region_provided and not (ctg_start <= int(position) <= ctg_end):
             continue
-        reference, alternate, last_column = row[3], row[4], row[-1]
+        reference, alternate, last_column = columns[3], columns[4], columns[-1]
 
         # normal GetTruth
         genotype = last_column.split(":")[0].replace("/", "|").replace(".", "0").split("|")
