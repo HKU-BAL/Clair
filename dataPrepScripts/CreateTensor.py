@@ -20,7 +20,6 @@ def PypyGCCollect(signum, frame):
     signal.alarm(60)
 
 
-cigarRe = r"(\d+)([MIDNSHP=X])"
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 stripe2 = param.matrixRow * param.matrixNum
 stripe1 = param.matrixNum
@@ -30,36 +29,30 @@ def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_
     flanking_base_num = param.flankingBaseNum
     matrix_row = param.matrixRow
     matrix_num = param.matrixNum
+    BASES = set("ACGT-")
+    NUMBER_OF_POSITIONS = 2 * flanking_base_num + 1
 
-    alignment_code = [0] * ((2 * flanking_base_num + 1) * matrix_row * matrix_num)
-    depth = [0] * ((2 * flanking_base_num + 1))
+    alignment_code = [0] * (NUMBER_OF_POSITIONS * matrix_row * matrix_num)
+    depth = [0] * NUMBER_OF_POSITIONS
     for alignment in alignments:
         for reference_position, queryAdv, reference_base, query_base, STRAND in alignment:
-            if str(reference_base) not in "ACGT-":
-                continue
-            if str(query_base) not in "ACGT-":
+            if str(reference_base) not in BASES or str(query_base) not in BASES:
                 continue
             if not (-(flanking_base_num + 1) <= reference_position - center < flanking_base_num):
                 continue
 
             offset = reference_position - center + (flanking_base_num + 1)
-            if query_base != "-":
-                if reference_base != "-":
-                    depth[offset] = depth[offset] + 1
-                    alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 0] += 1.0
-                    alignment_code[stripe2*offset + stripe1*(base2num[query_base] + STRAND*4) + 1] += 1.0
-                    alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 2] += 1.0
-                    alignment_code[stripe2*offset + stripe1*(base2num[query_base] + STRAND*4) + 3] += 1.0
-                elif reference_base == "-":
-                    idx = min(offset+queryAdv, 2*flanking_base_num+1 - 1)
-                    alignment_code[stripe2*idx + stripe1*(base2num[query_base] + STRAND*4) + 1] += 1.0
-                else:
-                    print >> sys.stderr, "Should not reach here: %s, %s" % (reference_base, query_base)
-            elif query_base == "-":
-                if reference_base != "-":
-                    alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 2] += 1.0
-                else:
-                    print >> sys.stderr, "Should not reach here: %s, %s" % (reference_base, query_base)
+            if query_base != "-" and reference_base != "-":
+                depth[offset] = depth[offset] + 1
+                alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 0] += 1
+                alignment_code[stripe2*offset + stripe1*(base2num[query_base] + STRAND*4) + 1] += 1
+                alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 2] += 1
+                alignment_code[stripe2*offset + stripe1*(base2num[query_base] + STRAND*4) + 3] += 1
+            elif query_base != "-" and reference_base == "-":
+                idx = min(offset+queryAdv, NUMBER_OF_POSITIONS - 1)
+                alignment_code[stripe2*idx + stripe1*(base2num[query_base] + STRAND*4) + 1] += 1
+            elif query_base == "-" and reference_base != "-":
+                alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 2] += 1
             else:
                 print >> sys.stderr, "Should not reach here: %s, %s" % (reference_base, query_base)
 
@@ -70,11 +63,11 @@ def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_
         ctg_name,
         center,
         reference_sequence[new_reference_position-(flanking_base_num+1):new_reference_position + flanking_base_num],
-        " ".join("%0.1f" % x for x in alignment_code)
+        " ".join("%d" % x for x in alignment_code)
     )
 
 
-def get_candidate_position_generator(
+def candidate_position_generator_from(
     candidate_file_path,
     ctg_start,
     ctg_end,
@@ -126,7 +119,7 @@ class TensorStdout(object):
         self.stdin.close()
 
 
-def get_reference_result_from(
+def reference_result_from(
     ctg_name,
     ctg_start,
     ctg_end,
@@ -134,42 +127,32 @@ def get_reference_result_from(
     reference_file_path,
     expand_reference_region
 ):
-    faidx_process = None
+    region_str = ""
     reference_start, reference_end = None, None
-    have_start_and_end_position = ctg_start != None and ctg_end != None
-
-    if have_start_and_end_position:
+    have_start_and_end_positions = ctg_start != None and ctg_end != None
+    if have_start_and_end_positions:
         reference_start, reference_end = ctg_start - expand_reference_region, ctg_end + expand_reference_region
         reference_start = 1 if reference_start < 1 else reference_start
-
-        faidx_process = subprocess.Popen(
-            shlex.split(
-                "%s faidx %s %s:%d-%d" % (samtools, reference_file_path, ctg_name, reference_start, reference_end)
-            ),
-            stdout=subprocess.PIPE,
-            bufsize=8388608
-        )
+        region_str = "%s:%d-%d" % (ctg_name, reference_start, reference_end)
     else:
-        ctg_start, ctg_end = None, None
-        faidx_process = subprocess.Popen(
-            shlex.split("%s faidx %s %s" % (samtools, reference_file_path, ctg_name)),
-            stdout=subprocess.PIPE,
-            bufsize=8388608
-        )
+        region_str = ctg_name
 
+    faidx_process = subprocess.Popen(
+        shlex.split("%s faidx %s %s" % (samtools, reference_file_path, region_str)),
+        stdout=subprocess.PIPE,
+        bufsize=8388608
+    )
     if faidx_process is None:
         return None
 
-    reference_name = ""
-    reference_sequence = []
-    row_count = 0
+    reference_name = None
+    reference_sequences = []
     for row in faidx_process.stdout:
-        if row_count == 0:
-            reference_name = row.rstrip().lstrip(">")
+        if reference_name is None:
+            reference_name = row.rstrip().lstrip(">") or ""
         else:
-            reference_sequence.append(row.rstrip())
-        row_count += 1
-    reference_sequence = "".join(reference_sequence)
+            reference_sequences.append(row.rstrip())
+    reference_sequence = "".join(reference_sequences)
 
     faidx_process.stdout.close()
     faidx_process.wait()
@@ -183,7 +166,7 @@ def get_reference_result_from(
     )
 
 
-def get_samtools_view_process_from(
+def samtools_view_process_from(
     ctg_name,
     ctg_start,
     ctg_end,
@@ -191,53 +174,13 @@ def get_samtools_view_process_from(
     bam_file_path
 ):
     have_start_and_end_position = ctg_start != None and ctg_end != None
-    if have_start_and_end_position:
-        return subprocess.Popen(
-            shlex.split("%s view -F 2308 %s %s:%d-%d" % (samtools, bam_file_path, ctg_name, ctg_start, ctg_end)),
-            stdout=subprocess.PIPE,
-            bufsize=8388608
-        )
+    region_str = ("%s:%d-%d" % (ctg_name, ctg_start, ctg_end)) if have_start_and_end_position else ctg_name
+
     return subprocess.Popen(
-        shlex.split("%s view -F 2308 %s %s" % (samtools, bam_file_path, ctg_name)),
+        shlex.split("%s view -F 2308 %s %s" % (samtools, bam_file_path, region_str)),
         stdout=subprocess.PIPE,
         bufsize=8388608
     )
-
-
-def get_depth_from(
-    samtools,
-    bam_file_path,
-    ctg_name,
-    ctg_pos
-):
-    """
-    Get depth at ctg position using samtools depth
-
-    depth_from_samtools = get_depth_from(
-        samtools=args.samtools,
-        bam_file_path=args.bam_fn,
-        ctg_name=args.ctgName,
-        ctg_pos=center,
-    )
-    """
-
-    samtools_depth_process = subprocess.Popen(
-        shlex.split("%s depth -a -aa -q 0 -Q 0 -l 0 -r %s:%d-%d %s" %
-                    (samtools, ctg_name, ctg_pos, ctg_pos, bam_file_path)),
-        stdout=subprocess.PIPE,
-        bufsize=8388608
-    )
-
-    depth = None
-    for row in samtools_depth_process.stdout:
-        data = row.split()
-        depth = data[-1]
-        break
-
-    samtools_depth_process.stdout.close()
-    samtools_depth_process.wait()
-
-    return depth
 
 
 def OutputAlnTensor(args):
@@ -255,7 +198,7 @@ def OutputAlnTensor(args):
     ctg_start = args.ctgStart
     ctg_end = args.ctgEnd
 
-    reference_result = get_reference_result_from(
+    reference_result = reference_result_from(
         ctg_name=ctg_name,
         ctg_start=ctg_start,
         ctg_end=ctg_end,
@@ -279,7 +222,7 @@ def OutputAlnTensor(args):
     reference_start_0_based = 0 if reference_start is None else (reference_start - 1)
     begin_to_end = {}
     candidate_position = 0
-    candidate_position_generator = get_candidate_position_generator(
+    candidate_position_generator = candidate_position_generator_from(
         candidate_file_path=candidate_file_path,
         ctg_start=ctg_start,
         ctg_end=ctg_end,
@@ -288,7 +231,7 @@ def OutputAlnTensor(args):
         begin_to_end=begin_to_end
     )
 
-    samtools_view_process = get_samtools_view_process_from(
+    samtools_view_process = samtools_view_process_from(
         ctg_name=ctg_name,
         ctg_start=ctg_start,
         ctg_end=ctg_end,

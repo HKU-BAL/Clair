@@ -25,6 +25,21 @@ maximum_variant_length_that_need_infer = 50
 inferred_indel_length_minimum_allele_frequency = 0.125
 flanking_base_number = param.flankingBaseNum
 
+OutputConfig = namedtuple('OutputConfig', [
+    'is_show_reference',
+    'is_debug',
+    'quality_score_for_pass',
+])
+OutputUtilities = namedtuple('OutputUtilities', [
+    'print_debug_message',
+    'insertion_bases_using',
+    'deletion_bases_using',
+    'insertion_bases_using_pysam_using',
+    'output',
+    'output_header',
+    'close_opened_files',
+])
+
 
 class Channel(IntEnum):
     reference = 0
@@ -200,28 +215,120 @@ def Run(args):
         call_variants(args, m)
 
 
-def print_debug_message_with(
+def output_utilties_from(
+    sample_name,
     is_debug,
-    call_fh,
-    chromosome,
-    position,
-    base_change_probabilities,
-    genotype_probabilities,
-    variant_length_probabilities_1,
-    variant_length_probabilities_2,
-    extra_infomation_string=""
+    is_using_pysam_for_all_indel_bases_output,
+    bam_file_path,
+    reference_file_path,
+    output_file_path,
 ):
-    if not is_debug:
-        return
+    fasta_file = pysam.FastaFile(filename=reference_file_path) if reference_file_path else None
+    sam_file = pysam.AlignmentFile(bam_file_path, mode="rb")
+    output_file = open(output_file_path, "w")
 
-    print >> call_fh, "{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
+    def output(string_value):
+        print >> output_file, string_value
+
+    def print_debug_message(
         chromosome,
         position,
-        ["{:0.8f}".format(x) for x in base_change_probabilities],
-        ["{:0.8f}".format(x) for x in genotype_probabilities],
-        ["{:0.8f}".format(x) for x in variant_length_probabilities_1],
-        ["{:0.8f}".format(x) for x in variant_length_probabilities_2],
-        extra_infomation_string
+        base_change_probabilities,
+        genotype_probabilities,
+        variant_length_probabilities_1,
+        variant_length_probabilities_2,
+        extra_infomation_string=""
+    ):
+        if not is_debug:
+            return
+
+        output("{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
+            chromosome,
+            position,
+            ["{:0.8f}".format(x) for x in base_change_probabilities],
+            ["{:0.8f}".format(x) for x in genotype_probabilities],
+            ["{:0.8f}".format(x) for x in variant_length_probabilities_1],
+            ["{:0.8f}".format(x) for x in variant_length_probabilities_2],
+            extra_infomation_string
+        ))
+
+    def insertion_bases_using(tensor_input, variant_length, contig, position):
+        return insertion_bases_from(
+            sam_file=sam_file,
+            tensor_input=tensor_input,
+            variant_length=variant_length,
+            contig=contig,
+            position=position,
+            is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
+        )
+
+    def deletion_bases_using(tensor_input, variant_length, contig, position, reference_sequence):
+        return deletion_bases_from(
+            tensor_input=tensor_input,
+            variant_length=variant_length,
+            sam_file=sam_file,
+            fasta_file=fasta_file,
+            contig=contig,
+            position=position,
+            reference_sequence=reference_sequence,
+            is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
+        )
+
+    def insertion_bases_using_pysam_using(
+        contig,
+        position,
+        minimum_insertion_length,
+        maximum_insertion_length,
+        insertion_bases_to_ignore
+    ):
+        return insertion_bases_using_pysam_from(
+            sam_file=sam_file,
+            contig=contig,
+            position=position,
+            minimum_insertion_length=minimum_insertion_length,
+            maximum_insertion_length=maximum_insertion_length,
+            insertion_bases_to_ignore=insertion_bases_to_ignore
+        )
+
+    def close_opened_files():
+        sam_file.close()
+        fasta_file.close()
+        output_file.close()
+
+    def output_header():
+        from textwrap import dedent
+        output(dedent("""\
+            ##fileformat=VCFv4.1
+            ##FILTER=<ID=PASS,Description="All filters passed">
+            ##FILTER=<ID=LowQual,Description="Confidence in this variant being real is below calling threshold.">
+            ##ALT=<ID=DEL,Description="Deletion">
+            ##ALT=<ID=INS,Description="Insertion of novel sequence">
+            ##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
+            ##INFO=<ID=LENGUESS,Number=.,Type=Integer,Description="Best guess of the indel length">
+            ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+            ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+            ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+            ##FORMAT=<ID=AF,Number=1,Type=Float,Description="Estimated allele frequency in the range (0,1)">"""
+        ))
+
+        if reference_file_path is not None:
+            reference_index_file_path = reference_file_path + ".fai"
+            with open(reference_index_file_path, "r") as fai_fp:
+                for row in fai_fp:
+                    columns = row.strip().split("\t")
+                    contig_name, contig_size = columns[0], columns[1]
+                    output("##contig=<ID=%s,length=%s>" % (contig_name, contig_size))
+
+        output('#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t%s' % (sample_name))
+
+    return OutputUtilities(
+        print_debug_message,
+        insertion_bases_using,
+        deletion_bases_using,
+        insertion_bases_using_pysam_using,
+        output,
+        output_header,
+        close_opened_files,
     )
 
 
@@ -488,21 +595,13 @@ def quality_score_from(
     return int(round(tmp * tmp))
 
 
-def output_from(
-    x,
-    reference_sequence,
-    contig,
-    position,
-    tensor_position_center,
+def possible_outcome_probabilites_from(
     gt21_probabilities,
     genotype_probabilities,
     variant_length_probabilities_1,
     variant_length_probabilities_2,
-    insertion_bases_using,
-    deletion_bases_using,
-    insertion_bases_using_pysam_using,
+    reference_base,
 ):
-    # calculate all possible variant cases probabilities for comparison
     homo_reference_probability = genotype_probabilities[Genotype.homo_reference]
     homo_variant_probability = genotype_probabilities[Genotype.homo_variant]
     hetero_variant_probability = genotype_probabilities[Genotype.hetero_variant]
@@ -511,7 +610,6 @@ def output_from(
         variant_length_probabilities_2[0 + VariantLength.index_offset]
     )
 
-    reference_base = reference_sequence[tensor_position_center]
     reference_gt21 = utils.base_change_enum_from(reference_base + reference_base)
     homo_Ref_probability = (
         variant_length_0_probability * homo_reference_probability * gt21_probabilities[reference_gt21]
@@ -583,6 +681,57 @@ def output_from(
     ))
     hetero_InsDel_length_tuples, hetero_InsDel_probabilities = (
         list(hetero_InsDel_length_tuples), list(hetero_InsDel_probabilities)
+    )
+
+    return (
+        homo_Ref_probability,
+        homo_SNP_probabilities,
+        hetero_SNP_probabilities,
+        homo_Ins_lengths, homo_Ins_probabilities,
+        hetero_InsIns_length_tuples, hetero_InsIns_probabilities,
+        hetero_ACGT_Ins_bases, hetero_ACGT_Ins_lengths, hetero_ACGT_Ins_probabilities,
+        homo_Del_lengths, homo_Del_probabilities,
+        hetero_DelDel_length_tuples, hetero_DelDel_probabilities,
+        hetero_ACGT_Del_bases, hetero_ACGT_Del_lengths, hetero_ACGT_Del_probabilities,
+        hetero_InsDel_length_tuples, hetero_InsDel_probabilities,
+    )
+
+
+def output_from(
+    x,
+    reference_sequence,
+    contig,
+    position,
+    tensor_position_center,
+    gt21_probabilities,
+    genotype_probabilities,
+    variant_length_probabilities_1,
+    variant_length_probabilities_2,
+    output_utilities,
+):
+    insertion_bases_using, deletion_bases_using, insertion_bases_using_pysam_using = (
+        output_utilities.insertion_bases_using,
+        output_utilities.deletion_bases_using,
+        output_utilities.insertion_bases_using_pysam_using,
+    )
+
+    (
+        homo_Ref_probability,
+        homo_SNP_probabilities,
+        hetero_SNP_probabilities,
+        homo_Ins_lengths, homo_Ins_probabilities,
+        hetero_InsIns_length_tuples, hetero_InsIns_probabilities,
+        hetero_ACGT_Ins_bases, hetero_ACGT_Ins_lengths, hetero_ACGT_Ins_probabilities,
+        homo_Del_lengths, homo_Del_probabilities,
+        hetero_DelDel_length_tuples, hetero_DelDel_probabilities,
+        hetero_ACGT_Del_bases, hetero_ACGT_Del_lengths, hetero_ACGT_Del_probabilities,
+        hetero_InsDel_length_tuples, hetero_InsDel_probabilities,
+    ) = possible_outcome_probabilites_from(
+        gt21_probabilities,
+        genotype_probabilities,
+        variant_length_probabilities_1,
+        variant_length_probabilities_2,
+        reference_base=reference_sequence[tensor_position_center],
     )
 
     reference_base, alternate_base = None, None
@@ -803,68 +952,24 @@ def output_from(
     )
 
 
-def output(
-    args,
-    call_fh,
-    batch_size,
-    X,
-    batch_chr_pos_seq,
+def batch_output(
+    mini_batch,
     batch_base_change_probabilities,
     batch_genotype_probabilities,
     batch_variant_length_probabilities_1,
     batch_variant_length_probabilities_2,
-    sam_file,
-    fasta_file
+    output_config,
+    output_utilities,
 ):
+    batch_size, X, batch_chr_pos_seq = mini_batch
     if len(batch_base_change_probabilities) != batch_size:
         sys.exit(
             "Inconsistent shape between input tensor and output predictions %d/%d" %
             (batch_size, len(batch_base_change_probabilities))
         )
 
-    is_show_reference = args.showRef
     tensor_position_center = flanking_base_number
-    is_debug = True if args.debug is True else False
-    is_using_pysam_for_all_indel_bases_output = args.pysam_for_all_indel_bases
     information_string = "."
-
-    def insertion_bases_using(tensor_input, variant_length, contig, position):
-        return insertion_bases_from(
-            sam_file=sam_file,
-            tensor_input=tensor_input,
-            variant_length=variant_length,
-            contig=contig,
-            position=position,
-            is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
-        )
-
-    def deletion_bases_using(tensor_input, variant_length, contig, position, reference_sequence):
-        return deletion_bases_from(
-            tensor_input=tensor_input,
-            variant_length=variant_length,
-            sam_file=sam_file,
-            fasta_file=fasta_file,
-            contig=contig,
-            position=position,
-            reference_sequence=reference_sequence,
-            is_using_pysam_for_all_indel_bases_output=is_using_pysam_for_all_indel_bases_output
-        )
-
-    def insertion_bases_using_pysam_using(
-        contig,
-        position,
-        minimum_insertion_length,
-        maximum_insertion_length,
-        insertion_bases_to_ignore
-    ):
-        return insertion_bases_using_pysam_from(
-            sam_file=sam_file,
-            contig=contig,
-            position=position,
-            minimum_insertion_length=minimum_insertion_length,
-            maximum_insertion_length=maximum_insertion_length,
-            insertion_bases_to_ignore=insertion_bases_to_ignore
-        )
 
     for (
         x,
@@ -881,8 +986,6 @@ def output(
         batch_variant_length_probabilities_1,
         batch_variant_length_probabilities_2
     ):
-        # get chromosome, position and reference bases
-        # with flanking "flanking_base_number" flanking bases at position
         chromosome, position, reference_sequence = chr_pos_seq.split(":")
         position = int(position)
 
@@ -891,9 +994,7 @@ def output(
             x[tensor_position_center, :, Channel.delete] + x[tensor_position_center, :, Channel.reference]
         )
         if read_depth == 0:
-            print_debug_message_with(
-                is_debug,
-                call_fh,
+            output_utilities.print_debug_message(
                 chromosome,
                 position,
                 gt21_probabilities,
@@ -919,18 +1020,14 @@ def output(
             genotype_probabilities,
             variant_length_probabilities_1,
             variant_length_probabilities_2,
-            insertion_bases_using,
-            deletion_bases_using,
-            insertion_bases_using_pysam_using,
+            output_utilities,
         )
 
-        if not is_debug and not is_show_reference and is_reference:
+        if not output_config.is_debug and not output_config.is_show_reference and is_reference:
             continue
 
         if reference_base is None or alternate_base is None:
-            print_debug_message_with(
-                is_debug,
-                call_fh,
+            output_utilities.print_debug_message(
                 chromosome,
                 position,
                 gt21_probabilities,
@@ -998,12 +1095,12 @@ def output(
         )
 
         # filtration value
-        filtration_value = filtration_value_from(quality_score_for_pass=args.qual, quality_score=quality_score)
+        filtration_value = filtration_value_from(
+            quality_score_for_pass=output_config.quality_score_for_pass, quality_score=quality_score
+        )
 
-        if is_debug:
-            print_debug_message_with(
-                is_debug,
-                call_fh,
+        if output_config.is_debug:
+            output_utilities.print_debug_message(
                 chromosome,
                 position,
                 gt21_probabilities,
@@ -1013,7 +1110,7 @@ def output(
                 "Normal output" if not is_reference else "Reference"
             )
         else:
-            print >> call_fh, "%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
+            output_utilities.output("%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
                 chromosome,
                 position,
                 reference_base,
@@ -1025,32 +1122,7 @@ def output(
                 quality_score,
                 read_depth,
                 allele_frequency
-            )
-
-
-def print_vcf_header(args, call_fh):
-    print >> call_fh, '##fileformat=VCFv4.1'
-    print >> call_fh, '##FILTER=<ID=PASS,Description="All filters passed">'
-    print >> call_fh, '##FILTER=<ID=LowQual,Description="Confidence in this variant being real is below calling threshold.">'
-    print >> call_fh, '##ALT=<ID=DEL,Description="Deletion">'
-    print >> call_fh, '##ALT=<ID=INS,Description="Insertion of novel sequence">'
-    print >> call_fh, '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">'
-    # print >> call_fh, '##INFO=<ID=LENGUESS,Number=.,Type=Integer,Description="Best guess of the indel length">'
-    print >> call_fh, '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">'
-    print >> call_fh, '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">'
-    print >> call_fh, '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">'
-    print >> call_fh, '##FORMAT=<ID=AF,Number=1,Type=Float,Description="Estimated allele frequency in the range (0,1)">'
-
-    if args.ref_fn != None:
-        fai_fn = args.ref_fn + ".fai"
-        fai_fp = open(fai_fn)
-        for line in fai_fp:
-            fields = line.strip().split("\t")
-            chromName = fields[0]
-            chromLength = int(fields[1])
-            print >> call_fh, "##contig=<ID=%s,length=%d>" % (chromName, chromLength)
-
-    print >> call_fh, '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t%s' % (args.sampleName)
+            ))
 
 
 def log_activation(args, m):
@@ -1090,11 +1162,21 @@ def log_activation(args, m):
 
 
 def call_variants(args, m):
-    call_fh = open(args.call_fn, "w")
-    fasta_file = pysam.FastaFile(filename=args.ref_fn) if args.ref_fn else None
-    sam_file = pysam.AlignmentFile(args.bam_fn, mode="rb")
+    output_config = OutputConfig(
+        is_show_reference=args.showRef,
+        is_debug=args.debug,
+        quality_score_for_pass=args.qual,
+    )
+    output_utilities = output_utilties_from(
+        sample_name=args.sampleName,
+        is_debug=args.debug,
+        is_using_pysam_for_all_indel_bases_output=args.pysam_for_all_indel_bases,
+        reference_file_path=args.ref_fn,
+        bam_file_path=args.bam_fn,
+        output_file_path=args.call_fn,
+    )
 
-    print_vcf_header(args, call_fh)
+    output_utilities.output_header()
 
     tensor_generator = utils.tensor_generator_from(args.tensor_fn, param.predictBatchSize)
     logging.info("Calling variants ...")
@@ -1115,17 +1197,16 @@ def call_variants(args, m):
         thread_pool = []
 
         if len(mini_batches_to_output) > 0:
-            batch_size, X, batch_chr_pos_seq = mini_batches_to_output.pop(0)
+            mini_batch = mini_batches_to_output.pop(0)
             gt21, zygosity, variant_length_1, variant_length_2 = (
                 m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2
             )
             thread_pool.append(Thread(
-                target=output,
+                target=batch_output,
                 args=(
-                    args, call_fh,
-                    batch_size, X, batch_chr_pos_seq,
+                    mini_batch,
                     gt21, zygosity, variant_length_1, variant_length_2,
-                    sam_file, fasta_file
+                    output_config, output_utilities,
                 )
             ))
 
@@ -1156,9 +1237,7 @@ def call_variants(args, m):
 
     logging.info("Total time elapsed: %.2f s" % (time.time() - variant_call_start_time))
 
-    sam_file.close()
-    fasta_file.close()
-    call_fh.close()
+    output_utilities.close_opened_files()
 
 
 if __name__ == "__main__":

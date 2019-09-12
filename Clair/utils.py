@@ -14,6 +14,7 @@ from enum import IntEnum
 
 from collections import namedtuple
 
+BASES = set("ACGT")
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -206,7 +207,7 @@ def unpack_a_tensor_record(a, b, c, *d):
     return a, b, c, np.array(d, dtype=np.float32)
 
 
-def tensor_generator_from(tensor_fn, num):
+def tensor_generator_from(tensor_fn, batch_size):
     if tensor_fn != "PIPE":
         f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
         fo = f.stdout
@@ -214,7 +215,7 @@ def tensor_generator_from(tensor_fn, num):
         fo = sys.stdin
     total = 0
     c = 0
-    rows = np.empty((num, ((2*param.flankingBaseNum+1)*param.matrixRow*param.matrixNum)), dtype=np.float32)
+    rows = np.empty((batch_size, ((2*param.flankingBaseNum+1)*param.matrixRow*param.matrixNum)), dtype=np.float32)
     pos = []
     for row in fo:  # A variant per row
         try:
@@ -222,13 +223,13 @@ def tensor_generator_from(tensor_fn, num):
         except ValueError:
             print >> sys.stderr, "unpack_a_tensor_record Failure", row
         seq = seq.upper()
-        if seq[param.flankingBaseNum] not in ["A", "C", "G", "T"]:  # TODO: Support IUPAC in the future
+        if seq[param.flankingBaseNum] not in BASES:  # TODO: Support IUPAC in the future
             continue
         pos.append(chrom + ":" + coord + ":" + seq)
         c += 1
 
-        if c == num:
-            x = np.reshape(rows, (num, 2*param.flankingBaseNum+1, param.matrixRow, param.matrixNum))
+        if c == batch_size:
+            x = np.reshape(rows, (batch_size, 2*param.flankingBaseNum+1, param.matrixRow, param.matrixNum))
 
             for i in range(1, param.matrixNum):
                 x[:, :, :, i] -= x[:, :, :, 0]
@@ -236,7 +237,8 @@ def tensor_generator_from(tensor_fn, num):
             print >> sys.stderr, "Processed %d tensors" % total
             yield False, c, x, pos
             c = 0
-            rows = np.empty((num, ((2*param.flankingBaseNum+1)*param.matrixRow*param.matrixNum)), dtype=np.float32)
+            rows = np.empty((batch_size, ((2*param.flankingBaseNum+1) *
+                                          param.matrixRow*param.matrixNum)), dtype=np.float32)
             pos = []
 
     if tensor_fn != "PIPE":
@@ -292,29 +294,27 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
                 )
 
             # base change
-            #                  AA  AC  AG  AT  CC  CG  CT  GG  GT  TT  DD  AD  CD  GD  TD  II  AI  CI  GI  TI  ID
-            base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
+            base_change_vec = [0] * BASE_CHANGE.output_label_count
             partial_labels = [partial_label_from(reference, alternate) for alternate in alternate_arr]
             base_change_label = mix_two_partial_labels(partial_labels[0], partial_labels[1])
             base_change = base_change_enum_from(base_change_label)
             base_change_vec[base_change] = 1
 
             # geno type
-            #               0/0 1/1 0/1
-            genotype_vec = [0., 0., 0.]
+            genotype_vec = [0] * GENOTYPE.output_label_count
             is_homo_reference = genotype_1 == "0" and genotype_2 == "0"
             is_homo_variant = not is_homo_reference and genotype_1 == genotype_2
             is_hetero_variant = not is_homo_reference and not is_homo_variant
             is_multi = not is_homo_variant and genotype_1 != "0" and genotype_2 != "0"
             if is_homo_reference:
-                genotype_vec[Genotype.homo_reference] = 1.0
+                genotype_vec[Genotype.homo_reference] = 1
             elif is_homo_variant:
-                genotype_vec[Genotype.homo_variant] = 1.0
+                genotype_vec[Genotype.homo_variant] = 1
             elif is_hetero_variant and not is_multi:
-                genotype_vec[Genotype.hetero_variant] = 1.0
+                genotype_vec[Genotype.hetero_variant] = 1
             elif is_hetero_variant and is_multi:
-                genotype_vec[Genotype.hetero_variant] = 1.0
-                # genotype_vec[Genotype.hetero_variant_multi] = 1.0
+                genotype_vec[Genotype.hetero_variant] = 1
+                # genotype_vec[Genotype.hetero_variant_multi] = 1
 
             # variant length
             variant_lengths = [max(
@@ -344,7 +344,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
             if len(tree[chrom].search(int(coord))) == 0:
                 continue
         seq = seq.upper()
-        if seq[param.flankingBaseNum] not in ["A", "C", "G", "T"]:
+        if seq[param.flankingBaseNum] not in BASES:
             continue
         key = chrom + ":" + coord
 
@@ -366,17 +366,16 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
 
         is_reference = key not in Y
         if is_reference:
-            #                  AA  AC  AG  AT  CC  CG  CT  GG  GT  TT  DD  AD  CD  GD  TD  II  AI  CI  GI  TI  ID
-            base_change_vec = [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
-            #               0/0 1/1 0/1
-            genotype_vec = [1., 0., 0.]
-            #                       L
+            base_change_vec = [0] * BASE_CHANGE.output_label_count
+            base_change_vec[base_change_enum_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
+
+            genotype_vec = [0] * GENOTYPE.output_label_count
+            genotype_vec[Genotype.homo_reference] = 1
+
             variant_length_vec_1 = [0] * VARIANT_LENGTH_1.output_label_count
             variant_length_vec_2 = [0] * VARIANT_LENGTH_2.output_label_count
             variant_length_vec_1[0 + VariantLength.index_offset] = 1
             variant_length_vec_2[0 + VariantLength.index_offset] = 1
-
-            base_change_vec[base_change_enum_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
 
             Y[key] = base_change_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
 
