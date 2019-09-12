@@ -1131,7 +1131,6 @@ def log_activation(args, m):
         return
 
     summary_writer = m.get_summary_file_writer(args.log_path)
-
     if summary_writer is None:
         return
 
@@ -1139,16 +1138,20 @@ def log_activation(args, m):
     logging.info("Plotting activations ...")
 
     num_plotted = 0
-    while(num_plotted < args.max_plot or args.max_plot < 0):
+    while num_plotted < args.max_plot or args.max_plot < 0:
         print("Getting next batch")
-        is_end_of_generator, batch_size, batch_X, batch_positions = next(tensor_generator)
+        try:
+            batch_X, batch_chr_pos_seq = next(tensor_generator)
+        except StopIteration:
+            break
+        batch_size = len(batch_chr_pos_seq)
         print("Batch generation complete %d" % batch_size)
         # strip away the reference string, keeping the chr and coor only
-        batch_positions = [s[:s.rfind(":")] for s in batch_positions]
+        batch_chr_pos_seq = [chr+":"+pos for chr, pos, _ in batch_chr_pos_seq]
         summaries = m.get_activation_summary(
             batch_X,
             operations=m.layers,
-            batch_item_suffixes=batch_positions,
+            batch_item_suffixes=batch_chr_pos_seq,
             max_plot_in_batch=args.max_plot - num_plotted if args.max_plot >= 0 else batch_size,
             parallel_level=args.parallel_level,
             num_workers=args.workers,
@@ -1157,8 +1160,6 @@ def log_activation(args, m):
         for summary in summaries:
             summary_writer.add_summary(summary)
         num_plotted += min(batch_size, args.max_plot - num_plotted if args.max_plot >= 0 else batch_size)
-        if is_end_of_generator:
-            break
     print("Finished plotting %d" % num_plotted)
 
 
