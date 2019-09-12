@@ -207,49 +207,60 @@ def unpack_a_tensor_record(a, b, c, *d):
     return a, b, c, np.array(d, dtype=np.float32)
 
 
-def tensor_generator_from(tensor_fn, batch_size):
-    if tensor_fn != "PIPE":
-        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+def batches_from(iterable, item_from, batch_size=1):
+    iterable = iter(iterable)
+    while True:
+        chunk = []
+        for _ in xrange(batch_size):
+            try:
+                chunk.append(item_from(next(iterable)))
+            except StopIteration:
+                yield chunk
+                return
+        yield chunk
+
+
+def tensor_generator_from(tensor_file_path, batch_size):
+    if tensor_file_path != "PIPE":
+        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
         fo = f.stdout
     else:
         fo = sys.stdin
-    total = 0
-    c = 0
-    rows = np.empty((batch_size, ((2*param.flankingBaseNum+1)*param.matrixRow*param.matrixNum)), dtype=np.float32)
-    pos = []
-    for row in fo:  # A variant per row
-        try:
-            chrom, coord, seq, rows[c] = unpack_a_tensor_record(*(row.split()))
-        except ValueError:
-            print >> sys.stderr, "unpack_a_tensor_record Failure", row
-        seq = seq.upper()
-        if seq[param.flankingBaseNum] not in BASES:  # TODO: Support IUPAC in the future
+
+    processed_tensors = 0
+
+    no_of_positions, matrix_row, matrix_num = 2 * param.flankingBaseNum + 1, param.matrixRow, param.matrixNum
+    input_tensor_size = no_of_positions * matrix_row * matrix_num
+
+    def item_from(row):
+        columns = row.split()
+        return (columns[:-input_tensor_size], np.array(columns[-input_tensor_size:], dtype=np.float32))
+
+    for batch in batches_from(fo, item_from=item_from, batch_size=batch_size):
+        tensors = np.empty((batch_size, input_tensor_size), dtype=np.float32)
+        non_tensor_infos = []
+        for non_tensor_info, tensor in batch:
+            _, _, sequence = non_tensor_info
+            if sequence[param.flankingBaseNum] not in BASES:  # TODO: Support IUPAC in the future
+                continue
+            tensors[len(non_tensor_infos)] = tensor
+            non_tensor_infos.append(non_tensor_info)
+
+        current_batch_size = len(non_tensor_infos)
+        X = np.reshape(tensors, (batch_size, no_of_positions, matrix_row, matrix_num))
+        for i in range(1, matrix_num):
+            X[:current_batch_size, :, :, i] -= X[:current_batch_size, :, :, 0]
+
+        processed_tensors += current_batch_size
+        print >> sys.stderr, "Processed %d tensors" % processed_tensors
+
+        if current_batch_size <= 0:
             continue
-        pos.append(chrom + ":" + coord + ":" + seq)
-        c += 1
+        yield X[:current_batch_size], non_tensor_infos[:current_batch_size]
 
-        if c == batch_size:
-            x = np.reshape(rows, (batch_size, 2*param.flankingBaseNum+1, param.matrixRow, param.matrixNum))
-
-            for i in range(1, param.matrixNum):
-                x[:, :, :, i] -= x[:, :, :, 0]
-            total += c
-            print >> sys.stderr, "Processed %d tensors" % total
-            yield False, c, x, pos
-            c = 0
-            rows = np.empty((batch_size, ((2*param.flankingBaseNum+1) *
-                                          param.matrixRow*param.matrixNum)), dtype=np.float32)
-            pos = []
-
-    if tensor_fn != "PIPE":
+    if tensor_file_path != "PIPE":
         fo.close()
         f.wait()
-    x = np.reshape(rows[:c], (c, 2*param.flankingBaseNum+1, param.matrixRow, param.matrixNum))
-    for i in range(1, param.matrixNum):
-        x[:, :, :, i] -= x[:, :, :, 0]
-    total += c
-    print >> sys.stderr, "Processed %d tensors" % total
-    yield True, c, x, pos
 
 
 def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):

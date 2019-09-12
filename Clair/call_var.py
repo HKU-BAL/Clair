@@ -961,7 +961,8 @@ def batch_output(
     output_config,
     output_utilities,
 ):
-    batch_size, X, batch_chr_pos_seq = mini_batch
+    X, batch_chr_pos_seq = mini_batch
+    batch_size = len(batch_chr_pos_seq)
     if len(batch_base_change_probabilities) != batch_size:
         sys.exit(
             "Inconsistent shape between input tensor and output predictions %d/%d" %
@@ -986,7 +987,7 @@ def batch_output(
         batch_variant_length_probabilities_1,
         batch_variant_length_probabilities_2
     ):
-        chromosome, position, reference_sequence = chr_pos_seq.split(":")
+        chromosome, position, reference_sequence = chr_pos_seq
         position = int(position)
 
         # read depth
@@ -1188,10 +1189,10 @@ def call_variants(args, m):
     mini_batches_to_output = []
 
     def load_mini_batch():
-        mini_batch = next(tensor_generator)
-        batch_size = mini_batch[1]
-        if batch_size > 0:
-            mini_batches_loaded.append(mini_batch)
+        try:
+            mini_batches_loaded.append(next(tensor_generator))
+        except StopIteration:
+            return
 
     while True:
         thread_pool = []
@@ -1212,7 +1213,7 @@ def call_variants(args, m):
 
         if len(mini_batches_to_predict) > 0:
             mini_batch = mini_batches_to_predict.pop(0)
-            X = mini_batch[1]
+            X, _ = mini_batch
             thread_pool.append(Thread(target=m.predict, args=(X, True)))
             mini_batches_to_output.append(mini_batch)
 
@@ -1224,10 +1225,10 @@ def call_variants(args, m):
         for t in thread_pool:
             t.join()
 
+        is_finish_loaded_all_mini_batches = len(mini_batches_loaded) == 0
         while len(mini_batches_loaded) > 0:
             mini_batch = mini_batches_loaded.pop(0)
-            is_finish_loaded_all_mini_batches, mini_batch_to_predict = mini_batch[0], mini_batch[1:]
-            mini_batches_to_predict.append(mini_batch_to_predict)
+            mini_batches_to_predict.append(mini_batch)
 
         is_nothing_to_predict_and_output = (
             len(thread_pool) <= 0 and len(mini_batches_to_predict) <= 0 and len(mini_batches_to_output) <= 0
