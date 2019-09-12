@@ -191,9 +191,6 @@ def genotype_string_from(genotype):
 
 
 def setup_environment():
-    from tensorflow.python.util import deprecation
-    deprecation._PRINT_DEPRECATION_WARNINGS = False
-
     os.environ["CXX"] = "g++"
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
