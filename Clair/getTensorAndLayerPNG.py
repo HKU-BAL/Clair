@@ -22,7 +22,7 @@ def Prepare(args):
     m.restoreParameters(args.chkpnt_fn)
 
     total, XArrayCompressed, YArrayCompressed, posArrayCompressed = \
-    utils.GetTrainingArray(args.tensor_fn, args.var_fn, None)
+    utils.get_training_array(args.tensor_fn, args.var_fn, None)
 
     return m, utils, total, XArrayCompressed, YArrayCompressed, posArrayCompressed
 

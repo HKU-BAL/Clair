@@ -35,9 +35,9 @@ def prepare_data(args):
             posArrayCompressed = pickle.load(fh)
     else:
         total, XArrayCompressed, YArrayCompressed, posArrayCompressed = \
-        utils.GetTrainingArray(args.tensor_fn,
-                               args.var_fn,
-                               args.bed_fn)
+        utils.get_training_array(args.tensor_fn,
+                                 args.var_fn,
+                                 args.bed_fn)
 
     return m, utils, total, XArrayCompressed, YArrayCompressed, posArrayCompressed
 

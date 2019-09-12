@@ -263,7 +263,7 @@ def tensor_generator_from(tensor_file_path, batch_size):
         f.wait()
 
 
-def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
+def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
     tree = {}
     if bed_fn != None:
         f = subprocess.Popen(shlex.split("pigz -fdc %s" % (bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
@@ -600,8 +600,3 @@ def no_of_blosc_blocks_from(
         return no_of_training_blocks + no_of_validation_blocks
 
     return int(np.ceil(float(dataset_info.dataset_size) / blosc_block_size))
-
-
-# function aliases
-def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
-    return GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle, is_allow_duplicate_chr_pos)
