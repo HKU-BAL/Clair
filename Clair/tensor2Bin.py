@@ -25,11 +25,11 @@ def Run(args):
         )
 
     logging.info("Writing to binary ...")
-    fh = open(args.bin_fn, "wb")
-    pickle_dump(total, fh)
-    pickle_dump(XArrayCompressed, fh)
-    pickle_dump(YArrayCompressed, fh)
-    pickle_dump(posArrayCompressed, fh)
+    with open(args.bin_fn, 'wb') as fh:
+        pickle_dump(total, fh)
+        pickle_dump(XArrayCompressed, fh)
+        pickle_dump(YArrayCompressed, fh)
+        pickle_dump(posArrayCompressed, fh)
 
 
 if __name__ == "__main__":
