@@ -205,7 +205,7 @@ def blosc_pack_array(array):
     return blosc.pack_array(array, cname='lz4hc', clevel=9, shuffle=blosc.NOSHUFFLE)
 
 
-def UnpackATensorRecord(a, b, c, *d):
+def unpack_a_tensor_record(a, b, c, *d):
     return a, b, c, np.array(d, dtype=np.float32)
 
 
@@ -221,9 +221,9 @@ def tensor_generator_from(tensor_fn, num):
     pos = []
     for row in fo:  # A variant per row
         try:
-            chrom, coord, seq, rows[c] = UnpackATensorRecord(*(row.split()))
+            chrom, coord, seq, rows[c] = unpack_a_tensor_record(*(row.split()))
         except ValueError:
-            print >> sys.stderr, "UnpackATensorRecord Failure", row
+            print >> sys.stderr, "unpack_a_tensor_record Failure", row
         seq = seq.upper()
         if seq[param.flankingBaseNum] not in ["A", "C", "G", "T"]:  # TODO: Support IUPAC in the future
             continue
@@ -340,7 +340,7 @@ def GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate
     total = 0
     mat = np.empty(((2*param.flankingBaseNum+1)*param.matrixRow*param.matrixNum), dtype=np.float32)
     for row in f.stdout:
-        chrom, coord, seq, mat = UnpackATensorRecord(*(row.split()))
+        chrom, coord, seq, mat = unpack_a_tensor_record(*(row.split()))
         if bed_fn != None:
             if chrom not in tree:
                 continue
@@ -614,10 +614,5 @@ def no_of_blosc_blocks_from(
 
 
 # function aliases
-
-def unpack_a_tensor_record(a, b, c, *d):
-    return a, b, c, np.array(d, dtype=np.float32)
-
-
 def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
     return GetTrainingArray(tensor_fn, var_fn, bed_fn, shuffle, is_allow_duplicate_chr_pos)
