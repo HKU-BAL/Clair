@@ -335,8 +335,8 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
             variant_lengths.sort()
             variant_length_vec_1 = [0] * VARIANT_LENGTH_1.output_label_count
             variant_length_vec_2 = [0] * VARIANT_LENGTH_2.output_label_count
-            variant_length_vec_1[variant_lengths[0] + VariantLength.index_offset] = 1.0
-            variant_length_vec_2[variant_lengths[1] + VariantLength.index_offset] = 1.0
+            variant_length_vec_1[variant_lengths[0] + VariantLength.index_offset] = 1
+            variant_length_vec_2[variant_lengths[1] + VariantLength.index_offset] = 1
 
             Y[key] = base_change_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
 
