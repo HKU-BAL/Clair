@@ -88,7 +88,7 @@ def candidate_position_generator_from(
 
     for row in candidate_file_path_output:
         row = row.split()
-        position = int(row[1]) # 1-based position
+        position = int(row[1])  # 1-based position
 
         if is_ctg_region_provided and not (ctg_start <= position <= ctg_end):
             continue
@@ -443,7 +443,6 @@ if __name__ == "__main__":
 
     parser.add_argument('--minCoverage', type=int, default=0,
                         help="Minimum coverage required to generate a tensor, default: %(default)d")
-
 
     args = parser.parse_args()
 

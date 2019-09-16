@@ -97,11 +97,7 @@ def ParseArgs():
     return args
 
 
-def main():
+if __name__ == "__main__":
     args = ParseArgs()
     Prepare(args)
     CreatePNGs(args)
-
-
-if __name__ == "__main__":
-    main()
