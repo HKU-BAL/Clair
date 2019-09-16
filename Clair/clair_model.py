@@ -156,7 +156,7 @@ class Clair(object):
         self.l2_regularization_lambda_decay_rate = params['l2_regularization_lambda_decay_rate']
         self.structure = params['structure']
         self.optimizer_name = params['optimizer_name']
-        self.loss_function = params['focal_loss']
+        self.loss_function = params['loss_function']
 
         # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks,
         # which does not support tf.float64
