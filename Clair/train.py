@@ -96,7 +96,6 @@ def train_model(m, training_config):
     logging.info("[INFO] Learning rate: %.2e" % m.set_learning_rate(learning_rate))
     logging.info("[INFO] L2 regularization lambda: %.2e" % m.set_l2_regularization_lambda(l2_regularization_lambda))
 
-
     # Model Constants
     training_start_time = time.time()
     learning_rate_switch_count = param.maxLearningRateSwitch
@@ -269,8 +268,17 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Train Clair")
 
+    # optimizer
+    parser.add_argument('--SGDM', action='store_true',
+                        help="Use Stochastic Gradient Descent with momentum as optimizer")
+    parser.add_argument('--Adam', action='store_true',
+                        help="Use Adam as optimizer")
+
     # loss function
-    parser.add_argument('--focal_loss', action='store_true', help="whether to use focal loss as the loss function or not")
+    parser.add_argument('--cross_entropy', action='store_true',
+                        help="Use Cross Entropy as loss function")
+    parser.add_argument('--focal_loss', action='store_true',
+                        help="Use Focal Loss as loss function")
 
     # binary file path
     parser.add_argument('--bin_fn', type=str, default=None,
@@ -318,7 +326,18 @@ if __name__ == "__main__":
     # initialize
     logging.info("[INFO] Initializing")
     utils.setup_environment()
-    m = cv.Clair(loss_function=args.focal_loss)
+
+    optimizer = "SGDM" if args.SGDM else ("Adam" if args.Adam else param.default_optimizer)
+    loss_function = (
+        "FocalLoss" if args.focal_loss else ("CrossEntropy" if args.cross_entropy else param.default_loss_function)
+    )
+    logging.info("[INFO] Optimizer: {}".format(optimizer))
+    logging.info("[INFO] Loss Function: {}".format(loss_function))
+
+    m = cv.Clair(
+        optimizer_name=optimizer,
+        loss_function=loss_function
+    )
     m.init()
 
     dataset_info = utils.dataset_info_from(

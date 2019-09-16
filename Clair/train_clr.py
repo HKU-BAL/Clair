@@ -200,10 +200,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Clair")
 
     # clr mode
-    parser.add_argument('--clr_mode', type=str, default="tri", help="clr modes: tri, tri2, exp")
+    parser.add_argument('--clr_mode', type=str, default="exp",
+                        help="clr modes: tri, tri2, exp")
 
-    #loss function
-    parser.add_argument('--focal_loss', action='store_true', help= "whether to use focal loss as the loss function or not")
+    # optimizer
+    parser.add_argument('--SGDM', action='store_true',
+                        help="Use Stochastic Gradient Descent with momentum as optimizer")
+    parser.add_argument('--Adam', action='store_true',
+                        help="Use Adam as optimizer")
+
+    # loss function
+    parser.add_argument('--cross_entropy', action='store_true',
+                        help="Use Cross Entropy as loss function")
+    parser.add_argument('--focal_loss', action='store_true',
+                        help="Use Focal Loss as loss function")
 
     # binary file path
     parser.add_argument('--bin_fn', type=str, default=None,
@@ -242,7 +252,6 @@ if __name__ == "__main__":
     parser.add_argument('--olog_dir', type=str, default=None,
                         help="Directory for tensorboard log outputs, optional")
 
-
     args = parser.parse_args()
 
     if len(sys.argv[1:]) == 0:
@@ -252,7 +261,18 @@ if __name__ == "__main__":
     # initialize
     logging.info("[INFO] Initializing")
     utils.setup_environment()
-    m = cv.Clair(optimizer="SGDM",loss_function=args.focal_loss)
+
+    optimizer = "SGDM" if args.SGDM else ("Adam" if args.Adam else param.default_optimizer)
+    loss_function = (
+        "FocalLoss" if args.focal_loss else ("CrossEntropy" if args.cross_entropy else param.default_loss_function)
+    )
+    logging.info("[INFO] Optimizer: {}".format(optimizer))
+    logging.info("[INFO] Loss Function: {}".format(loss_function))
+
+    m = cv.Clair(
+        optimizer_name=optimizer,
+        loss_function=loss_function
+    )
     m.init()
 
     dataset_info = utils.dataset_info_from(

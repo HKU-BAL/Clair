@@ -53,7 +53,7 @@ class Clair(object):
 
     def __init__(self, **kwargs):
 
-        # Define the default dictionary here
+        # Default params dictionary
         params = dict(
             float_type=tf.float64,
             input_shape=(2 * param.flankingBaseNum + 1, param.matrixRow, param.matrixNum),
@@ -96,20 +96,20 @@ class Clair(object):
             l2_regularization_lambda=param.l2RegularizationLambda,
             l2_regularization_lambda_decay_rate=param.l2RegularizationLambdaDecay,
             tensor_transform_function=lambda X, Y, phase: (X, Y),
-            optimizer="Adam",
-            focal_loss = False
+            optimizer_name=param.default_optimizer,
+            loss_function=param.default_loss_function,
         )
 
-
-        # Getting other parameters from the param.py file
+        # Update params dictionary from the param.py file
         params_from_file = param.get_model_parameters()
         params.update(params_from_file)
+
+        # Update params dictionary from kwargs
         for key, value in kwargs.items():
             if key in params.keys():
                 params[key] = value
             else:
                 print("Info: the parameter %s, with value %s is not supported" % (key, value))
-        # print(sorted(params.items()))
 
         # Extract the values from the params dictionary
         self.input_shape = params['input_shape']
@@ -123,8 +123,12 @@ class Clair(object):
 
         self.output_base_change_entropy_weights = np.array(params['output_base_change_entropy_weights'], dtype=float)
         self.output_genotype_entropy_weights = np.array(params['output_genotype_entropy_weights'], dtype=float)
-        self.output_indel_length_entropy_weights_1 = np.array(params['output_indel_length_entropy_weights_1'], dtype=float)
-        self.output_indel_length_entropy_weights_2 = np.array(params['output_indel_length_entropy_weights_2'], dtype=float)
+        self.output_indel_length_entropy_weights_1 = np.array(
+            params['output_indel_length_entropy_weights_1'], dtype=float
+        )
+        self.output_indel_length_entropy_weights_2 = np.array(
+            params['output_indel_length_entropy_weights_2'], dtype=float
+        )
 
         self.L1_num_units = params['L1_num_units']
         self.L2_num_units = params['L2_num_units']
@@ -170,8 +174,6 @@ class Clair(object):
             self.output_indel_length_shape_1,
             self.output_indel_length_shape_2
         ]
-
-        # print(self.input_shape)
 
         tf.set_random_seed(param.RANDOM_SEED)
         self.g = tf.Graph()
@@ -623,7 +625,7 @@ class Clair(object):
                     self.Y_placeholder, self.output_label_split, axis=1, name="label_split"
                 )
 
-                if not self.focal_loss:
+                if self.loss_function == "CrossEntropy":
                     self.Y_base_change_cross_entropy = Clair.weighted_cross_entropy(
                         softmax_prediction=self.Y_base_change,
                         labels=Y_base_change_label,
@@ -649,7 +651,9 @@ class Clair(object):
                         epsilon=self.epsilon,
                         name="Y_indel_length_cross_entropy_1"
                     )
-                    self.Y_indel_length_loss_1 = tf.reduce_sum(self.Y_indel_length_cross_entropy_1, name="Y_indel_length_loss_1")
+                    self.Y_indel_length_loss_1 = tf.reduce_sum(
+                        self.Y_indel_length_cross_entropy_1, name="Y_indel_length_loss_1"
+                    )
 
                     self.Y_indel_length_cross_entropy_2 = Clair.weighted_cross_entropy(
                         softmax_prediction=self.Y_indel_length_2,
@@ -658,24 +662,26 @@ class Clair(object):
                         epsilon=self.epsilon,
                         name="Y_indel_length_cross_entropy_2"
                     )
-                    self.Y_indel_length_loss_2 = tf.reduce_sum(self.Y_indel_length_cross_entropy_2, name="Y_indel_length_loss_2")
+                    self.Y_indel_length_loss_2 = tf.reduce_sum(
+                        self.Y_indel_length_cross_entropy_2, name="Y_indel_length_loss_2"
+                    )
 
                 else:
                     self.Y_base_change_loss = Clair.focal_loss(
-                       prediction_tensor=self.Y_base_change_logits,
-                       target_tensor=Y_base_change_label,
+                        prediction_tensor=self.Y_base_change_logits,
+                        target_tensor=Y_base_change_label,
                     )
                     self.Y_genotype_loss = Clair.focal_loss(
-                       prediction_tensor=self.Y_genotype_logits,
-                       target_tensor=Y_genotype_label,
+                        prediction_tensor=self.Y_genotype_logits,
+                        target_tensor=Y_genotype_label,
                     )
                     self.Y_indel_length_loss_1 = Clair.focal_loss(
-                       prediction_tensor=self.Y_indel_length_logits_1,
-                       target_tensor=Y_indel_length_label_1,
+                        prediction_tensor=self.Y_indel_length_logits_1,
+                        target_tensor=Y_indel_length_label_1,
                     )
                     self.Y_indel_length_loss_2 = Clair.focal_loss(
-                       prediction_tensor=self.Y_indel_length_logits_2,
-                       target_tensor=Y_indel_length_label_2,
+                        prediction_tensor=self.Y_indel_length_logits_2,
+                        target_tensor=Y_indel_length_label_2,
                     )
 
                 self.regularization_L2_loss_without_lambda = tf.add_n([
@@ -708,24 +714,26 @@ class Clair(object):
                 with tf.variable_scope("Training_Operation"):
                     if self.optimizer_name == "Adam":
                         self.optimizer = tf.train.AdamOptimizer(
-                        learning_rate=self.learning_rate_placeholder
-                    )
+                            learning_rate=self.learning_rate_placeholder
+                        )
                     elif self.optimizer_name == "SGDM":
-                        self.optimizer=tf.train.MomentumOptimizer(
+                        self.optimizer = tf.train.MomentumOptimizer(
                             learning_rate=self.learning_rate_placeholder,
-                            momentum=param.momentum)
+                            momentum=param.momentum
+                        )
                     gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
                     self.training_op = self.optimizer.apply_gradients(zip(gradients, variables))
             else:
                 if self.optimizer_name == "Adam":
                     self.training_op = tf.train.AdamOptimizer(
-                    learning_rate=self.learning_rate_placeholder
+                        learning_rate=self.learning_rate_placeholder
                     ).minimize(self.total_loss)
                 elif self.optimizer_name == "SGDM":
                     self.optimizer = tf.train.MomentumOptimizer(
                         learning_rate=self.learning_rate_placeholder,
-                        momentum=param.momentum).minimize(self.total_loss)
+                        momentum=param.momentum
+                    ).minimize(self.total_loss)
 
             self.init_op = tf.global_variables_initializer()
 
@@ -793,8 +801,6 @@ class Clair(object):
             (neg_p_sub ** gamma) * tf.log(tf.clip_by_value(1.0 - softmax_p, 1e-8, 1.0))
         )
         return tf.reduce_sum(per_entry_cross_ent)
-
-
 
     def init(self):
         """
@@ -912,7 +918,6 @@ class Clair(object):
         self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
         self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
         self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
-
 
         return base, genotype, indel_length_1, indel_length_2, loss, summary
 
@@ -1132,9 +1137,9 @@ class Clair(object):
                 max_lr = max_lr / 2
         x = global_step / step_size
         if x <= 1:
-            self.learning_rate_value = param.clr_min_lr + (max_lr - param.clr_min_lr) * np.maximum(0,x)
+            self.learning_rate_value = param.clr_min_lr + (max_lr - param.clr_min_lr) * np.maximum(0, x)
         else:
-            self.learning_rate_value = param.clr_min_lr + (max_lr - param.clr_min_lr) * np.maximum(0,(2 - x))
+            self.learning_rate_value = param.clr_min_lr + (max_lr - param.clr_min_lr) * np.maximum(0, (2 - x))
         return self.learning_rate_value, global_step, max_lr
 
     def set_l2_regularization_lambda(self, l2_regularization_lambda):
