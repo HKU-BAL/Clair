@@ -155,7 +155,7 @@ class Clair(object):
         self.l2_regularization_lambda_value = params['l2_regularization_lambda']
         self.l2_regularization_lambda_decay_rate = params['l2_regularization_lambda_decay_rate']
         self.structure = params['structure']
-        self.optimizer_name = params['optimizer']
+        self.optimizer_name = params['optimizer_name']
         self.loss_function = params['focal_loss']
 
         # Ensure the appropriate float datatype is used for Convolutional / Recurrent networks,
