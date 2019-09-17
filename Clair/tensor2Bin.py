@@ -49,10 +49,10 @@ if __name__ == "__main__":
     parser.add_argument('--bin_fn', type=str, default=None,
                         help="Output a binary tensor file")
 
-    parser.add_argument('--shuffle', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--shuffle', action='store_true',
                         help="Shuffle on building bin")
 
-    parser.add_argument('--allow_duplicate_chr_pos', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--allow_duplicate_chr_pos', action='store_true',
                         help="Allow duplicate chromosome:position in tensor input")
 
     args = parser.parse_args()

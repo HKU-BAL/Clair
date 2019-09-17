@@ -465,7 +465,7 @@ if __name__ == "__main__":
     parser.add_argument('--minMQ', type=int, default=0,
                         help="Minimum Mapping Quality. Mapping quality lower than the setting will be filtered, default: %(default)d")
 
-    parser.add_argument('--gen4Training', type=param.str2bool, nargs='?', const=True, default=False,
+    parser.add_argument('--gen4Training', action='store_true',
                         help="Output all genome positions as candidate for model training (Set --threshold to 0, --minCoverage to 0), default: %(default)s")
 
     # parser.add_argument('--candidates', type=int, default=7000000,

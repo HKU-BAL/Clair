@@ -191,7 +191,7 @@ def OutputAlnTensor(args):
     reference_file_path = args.ref_fn
     candidate_file_path = args.can_fn
     dcov = args.dcov
-    is_consider_left_edge = args.considerleftedge
+    is_consider_left_edge = not args.stop_consider_left_edge
     min_coverage = args.minCoverage
     minimum_mapping_quality = args.minMQ
     ctg_name = args.ctgName
@@ -435,8 +435,8 @@ if __name__ == "__main__":
     parser.add_argument('--samtools', type=str, default="samtools",
                         help="Path to the 'samtools', default: %(default)s")
 
-    parser.add_argument('--considerleftedge', type=param.str2bool, nargs='?', const=True, default=True,
-                        help="Count the left-most base-pairs of a read for coverage even if the starting position of a read is after the starting position of a tensor, default: %(default)s")
+    parser.add_argument('--stop_consider_left_edge', action='store_true',
+                        help="If not set, would consider left edge only. That is, count the left-most base-pairs of a read for coverage even if the starting position of a read is after the starting position of a tensor")
 
     parser.add_argument('--dcov', type=int, default=250,
                         help="Cap depth per position at %(default)d")

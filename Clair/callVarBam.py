@@ -118,7 +118,7 @@ def Run(args):
     if ctgName is None:
         sys.exit("--ctgName must be specified. You can call variants on multiple chromosomes simultaneously.")
 
-    considerleftedge = command_option_from(args.considerleftedge, 'considerleftedge')
+    stop_consider_left_edge = command_option_from(args.stop_consider_left_edge, 'stop_consider_left_edge')
     log_path = command_option_from(args.log_path, 'log_path', option_value=args.log_path)
     pysam_for_all_indel_bases = command_option_from(args.pysam_for_all_indel_bases, 'pysam_for_all_indel_bases')
     debug = command_option_from(args.debug, 'debug')
@@ -180,7 +180,7 @@ def Run(args):
         CommandOption('ctgName', ctgName),
         ctgStart,
         ctgEnd,
-        considerleftedge,
+        stop_consider_left_edge,
         CommandOption('samtools', samtoolsBin),
         CommandOption('dcov', dcov)
     ]
@@ -305,8 +305,8 @@ if __name__ == "__main__":
     parser.add_argument('--ctgEnd', type=int, default=None,
                         help="The 1-based inclusive ending position of the sequence to be processed")
 
-    parser.add_argument('--considerleftedge', type=param.str2bool, nargs='?', const=True, default=True,
-                        help="Count the left-most base-pairs of a read for coverage even if the starting position of a read is after the starting position of a tensor, default: %(default)s")
+    parser.add_argument('--stop_consider_left_edge', action='store_true',
+                        help="If not set, would consider left edge only. That is, count the left-most base-pairs of a read for coverage even if the starting position of a read is after the starting position of a tensor")
 
     parser.add_argument('--dcov', type=int, default=250,
                         help="Cap depth per position at %(default)s")
