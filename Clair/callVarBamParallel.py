@@ -1,11 +1,10 @@
 import os
 import sys
 import subprocess
-import intervaltree
-import shlex
 import argparse
-import param
+
 from collections import namedtuple
+from ..utils.interval_tree import interval_tree_from
 
 major_contigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) for a in range(0, 23)+["X", "Y"]})
 
@@ -51,28 +50,6 @@ def CheckCmdExist(cmd):
     return cmd
 
 
-def intervaltree_from(bed_file_path):
-    tree = {}
-    if bed_file_path is None:
-        return tree
-
-    bed_fp = subprocess.Popen(shlex.split("pigz -fdc %s" % (bed_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
-    for row in bed_fp.stdout:
-        row = row.strip().split()
-        name = row[0]
-        if name not in tree:
-            tree[name] = intervaltree.IntervalTree()
-        begin = int(row[1])
-        end = int(row[2])
-        if end == begin:
-            end += 1
-        tree[name].addi(begin, end)
-    bed_fp.stdout.close()
-    bed_fp.wait()
-
-    return tree
-
-
 def Run(args):
     basedir = os.path.dirname(__file__)
     if len(basedir) == 0:
@@ -92,7 +69,7 @@ def Run(args):
     output_prefix = args.output_prefix
     af_threshold = args.threshold
 
-    tree = intervaltree_from(bed_file_path=bed_fn)
+    tree = interval_tree_from(bed_file_path=bed_fn)
 
     minCoverage = args.minCoverage
     sampleName = args.sampleName

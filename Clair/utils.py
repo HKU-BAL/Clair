@@ -7,12 +7,12 @@ import logging
 import cPickle
 import numpy as np
 
-import intervaltree
 import blosc
 import param
 from enum import IntEnum
 
 from collections import namedtuple
+from ..utils.interval_tree import interval_tree_from
 
 BASES = set("ACGT")
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
@@ -264,21 +264,7 @@ def tensor_generator_from(tensor_file_path, batch_size):
 
 
 def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
-    tree = {}
-    if bed_fn != None:
-        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (bed_fn)), stdout=subprocess.PIPE, bufsize=8388608)
-        for row in f.stdout:
-            row = row.split()
-            name = row[0]
-            if name not in tree:
-                tree[name] = intervaltree.IntervalTree()
-            begin = int(row[1])
-            end = int(row[2])
-            if end == begin:
-                end += 1
-            tree[name].addi(begin, end)
-        f.stdout.close()
-        f.wait()
+    tree = interval_tree_from(bed_file_path=bed_fn)
 
     Y = {}
     if var_fn != None:

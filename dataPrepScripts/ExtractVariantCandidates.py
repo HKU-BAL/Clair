@@ -1,16 +1,16 @@
 import os
 import sys
 import argparse
-import re
 import shlex
 import subprocess
 import gc
 import signal
 import param
-import intervaltree
 import random
+
 from math import log
 from collections import defaultdict
+from ..utils.interval_tree import interval_tree_from
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
@@ -146,46 +146,6 @@ def reference_sequence_from(samtools_execute_command, fasta_file_path, regions):
     return reference_sequence
 
 
-def interval_tree_map_from(bed_file_path):
-    """
-    0-based interval tree [start, end)
-    """
-    interval_tree_map = {}
-    if bed_file_path is None:
-        return interval_tree_map
-
-    pigz_process = subprocess.Popen(
-        shlex.split("pigz -fdc %s" % (bed_file_path)),
-        stdout=subprocess.PIPE,
-        bufsize=8388608
-    )
-
-    while True:
-        row = pigz_process.stdout.readline()
-        is_finish_reading_output = row == '' and pigz_process.poll() is not None
-        if is_finish_reading_output:
-            break
-
-        if row:
-            columns = row.strip().split()
-
-            ctg_name = columns[0]
-            if ctg_name not in interval_tree_map:
-                interval_tree_map[ctg_name] = intervaltree.IntervalTree()
-
-            ctg_start = int(columns[1])
-            ctg_end = int(columns[2])
-            if ctg_start == ctg_end:
-                ctg_end += 1
-
-            interval_tree_map[ctg_name].addi(ctg_start, ctg_end)
-
-    pigz_process.stdout.close()
-    pigz_process.wait()
-
-    return interval_tree_map
-
-
 def is_too_many_soft_clipped_bases_for_a_read_from(CIGAR):
     soft_clipped_bases = 0
     total_alignment_positions = 0
@@ -270,7 +230,7 @@ def make_candidates(args):
         print >> sys.stderr, "[ERROR] Failed to load reference seqeunce from file ({}).".format(fasta_file_path)
         sys.exit(1)
 
-    tree = interval_tree_map_from(bed_file_path=bed_file_path)
+    tree = interval_tree_from(bed_file_path=bed_file_path)
     if is_bed_file_given and ctg_name not in tree:
         print >> sys.stderr, "[ERROR] ctg_name({}) not exists in bed file({}).".format(ctg_name, bed_file_path)
         sys.exit(1)

@@ -1,11 +1,12 @@
 import os
 import sys
-import intervaltree
 import argparse
 import logging
 import random
 import subprocess
 import shlex
+
+from ..utils.interval_tree import interval_tree_from
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
@@ -31,21 +32,7 @@ def bufcount(filename):
 
 
 def Pair(args):
-    tree = {}
-    if args.bed_fn != None:
-        logging.info("Loading BED file ...")
-        f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.bed_fn) ), stdout=subprocess.PIPE, bufsize=8388608)
-        for row in f.stdout:
-            row = row.strip().split()
-            name = row[0]
-            if name not in tree:
-                tree[name] = intervaltree.IntervalTree()
-            begin = int(row[1])
-            end = int(row[2])
-            if end == begin: end += 1
-            tree[name].addi(begin, end)
-        f.stdout.close()
-        f.wait()
+    tree = interval_tree_from(bed_file_path=args.bed_fn)
 
     logging.info("Counting the number of Truth Variants in %s ..." % args.tensor_var_fn)
     v = 0
