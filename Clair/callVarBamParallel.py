@@ -102,7 +102,7 @@ def Run(args):
     is_include_all_contigs = args.includingAllContigs
     region_chunk_size = args.refChunkSize
 
-    considerleftedge = command_option_from(args.considerleftedge, 'considerleftedge')
+    stop_consider_left_edge = command_option_from(args.stop_consider_left_edge, 'stop_consider_left_edge')
     log_path = command_option_from(args.log_path, 'log_path', option_value=args.log_path)
     pysam_for_all_indel_bases = command_option_from(args.pysam_for_all_indel_bases, 'pysam_for_all_indel_bases')
     debug = command_option_from(args.debug, 'debug')
@@ -124,7 +124,7 @@ def Run(args):
         # optional command options
         CommandOption('vcf_fn', vcf_fn) if vcf_fn is not None else None,
         qual,
-        considerleftedge,
+        stop_consider_left_edge,
         debug,
         pysam_for_all_indel_bases,
     ]
@@ -220,8 +220,8 @@ if __name__ == "__main__":
     parser.add_argument('--sampleName', type=str, default="SAMPLE",
                         help="Define the sample name to be shown in the VCF file")
 
-    parser.add_argument('--considerleftedge', type=param.str2bool, nargs='?', const=True, default=True,
-                        help="Count the left-most base-pairs of a read for coverage even if the starting position of a read is after the starting position of a tensor, default: %(default)s")
+    parser.add_argument('--stop_consider_left_edge', action='store_true',
+                        help="If not set, would consider left edge only. That is, count the left-most base-pairs of a read for coverage even if the starting position of a read is after the starting position of a tensor")
 
     parser.add_argument('--samtools', type=str, default="samtools",
                         help="Path to the 'samtools', default: %(default)s")
