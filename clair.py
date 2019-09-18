@@ -6,25 +6,24 @@ import importlib
 import subprocess
 
 if sys.version_info.major >= 3:
-    clv_path = os.path.dirname(os.path.abspath(__file__))+os.sep+'Clair'
+    clv_path = os.path.dirname(os.path.abspath(__file__)) + os.sep + 'Clair'
     sys.path.insert(1, clv_path)
 
 
 def mod(dir, name):
-    if sys.argv[1] == name:
-        sys.argv[0] = os.path.join(os.path.split(sys.argv[0])[0], dir, sys.argv[1] + ".py")
-        del sys.argv[1]
+    if sys.argv[1] != name:
+        return
 
-        p = subprocess.Popen(["python"] + sys.argv)
-        p.wait()
-
-        sys.exit(0)
+    r = importlib.import_module("%s.%s" % (dir, name))
+    sys.argv = sys.argv[1:]
+    sys.argv[0] += (".py")
+    r.main()
+    sys.exit(0)
 
 
 cl = ["callVarBamParallel", "callVarBam", "call_var", "evaluate",
-      "plot_tensor", "tensor2Bin", "train_shuffle", "train", "validate"]
-dp = ["ChooseItemInBed", "CombineMultipleDatasetsForTraining", "CountNumInBed", "CreateTensor",
-      "ExtractVariantCandidates", "GetTruth", "PairWithNonVariants", "RandomSampling"]
+      "plot_tensor", "tensor2Bin", "train", "train_clr"]
+dp = ["CreateTensor", "ExtractVariantCandidates", "GetTruth", "PairWithNonVariants"]
 
 
 def main():

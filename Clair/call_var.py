@@ -1242,8 +1242,7 @@ def call_variants(args, m):
     output_utilities.close_opened_files()
 
 
-if __name__ == "__main__":
-
+def main():
     parser = argparse.ArgumentParser(
         description="Call variants using a trained Clair model and tensors of candididate variants")
 
@@ -1300,3 +1299,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     Run(args)
+
+
+if __name__ == "__main__":
+    main()

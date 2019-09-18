@@ -12,7 +12,8 @@ import param
 from enum import IntEnum
 
 from collections import namedtuple
-from ..utils.interval_tree import interval_tree_from
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from utilities.interval_tree import interval_tree_from
 
 BASES = set("ACGT")
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))

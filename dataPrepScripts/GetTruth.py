@@ -90,7 +90,7 @@ def OutputVariant(args):
         var_fpo.close()
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(
         description="Extract variant type and allele from a Truth dataset")
 
@@ -116,3 +116,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     OutputVariant(args)
+
+
+if __name__ == "__main__":
+    main()

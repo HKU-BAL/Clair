@@ -403,8 +403,7 @@ def OutputAlnTensor(args):
         tensor_fpo.close()
 
 
-if __name__ == "__main__":
-
+def main():
     parser = argparse.ArgumentParser(
         description="Generate tensors summarizing local alignments from a BAM file and a list of candidate locations")
 
@@ -451,3 +450,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     OutputAlnTensor(args)
+
+
+if __name__ == "__main__":
+    main()

@@ -4,6 +4,7 @@ import logging
 import cPickle
 import param
 import utils
+
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 
@@ -32,8 +33,7 @@ def Run(args):
         pickle_dump(posArrayCompressed, fh)
 
 
-if __name__ == "__main__":
-
+def main():
     parser = argparse.ArgumentParser(
         description="Generate a binary format input tensor")
 
@@ -62,3 +62,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     Run(args)
+
+
+if __name__ == "__main__":
+    main()

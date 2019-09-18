@@ -263,8 +263,7 @@ def Run(args):
         raise e
 
 
-if __name__ == "__main__":
-
+def main():
     parser = argparse.ArgumentParser(
         description="Call variants using a trained Clair model and a BAM file")
 
@@ -349,3 +348,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     Run(args)
+
+if __name__ == "__main__":
+    main()

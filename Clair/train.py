@@ -261,8 +261,7 @@ def train_model(m, training_config):
     return training_losses, validation_losses
 
 
-if __name__ == "__main__":
-
+def main():
     random.seed(param.RANDOM_SEED)
     np.random.seed(param.RANDOM_SEED)
 
@@ -369,3 +368,7 @@ if __name__ == "__main__":
     best_validation_model_file_path = model_file_path % best_validation_epoch
     m.restore_parameters(os.path.abspath(best_validation_model_file_path))
     evaluate.evaluate_model(m, dataset_info)
+
+
+if __name__ == "__main__":
+    main()

@@ -26,7 +26,7 @@ def shuffle_first_n_items(array, n):
     return np.append(a1, a2)
 
 
-def train_model(m, training_config):
+def train_model(m, training_config, clr_mode):
     learning_rate = training_config.learning_rate
     max_learning_rate = param.clr_max_lr
     l2_regularization_lambda = training_config.l2_regularization_lambda
@@ -138,7 +138,8 @@ def train_model(m, training_config):
             x_batch = next_x_batch
             y_batch = next_y_batch
             learning_rate, global_step, max_learning_rate = m.clr(
-                global_step, step_size, max_learning_rate, args.clr_mode)
+                global_step, step_size, max_learning_rate, clr_mode
+            )
             continue
 
         logging.info(
@@ -192,8 +193,7 @@ def train_model(m, training_config):
     return training_losses, validation_losses
 
 
-if __name__ == "__main__":
-
+def main():
     random.seed(param.RANDOM_SEED)
     np.random.seed(param.RANDOM_SEED)
 
@@ -292,7 +292,7 @@ if __name__ == "__main__":
         summary_writer=m.get_summary_file_writer(args.olog_dir) if args.olog_dir != None else None,
     )
 
-    _training_losses, validation_losses = train_model(m, training_config)
+    _training_losses, validation_losses = train_model(m, training_config, clr_mode=args.clr_mode)
 
     # show the parameter set with the smallest validation loss
     validation_losses.sort()
@@ -304,3 +304,7 @@ if __name__ == "__main__":
     best_validation_model_file_path = model_file_path % best_validation_epoch
     m.restore_parameters(os.path.abspath(best_validation_model_file_path))
     evaluate.evaluate_model(m, dataset_info)
+
+
+if __name__ == "__main__":
+    main()

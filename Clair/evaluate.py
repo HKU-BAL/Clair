@@ -162,8 +162,7 @@ def evaluate_model(m, dataset_info):
     print("[INFO] f-measure: ", indel_length_f_measure_2)
 
 
-if __name__ == "__main__":
-
+def main():
     parser = argparse.ArgumentParser(description="Evaluate trained Clair model")
 
     parser.add_argument('--bin_fn', type=str, default=None,
@@ -212,3 +211,7 @@ if __name__ == "__main__":
 
     # start evaluation
     evaluate_model(m, dataset_info)
+
+
+if __name__ == "__main__":
+    main()

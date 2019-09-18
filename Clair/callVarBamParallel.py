@@ -1,10 +1,10 @@
 import os
 import sys
-import subprocess
 import argparse
 
 from collections import namedtuple
-from ..utils.interval_tree import interval_tree_from
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from utilities.interval_tree import interval_tree_from
 
 major_contigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) for a in range(0, 23)+["X", "Y"]})
 
@@ -153,8 +153,7 @@ def Run(args):
                 print(command_string + " " + command_string_from(additional_command_options))
 
 
-if __name__ == "__main__":
-
+def main():
     parser = argparse.ArgumentParser(
         description="Create commands for calling variants in parallel using a trained Clair model and a BAM file")
 
@@ -235,3 +234,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     Run(args)
+
+
+if __name__ == "__main__":
+    main()
