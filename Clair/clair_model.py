@@ -581,9 +581,9 @@ class Clair(object):
                     units=self.output_gt21_shape,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
-                    name='Y_gt21_logits'
+                    name='Y_base_change_logits'
                 )
-                self.Y_gt21 = tf.nn.softmax(self.Y_gt21_logits, name='Y_gt21')
+                self.Y_gt21 = tf.nn.softmax(self.Y_gt21_logits, name='Y_base_change')
                 self.layers.append(self.Y_gt21)
 
                 self.Y_genotype_logits = tf.layers.dense(
@@ -630,7 +630,7 @@ class Clair(object):
                         labels=Y_gt21_label,
                         weights=self.output_gt21_entropy_weights_placeholder,
                         epsilon=self.epsilon,
-                        name="Y_gt21_cross_entropy"
+                        name="Y_base_change_cross_entropy"
                     )
                     self.Y_gt21_loss = tf.reduce_sum(self.Y_gt21_cross_entropy, name="Y_gt21_loss")
 
