@@ -8,7 +8,7 @@ from itertools import izip
 
 import Clair.clair_model as cv
 import Clair.utils as utils
-from Clair.utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
+from Clair.utils import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 import shared.param as param
 
 
@@ -56,12 +56,12 @@ def evaluate_model(m, dataset_info):
     blosc_index = 0
     first_blosc_block_data_index = 0
 
-    confusion_matrix_base = new_confusion_matrix_with_dimension(BASE_CHANGE.output_label_count)
+    confusion_matrix_gt21 = new_confusion_matrix_with_dimension(GT21.output_label_count)
     confusion_matrix_genotype = new_confusion_matrix_with_dimension(GENOTYPE.output_label_count)
     confusion_matrix_indel_length_1 = new_confusion_matrix_with_dimension(VARIANT_LENGTH_1.output_label_count)
     confusion_matrix_indel_length_2 = new_confusion_matrix_with_dimension(VARIANT_LENGTH_2.output_label_count)
 
-    all_base_count = top_1_count = top_2_count = 0
+    all_gt21_count = top_1_count = top_2_count = 0
 
     while True:
         x_batch, next_x_first_blosc_block_data_index, next_x_blosc_index = utils.decompress_array(
@@ -78,23 +78,23 @@ def evaluate_model(m, dataset_info):
             no_of_data_rows_to_retrieve=prediction_batch_size,
             no_of_blosc_blocks=no_of_blosc_blocks,
         )
-        minibatch_base_prediction, minibatch_genotype_prediction, \
+        minibatch_gt21_prediction, minibatch_genotype_prediction, \
             minibatch_indel_length_prediction_1, minibatch_indel_length_prediction_2 = m.predict(x_batch)
 
         blosc_index = next_x_blosc_index
         first_blosc_block_data_index = next_x_first_blosc_block_data_index
 
-        # update confusion matrix for base prediction
-        for base_change_prediction, base_change_label in izip(
-            minibatch_base_prediction,
-            y_batch[:, BASE_CHANGE.y_start_index:BASE_CHANGE.y_end_index]
+        # update confusion matrix for gt21 prediction
+        for gt21_prediction, gt21_label in izip(
+            minibatch_gt21_prediction,
+            y_batch[:, GT21.y_start_index:GT21.y_end_index]
         ):
-            true_label_index = np.argmax(base_change_label)
-            predict_label_index = np.argmax(base_change_prediction)
-            confusion_matrix_base[true_label_index][predict_label_index] += 1
+            true_label_index = np.argmax(gt21_label)
+            predict_label_index = np.argmax(gt21_prediction)
+            confusion_matrix_gt21[true_label_index][predict_label_index] += 1
 
-            all_base_count += 1
-            indexes_with_sorted_prediction_probability = base_change_prediction.argsort()[::-1]
+            all_gt21_count += 1
+            indexes_with_sorted_prediction_probability = gt21_prediction.argsort()[::-1]
             if true_label_index == indexes_with_sorted_prediction_probability[0]:
                 top_1_count += 1
                 top_2_count += 1
@@ -133,14 +133,14 @@ def evaluate_model(m, dataset_info):
 
     logging.info("[INFO] Prediciton time elapsed: %.2f s" % (time.time() - prediction_start_time))
 
-    print("[INFO] Evaluation on base change:")
+    print("[INFO] Evaluation on gt21:")
     print("[INFO] all/top1/top2/top1p/top2p: %d/%d/%d/%.2f/%.2f" %
-          (all_base_count, top_1_count, top_2_count,
-           float(top_1_count)/all_base_count*100, float(top_2_count)/all_base_count*100))
-    for i in range(BASE_CHANGE.output_label_count):
-        print("\t".join([str(confusion_matrix_base[i][j]) for j in range(BASE_CHANGE.output_label_count)]))
-    base_change_f_measure = f1_score(confusion_matrix_base)
-    print("[INFO] f-measure: ", base_change_f_measure)
+          (all_gt21_count, top_1_count, top_2_count,
+           float(top_1_count)/all_gt21_count*100, float(top_2_count)/all_gt21_count*100))
+    for i in range(GT21.output_label_count):
+        print("\t".join([str(confusion_matrix_gt21[i][j]) for j in range(GT21.output_label_count)]))
+    gt21_f_measure = f1_score(confusion_matrix_gt21)
+    print("[INFO] f-measure: ", gt21_f_measure)
 
     print("\n[INFO] Evaluation on Genotype:")
     for i in range(GENOTYPE.output_label_count):

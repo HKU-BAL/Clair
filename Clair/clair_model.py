@@ -12,7 +12,7 @@ import math
 import multiprocessing
 
 from collections import defaultdict
-from Clair.utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
+from Clair.utils import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 import shared.param as param
 
 class Clair(object):
@@ -23,17 +23,17 @@ class Clair(object):
     input_shape: Shpae of the input tensor, a tuple or list of 3 integers
     task_loss_weights:
         The weights of different tasks in the calculation of total loss, list of 5 integers in order
-        (base_change, genotype, indel length, L2 regularization)
+        (gt21, genotype, indel length, L2 regularization)
     structure: The name of the structure, supporting "FC_L3_narrow_legacy_0.1, 2BiLST, CNN1D_L6, Res1D_L9M"
-    output_base_change_shape: The number of classes in the ouput of base change (alternate base) prediction
-    output_genotype_shape: The number of classes in the ouput of genotype prediction
+    output_gt21_shape: The number of classes in the output of gt21 (alternate base) prediction
+    output_genotype_shape: The number of classes in the output of genotype prediction
     output_indel_length_shape_1: The number of output values in the output of indel length prediction 1
     output_indel_length_shape_2: The number of output values in the output of indel length prediction 2
     output_weight_enabled: True enables per class weights speficied in output_*_entropy_weights (Slower)
-    output_base_change_entropy_weights:
-        A list of (output_base_change_shape) integers specifying the weights of different classes in
+    output_gt21_entropy_weights:
+        A list of (output_gt21_shape) integers specifying the weights of different classes in
         the calculation of entropy loss (Only used when output_weight_enabled is set to True)
-    output_genotype_entropy_weights: similar to output_base_change_entropy_weights
+    output_genotype_entropy_weights: similar to output_gt21_entropy_weights
     L1_num_units: Number of units in L1
     tensor_transform_function:
         the function (callable) for transforming the input tensors to match the model, takes in
@@ -57,18 +57,18 @@ class Clair(object):
             float_type=tf.float64,
             input_shape=(2 * param.flankingBaseNum + 1, param.matrixRow, param.matrixNum),
             task_loss_weights=[
-                1,                       # base change
+                1,                       # gt21
                 1,                       # genotype
                 1,                       # variant/indel length 0
                 1,                       # variant/indel length 1
                 1                        # l2 loss
             ],
             structure="2BiLSTM",
-            output_base_change_shape=BASE_CHANGE.output_label_count,
+            output_gt21_shape=GT21.output_label_count,
             output_genotype_shape=GENOTYPE.output_label_count,
             output_indel_length_shape_1=VARIANT_LENGTH_1.output_label_count,
             output_indel_length_shape_2=VARIANT_LENGTH_2.output_label_count,
-            output_base_change_entropy_weights=[1] * BASE_CHANGE.output_label_count,
+            output_gt21_entropy_weights=[1] * GT21.output_label_count,
             output_genotype_entropy_weights=[1] * GENOTYPE.output_label_count,
             output_indel_length_entropy_weights_1=[1] * VARIANT_LENGTH_1.output_label_count,
             output_indel_length_entropy_weights_2=[1] * VARIANT_LENGTH_2.output_label_count,
@@ -113,14 +113,14 @@ class Clair(object):
         # Extract the values from the params dictionary
         self.input_shape = params['input_shape']
         self.tensor_transform_function = params['tensor_transform_function']
-        self.output_base_change_shape = params['output_base_change_shape']
+        self.output_gt21_shape = params['output_gt21_shape']
         self.output_genotype_shape = params['output_genotype_shape']
         self.output_indel_length_shape_1 = params['output_indel_length_shape_1']
         self.output_indel_length_shape_2 = params['output_indel_length_shape_2']
 
         self.task_loss_weights = np.array(params['task_loss_weights'], dtype=float)
 
-        self.output_base_change_entropy_weights = np.array(params['output_base_change_entropy_weights'], dtype=float)
+        self.output_gt21_entropy_weights = np.array(params['output_gt21_entropy_weights'], dtype=float)
         self.output_genotype_entropy_weights = np.array(params['output_genotype_entropy_weights'], dtype=float)
         self.output_indel_length_entropy_weights_1 = np.array(
             params['output_indel_length_entropy_weights_1'], dtype=float
@@ -168,7 +168,7 @@ class Clair(object):
 
         # Specify the way to split the output ground truth label
         self.output_label_split = [
-            self.output_base_change_shape,
+            self.output_gt21_shape,
             self.output_genotype_shape,
             self.output_indel_length_shape_1,
             self.output_indel_length_shape_2
@@ -338,7 +338,7 @@ class Clair(object):
             self.input_shape_tf = (None, self.input_shape[0], self.input_shape[1], self.input_shape[2])
             self.output_shape_tf = (
                 None,
-                self.output_base_change_shape +
+                self.output_gt21_shape +
                 self.output_genotype_shape +
                 self.output_indel_length_shape_1 +
                 self.output_indel_length_shape_2
@@ -367,10 +367,10 @@ class Clair(object):
             self.task_loss_weights_placeholder = tf.placeholder(
                 dtype=self.float_type, shape=self.task_loss_weights.shape, name='task_loss_weights_placeholder'
             )
-            self.output_base_change_entropy_weights_placeholder = tf.placeholder(
+            self.output_gt21_entropy_weights_placeholder = tf.placeholder(
                 dtype=self.float_type,
-                shape=self.output_base_change_entropy_weights.shape,
-                name='output_base_change_entropy_weights_placeholder'
+                shape=self.output_gt21_entropy_weights.shape,
+                name='output_gt21_entropy_weights_placeholder'
             )
             self.output_genotype_entropy_weights_placeholder = tf.placeholder(
                 dtype=self.float_type,
@@ -576,15 +576,15 @@ class Clair(object):
 
             # Output layer
             with tf.variable_scope("Prediction"):
-                self.Y_base_change_logits = tf.layers.dense(
+                self.Y_gt21_logits = tf.layers.dense(
                     inputs=self.L5_1_dropout,
-                    units=self.output_base_change_shape,
+                    units=self.output_gt21_shape,
                     kernel_initializer=he_initializer,
                     activation=selu.selu,
-                    name='Y_base_change_logits'
+                    name='Y_gt21_logits'
                 )
-                self.Y_base_change = tf.nn.softmax(self.Y_base_change_logits, name='Y_base_change')
-                self.layers.append(self.Y_base_change)
+                self.Y_gt21 = tf.nn.softmax(self.Y_gt21_logits, name='Y_gt21')
+                self.layers.append(self.Y_gt21)
 
                 self.Y_genotype_logits = tf.layers.dense(
                     inputs=self.L5_2_dropout,
@@ -616,23 +616,23 @@ class Clair(object):
                 self.Y_indel_length_2 = tf.nn.softmax(self.Y_indel_length_logits_2, name='Y_indel_length_2')
                 self.layers.append(self.Y_indel_length_logits_2)
 
-                self.Y = [self.Y_base_change, self.Y_genotype, self.Y_indel_length_1, self.Y_indel_length_2]
+                self.Y = [self.Y_gt21, self.Y_genotype, self.Y_indel_length_1, self.Y_indel_length_2]
 
             # Extract the truth labels by output ratios
             with tf.variable_scope("Loss"):
-                Y_base_change_label, Y_genotype_label, Y_indel_length_label_1, Y_indel_length_label_2 = tf.split(
+                Y_gt21_label, Y_genotype_label, Y_indel_length_label_1, Y_indel_length_label_2 = tf.split(
                     self.Y_placeholder, self.output_label_split, axis=1, name="label_split"
                 )
 
                 if self.loss_function == "CrossEntropy":
-                    self.Y_base_change_cross_entropy = Clair.weighted_cross_entropy(
-                        softmax_prediction=self.Y_base_change,
-                        labels=Y_base_change_label,
-                        weights=self.output_base_change_entropy_weights_placeholder,
+                    self.Y_gt21_cross_entropy = Clair.weighted_cross_entropy(
+                        softmax_prediction=self.Y_gt21,
+                        labels=Y_gt21_label,
+                        weights=self.output_gt21_entropy_weights_placeholder,
                         epsilon=self.epsilon,
-                        name="Y_base_change_cross_entropy"
+                        name="Y_gt21_cross_entropy"
                     )
-                    self.Y_base_change_loss = tf.reduce_sum(self.Y_base_change_cross_entropy, name="Y_base_change_loss")
+                    self.Y_gt21_loss = tf.reduce_sum(self.Y_gt21_cross_entropy, name="Y_gt21_loss")
 
                     self.Y_genotype_cross_entropy = Clair.weighted_cross_entropy(
                         softmax_prediction=self.Y_genotype,
@@ -666,9 +666,9 @@ class Clair(object):
                     )
 
                 else:
-                    self.Y_base_change_loss = Clair.focal_loss(
-                        prediction_tensor=self.Y_base_change_logits,
-                        target_tensor=Y_base_change_label,
+                    self.Y_gt21_loss = Clair.focal_loss(
+                        prediction_tensor=self.Y_gt21_logits,
+                        target_tensor=Y_gt21_label,
                     )
                     self.Y_genotype_loss = Clair.focal_loss(
                         prediction_tensor=self.Y_genotype_logits,
@@ -695,7 +695,7 @@ class Clair(object):
                     tf.multiply(
                         self.task_loss_weights_placeholder,
                         tf.stack([
-                            self.Y_base_change_loss,
+                            self.Y_gt21_loss,
                             self.Y_genotype_loss,
                             self.Y_indel_length_loss_1,
                             self.Y_indel_length_loss_2,
@@ -740,7 +740,7 @@ class Clair(object):
             self.training_summary_op = tf.summary.merge([
                 tf.summary.scalar('learning_rate', self.learning_rate_placeholder),
                 tf.summary.scalar('l2_Lambda', self.regularization_L2_lambda_placeholder),
-                tf.summary.scalar("Y_base_change_loss", self.Y_base_change_loss),
+                tf.summary.scalar("Y_gt21_loss", self.Y_gt21_loss),
                 tf.summary.scalar("Y_genotype_loss", self.Y_genotype_loss),
                 tf.summary.scalar("Y_indel_length_loss_1", self.Y_indel_length_loss_1),
                 tf.summary.scalar("Y_indel_length_loss_2", self.Y_indel_length_loss_2),
@@ -891,21 +891,21 @@ class Clair(object):
             self.phase_placeholder: True,
             self.regularization_L2_lambda_placeholder: self.l2_regularization_lambda_value,
             self.task_loss_weights_placeholder: self.task_loss_weights,
-            self.output_base_change_entropy_weights_placeholder: self.output_base_change_entropy_weights,
+            self.output_gt21_entropy_weights_placeholder: self.output_gt21_entropy_weights,
             self.output_genotype_entropy_weights_placeholder: self.output_genotype_entropy_weights,
             self.output_indel_length_entropy_weights_placeholder_1: self.output_indel_length_entropy_weights_1,
             self.output_indel_length_entropy_weights_placeholder_2: self.output_indel_length_entropy_weights_2,
         }
         input_dictionary.update(self.get_structure_dict(phase='train'))
 
-        (base, genotype, indel_length_1, indel_length_2), loss, _, summary = self.session.run(
+        (gt21, genotype, indel_length_1, indel_length_2), loss, _, summary = self.session.run(
             (self.Y, self.loss, self.training_op, self.training_summary_op),
             feed_dict=input_dictionary
         )
         # if result_caching:
         self.output_cache['training_loss'] = loss
         self.output_cache['training_summary'] = summary
-        self.output_cache['prediction_base'] = base
+        self.output_cache['prediction_gt21'] = gt21
         self.output_cache['prediction_genotype'] = genotype
         self.output_cache['prediction_indel_length_1'] = indel_length_1
         self.output_cache['prediction_indel_length_2'] = indel_length_2
@@ -913,12 +913,12 @@ class Clair(object):
         # Aliasing
         self.trainLossRTVal = loss
         self.trainSummaryRTVal = summary
-        self.predictBaseRTVal = self.output_cache['prediction_base']
+        self.predictBaseRTVal = self.output_cache['prediction_gt21']
         self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
         self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
         self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
 
-        return base, genotype, indel_length_1, indel_length_2, loss, summary
+        return gt21, genotype, indel_length_1, indel_length_2, loss, summary
 
     def train(self, batchX, batchY, result_caching=False):
         """
@@ -939,7 +939,7 @@ class Clair(object):
             self.phase_placeholder: True,
             self.regularization_L2_lambda_placeholder: self.l2_regularization_lambda_value,
             self.task_loss_weights_placeholder: self.task_loss_weights,
-            self.output_base_change_entropy_weights_placeholder: self.output_base_change_entropy_weights,
+            self.output_gt21_entropy_weights_placeholder: self.output_gt21_entropy_weights,
             self.output_genotype_entropy_weights_placeholder: self.output_genotype_entropy_weights,
             self.output_indel_length_entropy_weights_placeholder_1: self.output_indel_length_entropy_weights_1,
             self.output_indel_length_entropy_weights_placeholder_2: self.output_indel_length_entropy_weights_2,
@@ -963,14 +963,14 @@ class Clair(object):
     def predict(self, batchX, result_caching=False):
         """
         Predict using model in batch with input tensor batchX, caching the results in
-        self.output_cache['prediction_base'],
+        self.output_cache['prediction_gt21'],
         self.output_cache['prediction_genotype'],
         self.output_cache['prediction_indel_length_1']
         self.output_cache['prediction_indel_length_2']
         if result_caching is True
         The tensor transform function is applied prior to prediction
         Returns:
-            base, genotype, indel_length_1, indel_length_2: The four predictions from the model in batch
+            gt21, genotype, indel_length_1, indel_length_2: The four predictions from the model in batch
         """
         # for i in range(len(batchX)):
         #    tf.image.per_image_standardization(XArray[i])
@@ -984,21 +984,21 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='predict'))
 
-        base, genotype, indel_length_1, indel_length_2 = self.session.run(self.Y, feed_dict=input_dictionary)
+        gt21, genotype, indel_length_1, indel_length_2 = self.session.run(self.Y, feed_dict=input_dictionary)
 
         if result_caching:
-            self.output_cache['prediction_base'] = base
+            self.output_cache['prediction_gt21'] = gt21
             self.output_cache['prediction_genotype'] = genotype
             self.output_cache['prediction_indel_length_1'] = indel_length_1
             self.output_cache['prediction_indel_length_2'] = indel_length_2
 
             # Aliasing
-            self.predictBaseRTVal = self.output_cache['prediction_base']
+            self.predictBaseRTVal = self.output_cache['prediction_gt21']
             self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
             self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
             self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
 
-        return base, genotype, indel_length_1, indel_length_2
+        return gt21, genotype, indel_length_1, indel_length_2
 
     def get_loss(self, batchX, batchY, result_caching=False):
         """
@@ -1016,16 +1016,16 @@ class Clair(object):
             self.phase_placeholder: False,
             self.regularization_L2_lambda_placeholder: 0.0,
             self.task_loss_weights_placeholder: self.task_loss_weights,
-            self.output_base_change_entropy_weights_placeholder: self.output_base_change_entropy_weights,
+            self.output_gt21_entropy_weights_placeholder: self.output_gt21_entropy_weights,
             self.output_genotype_entropy_weights_placeholder: self.output_genotype_entropy_weights,
             self.output_indel_length_entropy_weights_placeholder_1: self.output_indel_length_entropy_weights_1,
             self.output_indel_length_entropy_weights_placeholder_2: self.output_indel_length_entropy_weights_2,
         }
         input_dictionary.update(self.get_structure_dict(phase='predict'))
 
-        loss, base_change_loss, genotype_loss, indel_length_loss_1, indel_length_loss_2, l2_loss = self.session.run([
+        loss, gt21_loss, genotype_loss, indel_length_loss_1, indel_length_loss_2, l2_loss = self.session.run([
             self.loss,
-            self.Y_base_change_loss,
+            self.Y_gt21_loss,
             self.Y_genotype_loss,
             self.Y_indel_length_loss_1,
             self.Y_indel_length_loss_2,
@@ -1038,7 +1038,7 @@ class Clair(object):
             # Aliasing
             self.getLossLossRTVal = self.output_cache['prediction_loss']
 
-            self.base_change_loss = base_change_loss
+            self.gt21_loss = gt21_loss
             self.genotype_loss = genotype_loss
             self.indel_length_loss = indel_length_loss_1 + indel_length_loss_2
             self.indel_length_loss_1 = indel_length_loss_1

@@ -13,7 +13,7 @@ from itertools import izip
 
 import Clair.utils as utils
 import Clair.clair_model as cv
-from Clair.utils import GT21, base_change_label_from, Genotype, genotype_string_from, VariantLength
+from Clair.utils import GT21_Type, gt21_label_from, Genotype, genotype_string_from, VariantLength
 import shared.param as param
 
 
@@ -48,38 +48,38 @@ class Channel(IntEnum):
     SNP = 3
 
 
-def homo_SNP_bases_from(base_change_probabilities):
+def homo_SNP_bases_from(gt21_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[GT21.AA],
-        base_change_probabilities[GT21.CC],
-        base_change_probabilities[GT21.GG],
-        base_change_probabilities[GT21.TT],
+        gt21_probabilities[GT21_Type.AA],
+        gt21_probabilities[GT21_Type.CC],
+        gt21_probabilities[GT21_Type.GG],
+        gt21_probabilities[GT21_Type.TT],
     ])
     output_bases = [
-        base_change_label_from(GT21.AA),
-        base_change_label_from(GT21.CC),
-        base_change_label_from(GT21.GG),
-        base_change_label_from(GT21.TT)
+        gt21_label_from(GT21_Type.AA),
+        gt21_label_from(GT21_Type.CC),
+        gt21_label_from(GT21_Type.GG),
+        gt21_label_from(GT21_Type.TT)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0], output_bases[1]
 
 
-def hetero_SNP_bases_from(base_change_probabilities):
+def hetero_SNP_bases_from(gt21_probabilities):
     output_bases_probabilities = np.array([
-        base_change_probabilities[GT21.AC],
-        base_change_probabilities[GT21.AG],
-        base_change_probabilities[GT21.AT],
-        base_change_probabilities[GT21.CG],
-        base_change_probabilities[GT21.CT],
-        base_change_probabilities[GT21.GT]
+        gt21_probabilities[GT21_Type.AC],
+        gt21_probabilities[GT21_Type.AG],
+        gt21_probabilities[GT21_Type.AT],
+        gt21_probabilities[GT21_Type.CG],
+        gt21_probabilities[GT21_Type.CT],
+        gt21_probabilities[GT21_Type.GT]
     ])
     output_bases = [
-        base_change_label_from(GT21.AC),
-        base_change_label_from(GT21.AG),
-        base_change_label_from(GT21.AT),
-        base_change_label_from(GT21.CG),
-        base_change_label_from(GT21.CT),
-        base_change_label_from(GT21.GT)
+        gt21_label_from(GT21_Type.AC),
+        gt21_label_from(GT21_Type.AG),
+        gt21_label_from(GT21_Type.AT),
+        gt21_label_from(GT21_Type.CG),
+        gt21_label_from(GT21_Type.CT),
+        gt21_label_from(GT21_Type.GT)
     ][np.argmax(output_bases_probabilities)]
     return output_bases[0], output_bases[1]
 
@@ -233,7 +233,7 @@ def output_utilties_from(
     def print_debug_message(
         chromosome,
         position,
-        base_change_probabilities,
+        gt21_probabilities,
         genotype_probabilities,
         variant_length_probabilities_1,
         variant_length_probabilities_2,
@@ -245,7 +245,7 @@ def output_utilties_from(
         output("{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
             chromosome,
             position,
-            ["{:0.8f}".format(x) for x in base_change_probabilities],
+            ["{:0.8f}".format(x) for x in gt21_probabilities],
             ["{:0.8f}".format(x) for x in genotype_probabilities],
             ["{:0.8f}".format(x) for x in variant_length_probabilities_1],
             ["{:0.8f}".format(x) for x in variant_length_probabilities_2],
@@ -567,7 +567,7 @@ def quality_score_from(
         )
     partial_labels = [utils.partial_label_from(reference_base, alternate) for alternate in alternate_arr]
     gt21_label = utils.mix_two_partial_labels(partial_labels[0], partial_labels[1])
-    gt21 = utils.base_change_enum_from(gt21_label)
+    gt21 = utils.gt21_enum_from(gt21_label)
 
     is_homo_reference = genotype_1 == 0 and genotype_2 == 0
     is_homo_variant = not is_homo_reference and genotype_1 == genotype_2
@@ -610,34 +610,35 @@ def possible_outcome_probabilites_from(
         variant_length_probabilities_2[0 + VariantLength.index_offset]
     )
 
-    reference_gt21 = utils.base_change_enum_from(reference_base + reference_base)
+    reference_gt21 = utils.gt21_enum_from(reference_base + reference_base)
     homo_Ref_probability = (
         variant_length_0_probability * homo_reference_probability * gt21_probabilities[reference_gt21]
     )
 
     homo_SNP_probabilities = [(
         variant_length_0_probability * homo_variant_probability * gt21_probabilities[gt21]
-    ) for gt21 in [GT21.AA, GT21.CC, GT21.GG, GT21.TT]]
+    ) for gt21 in [GT21_Type.AA, GT21_Type.CC, GT21_Type.GG, GT21_Type.TT]]
     hetero_SNP_probabilities = [(
         variant_length_0_probability * hetero_variant_probability * gt21_probabilities[gt21]
-    ) for gt21 in [GT21.AC, GT21.AG, GT21.AT, GT21.CG, GT21.CT, GT21.GT]]
+    ) for gt21 in [GT21_Type.AC, GT21_Type.AG, GT21_Type.AT, GT21_Type.CG, GT21_Type.CT, GT21_Type.GT]]
 
     # Insertion
     homo_Ins_lengths, homo_Ins_probabilities = zip(*homo_Ins_tuples_from(
         variant_length_probabilities_1, variant_length_probabilities_2,
-        homo_variant_probability * gt21_probabilities[GT21.InsIns]
+        homo_variant_probability * gt21_probabilities[GT21_Type.InsIns]
     ))
     homo_Ins_lengths, homo_Ins_probabilities = list(homo_Ins_lengths), list(homo_Ins_probabilities)
     hetero_InsIns_length_tuples, hetero_InsIns_probabilities = zip(*hetero_InsIns_tuples_from(
         variant_length_probabilities_1, variant_length_probabilities_2,
-        hetero_variant_probability * gt21_probabilities[GT21.InsIns]
+        hetero_variant_probability * gt21_probabilities[GT21_Type.InsIns]
     ))
     hetero_InsIns_length_tuples, hetero_InsIns_probabilities = (
         list(hetero_InsIns_length_tuples), list(hetero_InsIns_probabilities)
     )
     hetero_ACGT_Ins_tuples = []
+    gt21_base_tuples = [(GT21_Type.AIns, "A"), (GT21_Type.CIns, "C"), (GT21_Type.GIns, "G"), (GT21_Type.TIns, "T")]
     for length_tuples, p in hetero_Ins_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2):
-        for gt21, hetero_base in [(GT21.AIns, "A"), (GT21.CIns, "C"), (GT21.GIns, "G"), (GT21.TIns, "T")]:
+        for gt21, hetero_base in gt21_base_tuples:
             hetero_ACGT_Ins_tuples.append((
                 hetero_base,
                 length_tuples,
@@ -651,19 +652,20 @@ def possible_outcome_probabilites_from(
     # Deletion
     homo_Del_lengths, homo_Del_probabilities = zip(*homo_Del_tuples_from(
         variant_length_probabilities_1, variant_length_probabilities_2,
-        homo_variant_probability * gt21_probabilities[GT21.DelDel]
+        homo_variant_probability * gt21_probabilities[GT21_Type.DelDel]
     ))
     homo_Del_lengths, homo_Del_probabilities = list(homo_Del_lengths), list(homo_Del_probabilities)
     hetero_DelDel_length_tuples, hetero_DelDel_probabilities = zip(*hetero_DelDel_tuples_from(
         variant_length_probabilities_1, variant_length_probabilities_2,
-        hetero_variant_probability * gt21_probabilities[GT21.DelDel]
+        hetero_variant_probability * gt21_probabilities[GT21_Type.DelDel]
     ))
     hetero_DelDel_length_tuples, hetero_DelDel_probabilities = (
         list(hetero_DelDel_length_tuples), list(hetero_DelDel_probabilities)
     )
     hetero_ACGT_Del_tuples = []
+    gt21_base_tuples = [(GT21_Type.ADel, "A"), (GT21_Type.CDel, "C"), (GT21_Type.GDel, "G"), (GT21_Type.TDel, "T")]
     for length_tuples, p in hetero_Del_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2):
-        for gt21, hetero_base in [(GT21.ADel, "A"), (GT21.CDel, "C"), (GT21.GDel, "G"), (GT21.TDel, "T")]:
+        for gt21, hetero_base in gt21_base_tuples:
             hetero_ACGT_Del_tuples.append((
                 hetero_base,
                 length_tuples,
@@ -677,7 +679,7 @@ def possible_outcome_probabilites_from(
     # InsDel
     hetero_InsDel_length_tuples, hetero_InsDel_probabilities = zip(*hetero_InsDel_tuples_from(
         variant_length_probabilities_1, variant_length_probabilities_2,
-        hetero_variant_probability * gt21_probabilities[GT21.InsDel]
+        hetero_variant_probability * gt21_probabilities[GT21_Type.InsDel]
     ))
     hetero_InsDel_length_tuples, hetero_InsDel_probabilities = (
         list(hetero_InsDel_length_tuples), list(hetero_InsDel_probabilities)
@@ -954,7 +956,7 @@ def output_from(
 
 def batch_output(
     mini_batch,
-    batch_base_change_probabilities,
+    batch_gt21_probabilities,
     batch_genotype_probabilities,
     batch_variant_length_probabilities_1,
     batch_variant_length_probabilities_2,
@@ -963,10 +965,10 @@ def batch_output(
 ):
     X, batch_chr_pos_seq = mini_batch
     batch_size = len(batch_chr_pos_seq)
-    if len(batch_base_change_probabilities) != batch_size:
+    if len(batch_gt21_probabilities) != batch_size:
         sys.exit(
             "Inconsistent shape between input tensor and output predictions %d/%d" %
-            (batch_size, len(batch_base_change_probabilities))
+            (batch_size, len(batch_gt21_probabilities))
         )
 
     tensor_position_center = flanking_base_number
@@ -982,7 +984,7 @@ def batch_output(
     ) in izip(
         X,
         batch_chr_pos_seq,
-        batch_base_change_probabilities,
+        batch_gt21_probabilities,
         batch_genotype_probabilities,
         batch_variant_length_probabilities_1,
         batch_variant_length_probabilities_2

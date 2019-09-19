@@ -11,34 +11,34 @@ from threading import Thread
 import Clair.evaluate as evaluate
 import Clair.clair_model as cv
 import Clair.utils as utils
-from Clair.utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
+from Clair.utils import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 import shared.param as param
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 
-def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
-    base_samples = len(base)+0.0
-    genotype_samples = len(genotype)+0.0
-    indel1_samples = len(indel_length_1)+0.0
-    indel2_samples = len(indel_length_2)+0.0
-    base_TP = 0.0
+def accuracy(gt21, genotype, indel_length_1, indel_length_2, y_batch):
+    gt21_samples = len(gt21) + 0.0
+    genotype_samples = len(genotype) + 0.0
+    indel1_samples = len(indel_length_1) + 0.0
+    indel2_samples = len(indel_length_2) + 0.0
+    gt21_TP = 0.0
     genotype_TP = 0.0
     indel1_TP = 0.0
     indel2_TP = 0.0
 
-    for base_change_prediction, base_change_label in zip(
-            base,
-            y_batch[:, BASE_CHANGE.y_start_index:BASE_CHANGE.y_end_index]
+    for gt21_prediction, gt21_label in zip(
+        gt21,
+        y_batch[:, GT21.y_start_index:GT21.y_end_index]
     ):
-        true_label_index = np.argmax(base_change_label)
-        predict_label_index = np.argmax(base_change_prediction)
+        true_label_index = np.argmax(gt21_label)
+        predict_label_index = np.argmax(gt21_prediction)
         if true_label_index == predict_label_index:
-            base_TP += 1
+            gt21_TP += 1
 
     for genotype_prediction, true_genotype_label in zip(
-            genotype,
-            y_batch[:, GENOTYPE.y_start_index:GENOTYPE.y_end_index]
+        genotype,
+        y_batch[:, GENOTYPE.y_start_index:GENOTYPE.y_end_index]
     ):
         true_label_index = np.argmax(true_genotype_label)
         predict_label_index = np.argmax(genotype_prediction)
@@ -66,11 +66,11 @@ def accuracy(base, genotype, indel_length_1, indel_length_2, y_batch):
         if true_label_index_2 == predict_label_index_2:
             indel2_TP += 1
 
-    base_acc = base_TP/base_samples
-    genotype_acc = genotype_TP/genotype_samples
-    indel1_acc = indel1_TP/indel1_samples
-    indel2_acc = indel2_TP/indel2_samples
-    acc = (base_acc+genotype_acc+indel1_acc+indel2_acc)/4
+    gt21_acc = gt21_TP / gt21_samples
+    genotype_acc = genotype_TP / genotype_samples
+    indel1_acc = indel1_TP / indel1_samples
+    indel2_acc = indel2_TP / indel2_samples
+    acc = (gt21_acc + genotype_acc + indel1_acc + indel2_acc) / 4
     return acc
 
 
@@ -198,7 +198,7 @@ def train_model(m, training_config):
     y_batch = None
     global_step = 0
 
-    base_change_loss_sum = 0
+    gt21_loss_sum = 0
     genotype_loss_sum = 0
     indel_length_loss_sum_1 = 0
     indel_length_loss_sum_2 = 0
@@ -244,7 +244,7 @@ def train_model(m, training_config):
         elif is_with_batch_data and is_validation:
             validation_loss_sum += m.getLossLossRTVal
 
-            base_change_loss_sum += m.base_change_loss
+            gt21_loss_sum += m.gt21_loss
             genotype_loss_sum += m.genotype_loss
             indel_length_loss_sum_1 += m.indel_length_loss_1
             indel_length_loss_sum_2 += m.indel_length_loss_2
@@ -271,7 +271,7 @@ def train_model(m, training_config):
             "\t".join([
                 "{} Validation loss (Total/Base/Genotype/Indel_1_2):".format(epoch_count),
                 str(validation_loss_sum/no_of_validation_examples),
-                str(base_change_loss_sum/no_of_validation_examples),
+                str(gt21_loss_sum/no_of_validation_examples),
                 str(genotype_loss_sum/no_of_validation_examples),
                 str(indel_length_loss_sum_1/no_of_validation_examples),
                 str(indel_length_loss_sum_2/no_of_validation_examples)
@@ -300,7 +300,7 @@ def train_model(m, training_config):
         x_batch = None
         y_batch = None
 
-        base_change_loss_sum = 0
+        gt21_loss_sum = 0
         genotype_loss_sum = 0
         indel_length_loss_sum_1 = 0
         indel_length_loss_sum_2 = 0

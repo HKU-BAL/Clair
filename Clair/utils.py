@@ -44,15 +44,15 @@ TrainingConfig = namedtuple('TrainingConfig', [
     'summary_writer'
 ])
 
-BASE_CHANGE = OutputLabelNamedTuple(
+GT21 = OutputLabelNamedTuple(
     output_label_count=21,
     y_start_index=0,
     y_end_index=21,
 )
 GENOTYPE = OutputLabelNamedTuple(
     output_label_count=3,
-    y_start_index=BASE_CHANGE.y_end_index,
-    y_end_index=BASE_CHANGE.y_end_index + 3,
+    y_start_index=GT21.y_end_index,
+    y_end_index=GT21.y_end_index + 3,
 )
 VARIANT_LENGTH_1 = OutputLabelNamedTuple(
     output_label_count=VariantLength.output_label_count,
@@ -66,7 +66,7 @@ VARIANT_LENGTH_2 = OutputLabelNamedTuple(
 )
 
 
-class GT21(IntEnum):
+class GT21_Type(IntEnum):
     AA = 0
     AC = 1
     AG = 2
@@ -90,7 +90,7 @@ class GT21(IntEnum):
     InsDel = 20
 
 
-def base_change_label_from(base_change_enum):
+def gt21_label_from(gt21_enum):
     return [
         'AA',
         'AC',
@@ -113,33 +113,33 @@ def base_change_label_from(base_change_enum):
         'GIns',
         'TIns',
         'InsDel'
-    ][base_change_enum]
+    ][gt21_enum]
 
 
-def base_change_enum_from(base_change_label):
+def gt21_enum_from(gt21_label):
     return {
-        'AA': GT21.AA,
-        'AC': GT21.AC,
-        'AG': GT21.AG,
-        'AT': GT21.AT,
-        'CC': GT21.CC,
-        'CG': GT21.CG,
-        'CT': GT21.CT,
-        'GG': GT21.GG,
-        'GT': GT21.GT,
-        'TT': GT21.TT,
-        'DelDel': GT21.DelDel,
-        'ADel': GT21.ADel,
-        'CDel': GT21.CDel,
-        'GDel': GT21.GDel,
-        'TDel': GT21.TDel,
-        'InsIns': GT21.InsIns,
-        'AIns': GT21.AIns,
-        'CIns': GT21.CIns,
-        'GIns': GT21.GIns,
-        'TIns': GT21.TIns,
-        'InsDel': GT21.InsDel,
-    }[base_change_label]
+        'AA': GT21_Type.AA,
+        'AC': GT21_Type.AC,
+        'AG': GT21_Type.AG,
+        'AT': GT21_Type.AT,
+        'CC': GT21_Type.CC,
+        'CG': GT21_Type.CG,
+        'CT': GT21_Type.CT,
+        'GG': GT21_Type.GG,
+        'GT': GT21_Type.GT,
+        'TT': GT21_Type.TT,
+        'DelDel': GT21_Type.DelDel,
+        'ADel': GT21_Type.ADel,
+        'CDel': GT21_Type.CDel,
+        'GDel': GT21_Type.GDel,
+        'TDel': GT21_Type.TDel,
+        'InsIns': GT21_Type.InsIns,
+        'AIns': GT21_Type.AIns,
+        'CIns': GT21_Type.CIns,
+        'GIns': GT21_Type.GIns,
+        'TIns': GT21_Type.TIns,
+        'InsDel': GT21_Type.InsDel,
+    }[gt21_label]
 
 
 def partial_label_from(ref, alt):
@@ -167,7 +167,7 @@ def mix_two_partial_labels(label1, label2):
         return label1 + label2
 
     # InsDel
-    return base_change_label_from(GT21.InsDel)
+    return gt21_label_from(GT21_Type.InsDel)
 
 
 class Genotype(IntEnum):
@@ -289,12 +289,12 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
                     alternate_arr
                 )
 
-            # base change
-            base_change_vec = [0] * BASE_CHANGE.output_label_count
+            # gt21
+            gt21_vec = [0] * GT21.output_label_count
             partial_labels = [partial_label_from(reference, alternate) for alternate in alternate_arr]
-            base_change_label = mix_two_partial_labels(partial_labels[0], partial_labels[1])
-            base_change = base_change_enum_from(base_change_label)
-            base_change_vec[base_change] = 1
+            gt21_label = mix_two_partial_labels(partial_labels[0], partial_labels[1])
+            gt21 = gt21_enum_from(gt21_label)
+            gt21_vec[gt21] = 1
 
             # geno type
             genotype_vec = [0] * GENOTYPE.output_label_count
@@ -323,7 +323,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
             variant_length_vec_1[variant_lengths[0] + VariantLength.index_offset] = 1
             variant_length_vec_2[variant_lengths[1] + VariantLength.index_offset] = 1
 
-            Y[key] = base_change_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
+            Y[key] = gt21_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
 
         f.stdout.close()
         f.wait()
@@ -362,8 +362,8 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
 
         is_reference = key not in Y
         if is_reference:
-            base_change_vec = [0] * BASE_CHANGE.output_label_count
-            base_change_vec[base_change_enum_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
+            gt21_vec = [0] * GT21.output_label_count
+            gt21_vec[gt21_enum_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
 
             genotype_vec = [0] * GENOTYPE.output_label_count
             genotype_vec[Genotype.homo_reference] = 1
@@ -373,7 +373,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
             variant_length_vec_1[0 + VariantLength.index_offset] = 1
             variant_length_vec_2[0 + VariantLength.index_offset] = 1
 
-            Y[key] = base_change_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
+            Y[key] = gt21_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
 
         total += 1
         if total % 100000 == 0:
