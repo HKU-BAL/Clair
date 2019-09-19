@@ -5,7 +5,7 @@ import shlex
 import subprocess
 import gc
 import signal
-import param
+import shared.param as param
 import random
 
 from math import log

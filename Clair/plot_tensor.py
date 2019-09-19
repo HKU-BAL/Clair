@@ -6,7 +6,6 @@ import os
 import argparse
 import math
 import numpy as np
-import param
 import matplotlib
 matplotlib.use('Agg')
 

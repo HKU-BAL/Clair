@@ -1,14 +1,12 @@
 import os
 import sys
 import argparse
-import param
 import shlex
 import subprocess
 import multiprocessing
 import signal
 import random
 import time
-
 from collections import namedtuple
 from shared.utils import file_path_from, executable_command_string_from
 

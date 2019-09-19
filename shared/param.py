@@ -1,5 +1,6 @@
 NUM_THREADS = 12
 parameterOutputPlaceHolder = 6
+expandReferenceRegion = 1000000
 
 # Tensor related parameters, please use the same values for creating tensor, model training and variant calling
 # Please change below value(s) in the dataPrepScripts at the same time
@@ -11,7 +12,7 @@ bloscBlockSize = 500
 # Model hyperparameters
 trainBatchSize = 10000
 predictBatchSize = 10000
-initialLearningRate = 0.001
+initialLearningRate = 1e-3
 learningRateDecay = 0.1
 maxLearningRateSwitch = 3
 trainingDatasetPercentage = 0.9
@@ -47,7 +48,7 @@ OPERATION_SEED = None
 
 def get_model_parameters():
     return dict(
-        flankingBaseNum=16,
-        matrixNum=4,
-        expandReferenceRegion=1000000,
+        flankingBaseNum=flankingBaseNum,
+        matrixNum=matrixNum,
+        expandReferenceRegion=expandReferenceRegion,
     )

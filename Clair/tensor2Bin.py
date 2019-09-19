@@ -2,7 +2,6 @@ import sys
 import argparse
 import logging
 import cPickle
-import param
 import utils
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)

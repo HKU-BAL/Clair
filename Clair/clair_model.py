@@ -8,11 +8,11 @@ import io
 import os
 import re
 import selu
-import param
 import math
-from collections import defaultdict
 import multiprocessing
+import shared.param as param
 
+from collections import defaultdict
 from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
 

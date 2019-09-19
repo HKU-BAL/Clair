@@ -2,9 +2,9 @@ import sys
 import os
 import time
 import argparse
-import param
 import logging
 import numpy as np
+import shared.param as param
 from threading import Thread
 from math import log, e
 from enum import IntEnum

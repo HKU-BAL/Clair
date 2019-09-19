@@ -9,10 +9,10 @@ import numpy as np
 import pandas as pd
 from threading import Thread
 
-import param
 import utils
-import clair_model as cv
 import evaluate
+import clair_model as cv
+import shared.param as param
 from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
