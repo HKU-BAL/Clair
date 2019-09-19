@@ -7,8 +7,9 @@ import shlex
 import subprocess
 import signal
 import gc
-import shared.param as param
 from collections import namedtuple
+
+import shared.param as param
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 

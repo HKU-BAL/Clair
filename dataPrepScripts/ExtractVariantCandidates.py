@@ -5,11 +5,11 @@ import shlex
 import subprocess
 import gc
 import signal
-import shared.param as param
 import random
-
 from math import log
 from collections import defaultdict
+
+import shared.param as param
 from shared.interval_tree import interval_tree_from
 
 is_pypy = '__pypy__' in sys.builtin_module_names

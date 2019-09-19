@@ -4,18 +4,18 @@ import time
 import argparse
 import logging
 import numpy as np
-import shared.param as param
+import pysam
 from threading import Thread
 from math import log, e
 from enum import IntEnum
 from collections import namedtuple, defaultdict
 from itertools import izip
 
-import utils
-import clair_model as cv
-from utils import GT21, base_change_label_from, Genotype, genotype_string_from, VariantLength
+import Clair.utils as utils
+import Clair.clair_model as cv
+from Clair.utils import GT21, base_change_label_from, Genotype, genotype_string_from, VariantLength
+import shared.param as param
 
-import pysam
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))

@@ -4,13 +4,13 @@ import time
 import argparse
 import logging
 import numpy as np
+from itertools import izip
 
-import utils
-import clair_model as cv
+import Clair.clair_model as cv
+import Clair.utils as utils
+from Clair.utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 import shared.param as param
 
-from itertools import izip
-from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 

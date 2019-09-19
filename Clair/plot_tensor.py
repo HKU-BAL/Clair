@@ -1,5 +1,3 @@
-import clair_model as cv
-import utils
 import matplotlib.pyplot as plt
 import sys
 import os
@@ -9,6 +7,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 
+import Clair.clair_model as cv
+import Clair.utils as utils
 
 def Prepare(args):
     utils.setup_environment()

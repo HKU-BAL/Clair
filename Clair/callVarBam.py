@@ -7,35 +7,15 @@ import multiprocessing
 import signal
 import random
 import time
-from collections import namedtuple
+
+from Clair.command_options import (
+    CommandOption,
+    CommandOptionWithNoValue,
+    ExecuteCommand,
+    command_string_from,
+    command_option_from
+)
 from shared.utils import file_path_from, executable_command_string_from
-
-CommandOption = namedtuple('CommandOption', ['option', 'value'])
-CommandOptionWithNoValue = namedtuple('CommandOptionWithNoValue', ['option'])
-ExecuteCommand = namedtuple('ExecuteCommand', ['bin', 'bin_value'])
-
-
-def command_option_string_from(command):
-    if isinstance(command, CommandOption):
-        return "--{} \"{}\"".format(command.option, command.value) if command.value is not None else None
-    elif isinstance(command, CommandOptionWithNoValue):
-        return "--{}".format(command.option)
-    elif isinstance(command, ExecuteCommand):
-        return " ".join([command.bin, command.bin_value])
-    else:
-        return command
-
-
-def command_string_from(command_options):
-    return " ".join(list(filter(lambda x: x is not None, list(map(command_option_string_from, command_options)))))
-
-
-def command_option_from(args_value, option_name, option_value=None):
-    if args_value is None:
-        return None
-    if args_value is True and option_value is None:
-        return CommandOptionWithNoValue(option_name)
-    return CommandOption(option_name, option_value)
 
 
 class InstancesClass(object):
@@ -334,6 +314,7 @@ def main():
         sys.exit(1)
 
     Run(args)
+
 
 if __name__ == "__main__":
     main()

@@ -10,11 +10,10 @@ import re
 import selu
 import math
 import multiprocessing
-import shared.param as param
 
 from collections import defaultdict
-from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
-
+from Clair.utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
+import shared.param as param
 
 class Clair(object):
     """

@@ -6,12 +6,11 @@ import subprocess
 import logging
 import cPickle
 import numpy as np
-
 import blosc
-import param
 from enum import IntEnum
-
 from collections import namedtuple
+
+import shared.param as param
 from shared.interval_tree import interval_tree_from
 
 BASES = set("ACGT")

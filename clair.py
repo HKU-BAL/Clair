@@ -5,9 +5,6 @@ import sys
 import importlib
 import subprocess
 
-if sys.version_info.major >= 3:
-    clv_path = os.path.dirname(os.path.abspath(__file__)) + os.sep + 'Clair'
-    sys.path.insert(1, clv_path)
 
 clair_folder = [
     "callVarBamParallel",
@@ -57,6 +54,7 @@ def print_help_messages():
             "%s/Clair" % os.path.dirname(os.path.abspath(sys.argv[0]))
         )
     )
+
 
 def main():
     if len(sys.argv) <= 1:

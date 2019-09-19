@@ -1,10 +1,4 @@
 import sys
-import argparse
-import subprocess
-import shlex
-import os
-import re
-import gc
 import numpy as np
 
 source_no_of_flanking_bases = 32

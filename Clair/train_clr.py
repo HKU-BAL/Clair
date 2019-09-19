@@ -4,14 +4,13 @@ import time
 import argparse
 import logging
 import random
-
 import numpy as np
 from threading import Thread
 
-import param
-import utils
-import clair_model as cv
-import evaluate
+import Clair.utils as utils
+import Clair.clair_model as cv
+import Clair.evaluate as evaluate
+import shared.param as param
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 

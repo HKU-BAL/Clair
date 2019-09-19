@@ -4,16 +4,15 @@ import time
 import argparse
 import logging
 import random
-
 import numpy as np
 import pandas as pd
 from threading import Thread
 
-import utils
-import evaluate
-import clair_model as cv
+import Clair.evaluate as evaluate
+import Clair.clair_model as cv
+import Clair.utils as utils
+from Clair.utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 import shared.param as param
-from utils import BASE_CHANGE, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
