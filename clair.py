@@ -9,48 +9,78 @@ if sys.version_info.major >= 3:
     clv_path = os.path.dirname(os.path.abspath(__file__)) + os.sep + 'Clair'
     sys.path.insert(1, clv_path)
 
+clair_folder = [
+    "callVarBamParallel",
+    "callVarBam",
+    "call_var",
+    "evaluate",
+    "plot_tensor",
+    "tensor2Bin",
+    "train",
+    "train_clr",
+]
+data_prep_scripts_folder = [
+    "CreateTensor",
+    "ExtractVariantCandidates",
+    "GetTruth",
+    "PairWithNonVariants",
+]
 
-def mod(dir, name):
-    if sys.argv[1] != name:
-        return
 
-    r = importlib.import_module("%s.%s" % (dir, name))
-    sys.argv = sys.argv[1:]
-    sys.argv[0] += (".py")
-    r.main()
-    sys.exit(0)
+def directory_for(submodule_name):
+    if submodule_name in clair_folder:
+        return "Clair"
+    if submodule_name in data_prep_scripts_folder:
+        return "dataPrepScripts"
+    return ""
 
 
-cl = ["callVarBamParallel", "callVarBam", "call_var", "evaluate",
-      "plot_tensor", "tensor2Bin", "train", "train_clr"]
-dp = ["CreateTensor", "ExtractVariantCandidates", "GetTruth", "PairWithNonVariants"]
+def print_help_messages():
+    from textwrap import dedent
+    print dedent("""\
+        Clair submodule invocator:
+            Usage: clair.py SubmoduleName [Options of the submodule]
 
+        Available data preparation submodules:\n{0}
+
+        Available clair submodules:\n{1}
+
+        Data preparation scripts:
+        {2}
+
+        Clair scripts:
+        {3}
+        """.format(
+            "\n".join("          - %s" % submodule_name for submodule_name in data_prep_scripts_folder),
+            "\n".join("          - %s" % submodule_name for submodule_name in clair_folder),
+            "%s/dataPrepScripts" % os.path.dirname(os.path.abspath(sys.argv[0])),
+            "%s/Clair" % os.path.dirname(os.path.abspath(sys.argv[0]))
+        )
+    )
 
 def main():
     if len(sys.argv) <= 1:
-        print ("Clair submodule invocator:")
-        print ("  Usage: clair.py SubmoduleName [Options of the submodule]")
-        print ("")
-        print ("Available data preparation submodules:")
-        for n in dp:
-            print ("  - %s" % n)
-        print ("")
-        print ("Available clair submodules:")
-        for n in cl:
-            print ("  - %s" % n)
-        print ("")
-        print ("Data preparation scripts:")
-        print ("%s/dataPrepScripts" % os.path.dirname(os.path.abspath(sys.argv[0])))
-        print ("")
-        print ("Clair scripts:")
-        print ("%s/Clair" % os.path.dirname(os.path.abspath(sys.argv[0])))
-        print ("")
+        print_help_messages()
         sys.exit(0)
 
-    for n in cl:
-        mod("Clair", n)
-    for n in dp:
-        mod("dataPrepScripts", n)
+    submodule_name = sys.argv[1]
+    if (
+        submodule_name not in clair_folder and
+        submodule_name not in data_prep_scripts_folder
+    ):
+        sys.exit("[ERROR] Submodule %s not found." % (submodule_name))
+
+    directory = directory_for(submodule_name)
+    submodule = importlib.import_module("%s.%s" % (directory, submodule_name))
+
+    # filter arguments (i.e. filter clair.py) and add ".py" for that submodule
+    sys.argv = sys.argv[1:]
+    sys.argv[0] += (".py")
+
+    # Note: need to make sure every submodule contains main() method
+    submodule.main()
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":
