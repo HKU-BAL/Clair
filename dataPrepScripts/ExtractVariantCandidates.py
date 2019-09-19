@@ -10,8 +10,7 @@ import random
 
 from math import log
 from collections import defaultdict
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from utilities.interval_tree import interval_tree_from
+from shared.interval_tree import interval_tree_from
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 

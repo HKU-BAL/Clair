@@ -10,8 +10,7 @@ import random
 import time
 
 from collections import namedtuple
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from utilities.main import file_path_from, executable_command_string_from
+from shared.utils import file_path_from, executable_command_string_from
 
 CommandOption = namedtuple('CommandOption', ['option', 'value'])
 CommandOptionWithNoValue = namedtuple('CommandOptionWithNoValue', ['option'])

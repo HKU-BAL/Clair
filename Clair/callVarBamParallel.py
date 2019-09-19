@@ -3,9 +3,8 @@ import sys
 import argparse
 
 from collections import namedtuple
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from utilities.interval_tree import interval_tree_from
-from utilities.main import file_path_from, executable_command_string_from
+from shared.interval_tree import interval_tree_from
+from shared.utils import file_path_from, executable_command_string_from
 
 major_contigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) for a in range(0, 23)+["X", "Y"]})
 

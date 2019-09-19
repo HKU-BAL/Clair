@@ -6,8 +6,7 @@ import random
 import subprocess
 import shlex
 
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from utilities.interval_tree import interval_tree_from
+from shared.interval_tree import interval_tree_from
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 

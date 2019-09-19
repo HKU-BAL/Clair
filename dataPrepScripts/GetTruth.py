@@ -4,8 +4,7 @@ import subprocess
 import shlex
 import os
 
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from utilities.main import file_path_from, executable_command_string_from
+from shared.utils import file_path_from, executable_command_string_from
 
 class TruthStdout(object):
     def __init__(self, handle):
