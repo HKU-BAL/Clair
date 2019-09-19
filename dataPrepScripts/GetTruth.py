@@ -4,6 +4,8 @@ import subprocess
 import shlex
 import os
 
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from utilities.main import file_path_from, executable_command_string_from
 
 class TruthStdout(object):
     def __init__(self, handle):
@@ -11,20 +13,6 @@ class TruthStdout(object):
 
     def __del__(self):
         self.stdin.close()
-
-
-def CheckFileExist(fn):
-    if not os.path.isfile(fn):
-        return None
-    return os.path.abspath(fn)
-
-
-def CheckCmdExist(cmd):
-    try:
-        subprocess.check_output("which %s" % (cmd), shell=True)
-    except:
-        return None
-    return cmd
 
 
 def OutputVariant(args):
@@ -42,15 +30,17 @@ def OutputVariant(args):
         var_fp = TruthStdout(sys.stdout)
 
     is_ctg_region_provided = ctg_start is not None and ctg_end is not None
-
-    tabixed = 0
-    if is_ctg_region_provided:
-        if CheckFileExist("%s.tbi" % (vcf_fn)) != None:
-            if CheckCmdExist("tabix") != None:
-                tabixed = 1
-                vcf_fp = subprocess.Popen(shlex.split("tabix -f -p vcf %s %s:%s-%s" %
-                                                      (vcf_fn, ctg_name, ctg_start, ctg_end)), stdout=subprocess.PIPE, bufsize=8388608)
-    if tabixed == 0:
+    if (
+        is_ctg_region_provided and
+        file_path_from("%s.tbi" % (vcf_fn)) is not None and
+        executable_command_string_from("tabix") is not None
+    ):
+        vcf_fp = subprocess.Popen(
+            shlex.split("tabix -f -p vcf %s %s:%s-%s" % (vcf_fn, ctg_name, ctg_start, ctg_end)),
+            stdout=subprocess.PIPE,
+            bufsize=8388608
+        )
+    else:
         vcf_fp = subprocess.Popen(shlex.split("gzip -fdc %s" % (vcf_fn)), stdout=subprocess.PIPE, bufsize=8388608)
 
     for row in vcf_fp.stdout:

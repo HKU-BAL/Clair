@@ -5,6 +5,7 @@ import argparse
 from collections import namedtuple
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from utilities.interval_tree import interval_tree_from
+from utilities.main import file_path_from, executable_command_string_from
 
 major_contigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) for a in range(0, 23)+["X", "Y"]})
 
@@ -36,35 +37,21 @@ def command_option_from(args_value, option_name, option_value=None):
     return CommandOption(option_name, option_value)
 
 
-def CheckFileExist(fn, sfx=""):
-    if not os.path.isfile(fn+sfx):
-        sys.exit("Error: %s not found" % (fn+sfx))
-    return os.path.abspath(fn)
-
-
-def CheckCmdExist(cmd):
-    try:
-        subprocess.check_output("which %s" % (cmd), shell=True)
-    except:
-        sys.exit("Error: %s executable not found" % (cmd))
-    return cmd
-
-
 def Run(args):
     basedir = os.path.dirname(__file__)
-    if len(basedir) == 0:
-        callVarBamBin = CheckFileExist("./callVarBam.py")
-    else:
-        callVarBamBin = CheckFileExist(basedir + "/callVarBam.py")
 
-    pypyBin = CheckCmdExist(args.pypy)
-    samtoolsBin = CheckCmdExist(args.samtools)
-    chkpnt_fn = CheckFileExist(args.chkpnt_fn, sfx=".meta")
-    bam_fn = CheckFileExist(args.bam_fn)
-    ref_fn = CheckFileExist(args.ref_fn)
-    fai_fn = CheckFileExist(args.ref_fn + ".fai")
-    bed_fn = CheckFileExist(args.bed_fn) if args.bed_fn is not None else None
-    vcf_fn = CheckFileExist(args.vcf_fn) if args.vcf_fn else None
+    callVarBamBin = file_path_from(
+        "./callVarBam.py" if len(basedir) == 0 else (basedir + "/callVarBam.py"), exit_on_not_found=True
+    )
+    pypyBin = executable_command_string_from(args.pypy, exit_on_not_found=True)
+    samtoolsBin = executable_command_string_from(args.samtools, exit_on_not_found=True)
+
+    chkpnt_fn = file_path_from(args.chkpnt_fn, suffix=".meta", exit_on_not_found=True)
+    bam_fn = file_path_from(args.bam_fn, exit_on_not_found=True)
+    ref_fn = file_path_from(args.ref_fn, exit_on_not_found=True)
+    fai_fn = file_path_from(args.ref_fn + ".fai", exit_on_not_found=True)
+    bed_fn = file_path_from(args.bed_fn)
+    vcf_fn = file_path_from(args.vcf_fn)
 
     output_prefix = args.output_prefix
     af_threshold = args.threshold
