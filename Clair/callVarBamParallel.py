@@ -39,9 +39,7 @@ def command_option_from(args_value, option_name, option_value=None):
 def Run(args):
     basedir = os.path.dirname(__file__)
 
-    callVarBamBin = file_path_from(
-        "./callVarBam.py" if len(basedir) == 0 else (basedir + "/callVarBam.py"), exit_on_not_found=True
-    )
+    callVarBamBin = basedir + "/../clair.py callVarBam"
     pypyBin = executable_command_string_from(args.pypy, exit_on_not_found=True)
     samtoolsBin = executable_command_string_from(args.samtools, exit_on_not_found=True)
 
