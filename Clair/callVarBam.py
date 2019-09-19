@@ -33,7 +33,7 @@ class InstancesClass(object):
 c = InstancesClass()
 
 
-def CheckRtCode(signum, frame):
+def check_return_code(signum, frame):
     c.poll()
     #print >> sys.stderr, c.extract_variant_candidate.returncode, c.create_tensor.returncode, c.call_variant.returncode
     if c.extract_variant_candidate.returncode != None and c.extract_variant_candidate.returncode != 0:
@@ -197,7 +197,7 @@ def Run(args):
         print >> sys.stderr, e
         sys.exit("Failed to start required processes. Exiting...")
 
-    signal.signal(signal.SIGALRM, CheckRtCode)
+    signal.signal(signal.SIGALRM, check_return_code)
     signal.alarm(2)
 
     try:
