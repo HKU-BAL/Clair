@@ -12,26 +12,6 @@ logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 
 def Run(args):
-    Pair(args)
-
-
-def bufcount(filename):
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (filename)), stdout=subprocess.PIPE, bufsize=8388608)
-    lines = 0
-    buf_size = 1024 * 1024
-    read_f = f.stdout.read
-
-    buf = read_f(buf_size)
-    while buf:
-        lines += buf.count('\n')
-        buf = read_f(buf_size)
-    f.stdout.close()
-    f.wait()
-
-    return lines
-
-
-def Pair(args):
     tree = interval_tree_from(bed_file_path=args.bed_fn)
 
     logging.info("Counting the number of Truth Variants in %s ..." % args.tensor_var_fn)
