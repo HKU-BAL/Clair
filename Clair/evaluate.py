@@ -8,7 +8,7 @@ from itertools import izip
 
 import Clair.clair_model as cv
 import Clair.utils as utils
-from Clair.utils import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
+from Clair.task.main import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 import shared.param as param
 
 

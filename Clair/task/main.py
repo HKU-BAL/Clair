@@ -1,0 +1,80 @@
+from collections import namedtuple
+
+from Clair.task.genotype import Genotype, genotype_enum_from, genotype_enum_for_task
+from Clair.task.gt21 import gt21_enum_from_label, gt21_enum_from
+from Clair.task.variant_length import VariantLength
+
+OutputLabelNamedTuple = namedtuple(
+    'BasePredictNamedTuple', ['output_label_count', 'y_start_index', 'y_end_index']
+)
+GT21 = OutputLabelNamedTuple(
+    output_label_count=21,
+    y_start_index=0,
+    y_end_index=21,
+)
+GENOTYPE = OutputLabelNamedTuple(
+    output_label_count=3,
+    y_start_index=GT21.y_end_index,
+    y_end_index=GT21.y_end_index + 3,
+)
+VARIANT_LENGTH_1 = OutputLabelNamedTuple(
+    output_label_count=VariantLength.output_label_count,
+    y_start_index=GENOTYPE.y_end_index,
+    y_end_index=GENOTYPE.y_end_index + VariantLength.output_label_count,
+)
+VARIANT_LENGTH_2 = OutputLabelNamedTuple(
+    output_label_count=VariantLength.output_label_count,
+    y_start_index=VARIANT_LENGTH_1.y_end_index,
+    y_end_index=VARIANT_LENGTH_1.y_end_index + VariantLength.output_label_count,
+)
+
+
+def min_max(value, minimum, maximum):
+    return max(min(value, maximum), minimum)
+
+
+def output_labels_from_reference(reference_base):
+    gt21_vec = [0] * GT21.output_label_count
+    gt21_vec[gt21_enum_from_label(reference_base + reference_base)] = 1
+
+    genotype_vec = [0] * GENOTYPE.output_label_count
+    genotype_vec[Genotype.homo_reference] = 1
+
+    variant_length_vec_1 = [0] * VARIANT_LENGTH_1.output_label_count
+    variant_length_vec_2 = [0] * VARIANT_LENGTH_2.output_label_count
+    variant_length_vec_1[0 + VariantLength.index_offset] = 1
+    variant_length_vec_2[0 + VariantLength.index_offset] = 1
+
+    return gt21_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
+
+
+def output_labels_from_vcf_columns(columns):
+    reference, alternate = columns[2], columns[3]
+    genotype_1, genotype_2 = int(columns[4]), int(columns[5])
+
+    gt21_vec = [0] * GT21.output_label_count
+    gt21 = gt21_enum_from(reference, alternate, genotype_1, genotype_2)
+    gt21_vec[gt21] = 1
+
+    genotype_vec = [0] * GENOTYPE.output_label_count
+    genotype = genotype_enum_from(genotype_1, genotype_2)
+    genotype_for_task = genotype_enum_for_task(genotype)
+    genotype_vec[genotype_for_task] = 1
+
+    variant_lengths = [0, 0]
+    if genotype == Genotype.homo_variant:
+        variant_lengths = [min_max(len(alternate) - len(reference), VariantLength.min, VariantLength.max)] * 2
+    elif genotype == Genotype.hetero_variant:
+        variant_lengths = [0, min_max(len(alternate) - len(reference), VariantLength.min, VariantLength.max)]
+    elif genotype == Genotype.hetero_variant_multi:
+        variant_lengths = [
+            min_max(len(alt) - len(reference), VariantLength.min, VariantLength.max)
+            for alt in alternate.split(",")
+        ]
+    variant_lengths.sort()
+    variant_length_vec_1 = [0] * VARIANT_LENGTH_1.output_label_count
+    variant_length_vec_2 = [0] * VARIANT_LENGTH_2.output_label_count
+    variant_length_vec_1[variant_lengths[0] + VariantLength.index_offset] = 1
+    variant_length_vec_2[variant_lengths[1] + VariantLength.index_offset] = 1
+
+    return gt21_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2

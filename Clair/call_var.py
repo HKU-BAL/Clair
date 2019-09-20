@@ -13,7 +13,13 @@ from itertools import izip
 
 import Clair.utils as utils
 import Clair.clair_model as cv
-from Clair.utils import GT21_Type, gt21_label_from, Genotype, genotype_string_from, VariantLength
+from Clair.task.gt21 import (
+    GT21_Type, gt21_enum_from_label, gt21_enum_from,
+    HOMO_SNP_GT21, HOMO_SNP_LABELS,
+    HETERO_SNP_GT21, HETERO_SNP_LABELS
+)
+from Clair.task.genotype import Genotype, genotype_string_from, genotype_enum_from, genotype_enum_for_task
+from Clair.task.variant_length import VariantLength
 import shared.param as param
 
 
@@ -49,38 +55,12 @@ class Channel(IntEnum):
 
 
 def homo_SNP_bases_from(gt21_probabilities):
-    output_bases_probabilities = np.array([
-        gt21_probabilities[GT21_Type.AA],
-        gt21_probabilities[GT21_Type.CC],
-        gt21_probabilities[GT21_Type.GG],
-        gt21_probabilities[GT21_Type.TT],
-    ])
-    output_bases = [
-        gt21_label_from(GT21_Type.AA),
-        gt21_label_from(GT21_Type.CC),
-        gt21_label_from(GT21_Type.GG),
-        gt21_label_from(GT21_Type.TT)
-    ][np.argmax(output_bases_probabilities)]
+    output_bases = HOMO_SNP_LABELS[np.argmax([gt21_probabilities[gt21_enum] for gt21_enum in HOMO_SNP_GT21])]
     return output_bases[0], output_bases[1]
 
 
 def hetero_SNP_bases_from(gt21_probabilities):
-    output_bases_probabilities = np.array([
-        gt21_probabilities[GT21_Type.AC],
-        gt21_probabilities[GT21_Type.AG],
-        gt21_probabilities[GT21_Type.AT],
-        gt21_probabilities[GT21_Type.CG],
-        gt21_probabilities[GT21_Type.CT],
-        gt21_probabilities[GT21_Type.GT]
-    ])
-    output_bases = [
-        gt21_label_from(GT21_Type.AC),
-        gt21_label_from(GT21_Type.AG),
-        gt21_label_from(GT21_Type.AT),
-        gt21_label_from(GT21_Type.CG),
-        gt21_label_from(GT21_Type.CT),
-        gt21_label_from(GT21_Type.GT)
-    ][np.argmax(output_bases_probabilities)]
+    output_bases = HETERO_SNP_LABELS[np.argmax([gt21_probabilities[gt21_enum] for gt21_enum in HETERO_SNP_GT21])]
     return output_bases[0], output_bases[1]
 
 
@@ -549,42 +529,16 @@ def deletion_bases_from(
 
 
 def quality_score_from(
-    reference_base,
-    alternate_base,
+    reference,
+    alternate,
     genotype_string,
     gt21_probabilities,
     genotype_probabilities,
 ):
     genotype_1, genotype_2 = int(genotype_string[0]), int(genotype_string[2])
-    if genotype_1 > genotype_2:
-        genotype_1, genotype_2 = genotype_2, genotype_1
 
-    alternate_arr = alternate_base.split(',')
-    if len(alternate_arr) == 1:
-        alternate_arr = (
-            [reference_base if genotype_1 == 0 or genotype_2 == 0 else alternate_arr[0]] +
-            alternate_arr
-        )
-    partial_labels = [utils.partial_label_from(reference_base, alternate) for alternate in alternate_arr]
-    gt21_label = utils.mix_two_partial_labels(partial_labels[0], partial_labels[1])
-    gt21 = utils.gt21_enum_from(gt21_label)
-
-    is_homo_reference = genotype_1 == 0 and genotype_2 == 0
-    is_homo_variant = not is_homo_reference and genotype_1 == genotype_2
-    is_hetero_variant = not is_homo_reference and not is_homo_variant
-    is_multi = not is_homo_variant and genotype_1 != 0 and genotype_2 != 0
-    genotype = Genotype.unknown
-    if is_homo_reference:
-        genotype = Genotype.homo_reference
-    elif is_homo_variant:
-        genotype = Genotype.homo_variant
-    elif is_hetero_variant and not is_multi:
-        genotype = Genotype.hetero_variant
-    elif is_hetero_variant and is_multi:
-        genotype = Genotype.hetero_variant
-        # genotype = Genotype.hetero_variant_multi
-    else:
-        return 0
+    gt21 = gt21_enum_from(reference, alternate, genotype_1, genotype_2)
+    genotype = genotype_enum_for_task(genotype_enum_from(genotype_1, genotype_2))
 
     p = gt21_probabilities[gt21] * genotype_probabilities[genotype]
     tmp = max(
@@ -610,7 +564,7 @@ def possible_outcome_probabilites_from(
         variant_length_probabilities_2[0 + VariantLength.index_offset]
     )
 
-    reference_gt21 = utils.gt21_enum_from(reference_base + reference_base)
+    reference_gt21 = gt21_enum_from_label(reference_base + reference_base)
     homo_Ref_probability = (
         variant_length_0_probability * homo_reference_probability * gt21_probabilities[reference_gt21]
     )

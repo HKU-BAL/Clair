@@ -10,6 +10,7 @@ import blosc
 from enum import IntEnum
 from collections import namedtuple
 
+from Clair.task.main import output_labels_from_reference, output_labels_from_vcf_columns
 import shared.param as param
 from shared.interval_tree import interval_tree_from
 
@@ -17,16 +18,7 @@ BASES = set("ACGT")
 base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-VariantLengthNamedTuple = namedtuple('VariantLengthNamedTuple', ['index_offset', 'min', 'max', 'output_label_count'])
-variant_length_index_offset = 16
-VariantLength = VariantLengthNamedTuple(
-    index_offset=variant_length_index_offset,
-    min=-variant_length_index_offset,
-    max=variant_length_index_offset,
-    output_label_count=variant_length_index_offset * 2 + 1,
-)
 
-OutputLabelNamedTuple = namedtuple('BasePredictNamedTuple', ['output_label_count', 'y_start_index', 'y_end_index'])
 DatasetInfo = namedtuple('DatasetInfo', [
     'dataset_size',
     'x_array_compressed',
@@ -43,151 +35,6 @@ TrainingConfig = namedtuple('TrainingConfig', [
     'model_initalization_file_path',
     'summary_writer'
 ])
-
-GT21 = OutputLabelNamedTuple(
-    output_label_count=21,
-    y_start_index=0,
-    y_end_index=21,
-)
-GENOTYPE = OutputLabelNamedTuple(
-    output_label_count=3,
-    y_start_index=GT21.y_end_index,
-    y_end_index=GT21.y_end_index + 3,
-)
-VARIANT_LENGTH_1 = OutputLabelNamedTuple(
-    output_label_count=VariantLength.output_label_count,
-    y_start_index=GENOTYPE.y_end_index,
-    y_end_index=GENOTYPE.y_end_index + VariantLength.output_label_count,
-)
-VARIANT_LENGTH_2 = OutputLabelNamedTuple(
-    output_label_count=VariantLength.output_label_count,
-    y_start_index=VARIANT_LENGTH_1.y_end_index,
-    y_end_index=VARIANT_LENGTH_1.y_end_index + VariantLength.output_label_count,
-)
-
-
-class GT21_Type(IntEnum):
-    AA = 0
-    AC = 1
-    AG = 2
-    AT = 3
-    CC = 4
-    CG = 5
-    CT = 6
-    GG = 7
-    GT = 8
-    TT = 9
-    DelDel = 10
-    ADel = 11
-    CDel = 12
-    GDel = 13
-    TDel = 14
-    InsIns = 15
-    AIns = 16
-    CIns = 17
-    GIns = 18
-    TIns = 19
-    InsDel = 20
-
-
-def gt21_label_from(gt21_enum):
-    return [
-        'AA',
-        'AC',
-        'AG',
-        'AT',
-        'CC',
-        'CG',
-        'CT',
-        'GG',
-        'GT',
-        'TT',
-        'DelDel',
-        'ADel',
-        'CDel',
-        'GDel',
-        'TDel',
-        'InsIns',
-        'AIns',
-        'CIns',
-        'GIns',
-        'TIns',
-        'InsDel'
-    ][gt21_enum]
-
-
-def gt21_enum_from(gt21_label):
-    return {
-        'AA': GT21_Type.AA,
-        'AC': GT21_Type.AC,
-        'AG': GT21_Type.AG,
-        'AT': GT21_Type.AT,
-        'CC': GT21_Type.CC,
-        'CG': GT21_Type.CG,
-        'CT': GT21_Type.CT,
-        'GG': GT21_Type.GG,
-        'GT': GT21_Type.GT,
-        'TT': GT21_Type.TT,
-        'DelDel': GT21_Type.DelDel,
-        'ADel': GT21_Type.ADel,
-        'CDel': GT21_Type.CDel,
-        'GDel': GT21_Type.GDel,
-        'TDel': GT21_Type.TDel,
-        'InsIns': GT21_Type.InsIns,
-        'AIns': GT21_Type.AIns,
-        'CIns': GT21_Type.CIns,
-        'GIns': GT21_Type.GIns,
-        'TIns': GT21_Type.TIns,
-        'InsDel': GT21_Type.InsDel,
-    }[gt21_label]
-
-
-def partial_label_from(ref, alt):
-    if len(ref) > len(alt):
-        return "Del"
-    elif len(ref) < len(alt):
-        return "Ins"
-    return alt[0]
-
-
-def mix_two_partial_labels(label1, label2):
-    # AA, AC, AG, AT, CC, CG, CT, GG, GT, TT
-    if len(label1) == 1 and len(label2) == 1:
-        return label1 + label2 if label1 <= label2 else label2 + label1
-
-    # ADel, CDel, GDel, TDel, AIns, CIns, GIns, TIns
-    tmp_label1, tmp_label2 = label1, label2
-    if len(label1) > 1 and len(label2) == 1:
-        tmp_label1, tmp_label2 = label2, label1
-    if len(tmp_label2) > 1 and len(tmp_label1) == 1:
-        return tmp_label1 + tmp_label2
-
-    # InsIns, DelDel
-    if len(label1) > 0 and len(label2) > 0 and label1 == label2:
-        return label1 + label2
-
-    # InsDel
-    return gt21_label_from(GT21_Type.InsDel)
-
-
-class Genotype(IntEnum):
-    unknown = -1
-    homo_reference = 0          # 0/0
-    homo_variant = 1            # 1/1
-    hetero_variant = 2          # 0/1 OR 1/2
-    hetero_variant_multi = 3    # 1/2
-
-
-def genotype_string_from(genotype):
-    if genotype == Genotype.homo_reference:
-        return "0/0"
-    elif genotype == Genotype.homo_variant:
-        return "1/1"
-    elif genotype == Genotype.hetero_variant:
-        return "0/1"
-    elif genotype == Genotype.hetero_variant_multi:
-        return "1/2"
-    return ""
 
 
 def setup_environment():
@@ -219,6 +66,10 @@ def batches_from(iterable, item_from, batch_size=1):
         yield chunk
 
 
+no_of_positions, matrix_row, matrix_num = 2 * param.flankingBaseNum + 1, param.matrixRow, param.matrixNum
+input_tensor_size = no_of_positions * matrix_row * matrix_num
+
+
 def tensor_generator_from(tensor_file_path, batch_size):
     if tensor_file_path != "PIPE":
         f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
@@ -227,9 +78,6 @@ def tensor_generator_from(tensor_file_path, batch_size):
         fo = sys.stdin
 
     processed_tensors = 0
-
-    no_of_positions, matrix_row, matrix_num = 2 * param.flankingBaseNum + 1, param.matrixRow, param.matrixNum
-    input_tensor_size = no_of_positions * matrix_row * matrix_num
 
     def item_from(row):
         columns = row.split()
@@ -247,7 +95,7 @@ def tensor_generator_from(tensor_file_path, batch_size):
 
         current_batch_size = len(non_tensor_infos)
         X = np.reshape(tensors, (batch_size, no_of_positions, matrix_row, matrix_num))
-        for i in range(1, matrix_num):
+        for i in xrange(1, matrix_num):
             X[:current_batch_size, :, :, i] -= X[:current_batch_size, :, :, 0]
 
         processed_tensors += current_batch_size
@@ -262,79 +110,37 @@ def tensor_generator_from(tensor_file_path, batch_size):
         f.wait()
 
 
+def variant_map_from(var_fn, interval_tree):
+    Y = {}
+    if var_fn is None:
+        return Y
+
+    f = subprocess.Popen(shlex.split("pigz -fdc %s" % (var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+    for row in f.stdout:
+        columns = row.split()
+        ctg_name, position_str = columns[0], columns[1]
+        if ctg_name in interval_tree and len(interval_tree[ctg_name].search(int(position_str))) == 0:
+            continue
+
+        key = ctg_name + ":" + position_str
+        Y[key] = output_labels_from_vcf_columns(columns)
+
+    f.stdout.close()
+    f.wait()
+
+
 def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
     tree = interval_tree_from(bed_file_path=bed_fn)
 
-    Y = {}
-    if var_fn != None:
-        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
-        for row in f.stdout:
-            row = row.split()
-            ctg_name = row[0]
-            position_str = row[1]
-
-            if bed_fn != None:
-                if len(tree[ctg_name].search(int(position_str))) == 0:
-                    continue
-            key = ctg_name + ":" + position_str
-
-            reference = row[2]
-            alternate_arr = row[3].split(',')
-            genotype_1, genotype_2 = row[4], row[5]
-            if int(genotype_1) > int(genotype_2):
-                genotype_1, genotype_2 = genotype_2, genotype_1
-            if len(alternate_arr) == 1:
-                alternate_arr = (
-                    [reference if genotype_1 == "0" or genotype_2 == "0" else alternate_arr[0]] +
-                    alternate_arr
-                )
-
-            # gt21
-            gt21_vec = [0] * GT21.output_label_count
-            partial_labels = [partial_label_from(reference, alternate) for alternate in alternate_arr]
-            gt21_label = mix_two_partial_labels(partial_labels[0], partial_labels[1])
-            gt21 = gt21_enum_from(gt21_label)
-            gt21_vec[gt21] = 1
-
-            # geno type
-            genotype_vec = [0] * GENOTYPE.output_label_count
-            is_homo_reference = genotype_1 == "0" and genotype_2 == "0"
-            is_homo_variant = not is_homo_reference and genotype_1 == genotype_2
-            is_hetero_variant = not is_homo_reference and not is_homo_variant
-            is_multi = not is_homo_variant and genotype_1 != "0" and genotype_2 != "0"
-            if is_homo_reference:
-                genotype_vec[Genotype.homo_reference] = 1
-            elif is_homo_variant:
-                genotype_vec[Genotype.homo_variant] = 1
-            elif is_hetero_variant and not is_multi:
-                genotype_vec[Genotype.hetero_variant] = 1
-            elif is_hetero_variant and is_multi:
-                genotype_vec[Genotype.hetero_variant] = 1
-                # genotype_vec[Genotype.hetero_variant_multi] = 1
-
-            # variant length
-            variant_lengths = [max(
-                min(len(alternate) - len(reference), VariantLength.max),
-                VariantLength.min
-            ) for alternate in alternate_arr]
-            variant_lengths.sort()
-            variant_length_vec_1 = [0] * VARIANT_LENGTH_1.output_label_count
-            variant_length_vec_2 = [0] * VARIANT_LENGTH_2.output_label_count
-            variant_length_vec_1[variant_lengths[0] + VariantLength.index_offset] = 1
-            variant_length_vec_2[variant_lengths[1] + VariantLength.index_offset] = 1
-
-            Y[key] = gt21_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
-
-        f.stdout.close()
-        f.wait()
+    Y = variant_map_from(var_fn, tree)
 
     X = {}
     f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
     total = 0
-    mat = np.empty(((2*param.flankingBaseNum+1)*param.matrixRow*param.matrixNum), dtype=np.float32)
+    mat = np.empty(input_tensor_size, dtype=np.float32)
     for row in f.stdout:
         chrom, coord, seq, mat = unpack_a_tensor_record(*(row.split()))
-        if bed_fn != None:
+        if bed_fn is not None:
             if chrom not in tree:
                 continue
             if len(tree[chrom].search(int(coord))) == 0:
@@ -344,8 +150,8 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
             continue
         key = chrom + ":" + coord
 
-        x = np.reshape(mat, (2*param.flankingBaseNum+1, param.matrixRow, param.matrixNum))
-        for i in range(1, param.matrixNum):
+        x = np.reshape(mat, (no_of_positions, matrix_row, matrix_num))
+        for i in xrange(1, matrix_num):
             x[:, :, i] -= x[:, :, 0]
 
         if key not in X:
@@ -362,18 +168,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
 
         is_reference = key not in Y
         if is_reference:
-            gt21_vec = [0] * GT21.output_label_count
-            gt21_vec[gt21_enum_from(seq[param.flankingBaseNum] + seq[param.flankingBaseNum])] = 1
-
-            genotype_vec = [0] * GENOTYPE.output_label_count
-            genotype_vec[Genotype.homo_reference] = 1
-
-            variant_length_vec_1 = [0] * VARIANT_LENGTH_1.output_label_count
-            variant_length_vec_2 = [0] * VARIANT_LENGTH_2.output_label_count
-            variant_length_vec_1[0 + VariantLength.index_offset] = 1
-            variant_length_vec_2[0 + VariantLength.index_offset] = 1
-
-            Y[key] = gt21_vec + genotype_vec + variant_length_vec_1 + variant_length_vec_2
+            Y[key] = output_labels_from_reference(seq[param.flankingBaseNum])
 
         total += 1
         if total % 100000 == 0:
@@ -383,51 +178,47 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
 
     # print "[INFO] size of X: {}, size of Y: {}".format(len(X), len(Y))
 
-    allPos = sorted(X.keys())
+    all_chr_pos = sorted(X.keys())
     if shuffle == True:
-        np.random.shuffle(allPos)
+        np.random.shuffle(all_chr_pos)
 
-    XArrayCompressed = []
-    YArrayCompressed = []
-    posArrayCompressed = []
-    XArray = []
-    YArray = []
-    posArray = []
+    X_compressed, Y_compressed, pos_compressed = [], [], []
+    X_array, Y_array, pos_array = [], [], []
     count = 0
     total = 0
-    for key in allPos:
+    for key in all_chr_pos:
         total += 1
 
-        XArray.append(X[key])
+        X_array.append(X[key])
         del X[key]
 
         if key in Y:
-            YArray.append(Y[key])
-            posArray.append(key)
+            Y_array.append(Y[key])
+            pos_array.append(key)
             if not is_allow_duplicate_chr_pos:
                 del Y[key]
         elif is_allow_duplicate_chr_pos:
             tmp_key = key[1:]
-            YArray.append(Y[tmp_key])
-            posArray.append(tmp_key)
+            Y_array.append(Y[tmp_key])
+            pos_array.append(tmp_key)
 
         count += 1
         if count == param.bloscBlockSize:
-            XArrayCompressed.append(blosc_pack_array(np.array(XArray)))
-            YArrayCompressed.append(blosc_pack_array(np.array(YArray)))
-            posArrayCompressed.append(blosc_pack_array(np.array(posArray)))
-            XArray = []
-            YArray = []
-            posArray = []
+            X_compressed.append(blosc_pack_array(np.array(X_array)))
+            Y_compressed.append(blosc_pack_array(np.array(Y_array)))
+            pos_compressed.append(blosc_pack_array(np.array(pos_array)))
+            X_array, Y_array, pos_array = [], [], []
             count = 0
-        if total % 50000 == 0:
-            print >> sys.stderr, "Compressed %d/%d tensor" % (total, len(allPos))
-    if count > 0:
-        XArrayCompressed.append(blosc_pack_array(np.array(XArray)))
-        YArrayCompressed.append(blosc_pack_array(np.array(YArray)))
-        posArrayCompressed.append(blosc_pack_array(np.array(posArray)))
 
-    return total, XArrayCompressed, YArrayCompressed, posArrayCompressed
+        if total % 50000 == 0:
+            print >> sys.stderr, "Compressed %d/%d tensor" % (total, len(all_chr_pos))
+
+    if count > 0:
+        X_compressed.append(blosc_pack_array(np.array(X_array)))
+        Y_compressed.append(blosc_pack_array(np.array(Y_array)))
+        pos_compressed.append(blosc_pack_array(np.array(pos_array)))
+
+    return total, X_compressed, Y_compressed, pos_compressed
 
 
 def decompress_array(
