@@ -105,7 +105,12 @@ def mix_two_partial_labels(label1, label2):
     return gt21_label_from(GT21_Type.InsDel)
 
 
-def gt21_enum_from(reference, alternate, genotype_1, genotype_2):
+def gt21_enum_from(reference, alternate, genotype_1, genotype_2, alternate_arr=None):
+    if alternate_arr is not None:
+        partial_labels = [partial_label_from(reference, alternate) for alternate in alternate_arr]
+        gt21_label = mix_two_partial_labels(partial_labels[0], partial_labels[1])
+        return gt21_enum_from_label(gt21_label)
+
     alternate_arr = alternate.split(',')
     if len(alternate_arr) == 1:
         alternate_arr = (

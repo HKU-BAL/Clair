@@ -571,10 +571,10 @@ def possible_outcome_probabilites_from(
 
     homo_SNP_probabilities = [(
         variant_length_0_probability * homo_variant_probability * gt21_probabilities[gt21]
-    ) for gt21 in [GT21_Type.AA, GT21_Type.CC, GT21_Type.GG, GT21_Type.TT]]
+    ) for gt21 in HOMO_SNP_GT21]
     hetero_SNP_probabilities = [(
         variant_length_0_probability * hetero_variant_probability * gt21_probabilities[gt21]
-    ) for gt21 in [GT21_Type.AC, GT21_Type.AG, GT21_Type.AT, GT21_Type.CG, GT21_Type.CT, GT21_Type.GT]]
+    ) for gt21 in HETERO_SNP_GT21]
 
     # Insertion
     homo_Ins_lengths, homo_Ins_probabilities = zip(*homo_Ins_tuples_from(
