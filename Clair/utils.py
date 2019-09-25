@@ -127,6 +127,7 @@ def variant_map_from(var_fn, interval_tree):
 
     f.stdout.close()
     f.wait()
+    return Y
 
 
 def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
