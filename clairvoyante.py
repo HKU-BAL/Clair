@@ -37,11 +37,11 @@ def print_help_messages():
     from textwrap import dedent
     print dedent("""\
         Clair submodule invocator:
-            Usage: clair.py SubmoduleName [Options of the submodule]
+            Usage: clairvoyante.py SubmoduleName [Options of the submodule]
 
         Available data preparation submodules:\n{0}
 
-        Available clair submodules:\n{1}
+        Available clairvoyante submodules:\n{1}
 
         Data preparation scripts:
         {2}
@@ -72,7 +72,7 @@ def main():
     directory = directory_for(submodule_name)
     submodule = importlib.import_module("%s.%s" % (directory, submodule_name))
 
-    # filter arguments (i.e. filter clair.py) and add ".py" for that submodule
+    # filter arguments (i.e. filter clairvoyante.py) and add ".py" for that submodule
     sys.argv = sys.argv[1:]
     sys.argv[0] += (".py")
 
