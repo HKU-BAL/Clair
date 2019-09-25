@@ -86,7 +86,7 @@ def output_data(dst, data):
         pickle_dump(data.pos, f)
 
 
-if __name__ == "__main__":
+def main():
     args = process_command()
 
     data = load_data_from(
@@ -98,3 +98,7 @@ if __name__ == "__main__":
         dst=os.path.join(args.dst, args.bin_name),
         data=data
     )
+
+
+if __name__ == "__main__":
+    main()

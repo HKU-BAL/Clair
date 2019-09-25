@@ -17,6 +17,7 @@ clair_folder = [
     "train_clr",
 ]
 data_prep_scripts_folder = [
+    "CombineBins",
     "CreateTensor",
     "ExtractVariantCandidates",
     "GetTruth",
