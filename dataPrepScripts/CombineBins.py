@@ -60,22 +60,15 @@ def load_data_from(directory_path, need_shuffle_file_paths=False):
     for file_path in file_paths:
         absolute_file_paths.append(os.path.abspath(os.path.join(directory_path, file_path)))
 
-    for file_path in absolute_file_paths:
-        print "[INFO] file path: {}".format(file_path)
+    for absolute_file_path in absolute_file_paths:
+        data = load_data_from_one_file_path(absolute_file_path)
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=12) as executor:
-        for file_path, data in zip(absolute_file_paths, executor.map(load_data_from_one_file_path, absolute_file_paths)):
-            a = int(data.total)
-            x = data.x
-            y = data.y
-            p = data.pos
+        total += data.total
+        X += data.x
+        Y += data.y
+        pos += data.pos
 
-            total += a
-            X += x
-            Y += y
-            pos += p
-
-            print "[INFO] Data loaded: {}".format(file_path)
+        print "[INFO] Data loaded: {}".format(absolute_file_path)
 
     return Data(x=X, y=Y, pos=pos, total=total)
 
