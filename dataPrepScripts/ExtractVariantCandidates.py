@@ -425,7 +425,7 @@ def main():
                         help="Minimum Mapping Quality. Mapping quality lower than the setting will be filtered, default: %(default)d")
 
     parser.add_argument('--gen4Training', action='store_true',
-                        help="Output all genome positions as candidate for model training (Set --threshold to 0, --minCoverage to 0), default: %(default)s")
+                        help="Output all genome positions as candidate for model training (Set --threshold to 0), default: %(default)s")
 
     # parser.add_argument('--candidates', type=int, default=7000000,
     #         help="Use with gen4Training, number of variant candidates to be generated, default: %(default)s")
