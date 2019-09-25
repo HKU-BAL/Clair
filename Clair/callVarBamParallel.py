@@ -18,7 +18,7 @@ major_contigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) fo
 def Run(args):
     basedir = os.path.dirname(__file__)
 
-    callVarBamBin = basedir + "/../clair.py callVarBam"
+    callVarBamBin = basedir + "/../clairvoyante.py callVarBam"
     pypyBin = executable_command_string_from(args.pypy, exit_on_not_found=True)
     samtoolsBin = executable_command_string_from(args.samtools, exit_on_not_found=True)
 
