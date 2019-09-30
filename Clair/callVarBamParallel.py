@@ -196,6 +196,11 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    if not args.includingAllContigs:
+        print "echo \"[INFO] --includingAllContigs not enabled, use chr{1..22,X,Y,M,MT} and {1..22,X,Y,MT} by default\"\n"
+    else:
+        print "echo \"[INFO] --includingAllContigs enabled\"\n"
+
     Run(args)
 
 
