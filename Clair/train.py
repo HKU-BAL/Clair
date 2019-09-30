@@ -264,7 +264,7 @@ def main():
     random.seed(param.RANDOM_SEED)
     np.random.seed(param.RANDOM_SEED)
 
-    parser = argparse.ArgumentParser(description="Train Clair")
+    parser = argparse.ArgumentParser(description="Train model")
 
     # optimizer
     parser.add_argument('--SGDM', action='store_true',

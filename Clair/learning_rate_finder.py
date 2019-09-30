@@ -321,7 +321,7 @@ if __name__ == "__main__":
     random.seed(param.RANDOM_SEED)
     np.random.seed(param.RANDOM_SEED)
 
-    parser = argparse.ArgumentParser(description="Train Clair")
+    parser = argparse.ArgumentParser(description="Learning rate finder")
 
     # binary file path
     parser.add_argument('--bin_fn', type=str, default=None,

@@ -36,7 +36,7 @@ def directory_for(submodule_name):
 def print_help_messages():
     from textwrap import dedent
     print dedent("""\
-        Clair submodule invocator:
+        Clairvoyante submodule invocator:
             Usage: clairvoyante.py SubmoduleName [Options of the submodule]
 
         Available data preparation submodules:\n{0}
@@ -46,7 +46,7 @@ def print_help_messages():
         Data preparation scripts:
         {2}
 
-        Clair scripts:
+        Clairvoyante scripts:
         {3}
         """.format(
             "\n".join("          - %s" % submodule_name for submodule_name in data_prep_scripts_folder),

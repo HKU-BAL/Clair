@@ -196,7 +196,7 @@ def main():
     random.seed(param.RANDOM_SEED)
     np.random.seed(param.RANDOM_SEED)
 
-    parser = argparse.ArgumentParser(description="Train Clair")
+    parser = argparse.ArgumentParser(description="Train model")
 
     # clr mode
     parser.add_argument('--clr_mode', type=str, default="exp",

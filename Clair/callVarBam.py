@@ -231,10 +231,10 @@ def Run(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Call variants using a trained Clair model and a BAM file")
+        description="Call variants using a trained model and a BAM file")
 
     parser.add_argument('--chkpnt_fn', type=str, default=None,
-                        help="Input a Clair model")
+                        help="Input a model")
 
     parser.add_argument('--ref_fn', type=str, default="ref.fa",
                         help="Reference fasta file input, default: %(default)s")

@@ -1200,7 +1200,7 @@ def call_variants(args, m):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Call variants using a trained Clair model and tensors of candididate variants")
+        description="Call variants using a trained model and tensors of candididate variants")
 
     parser.add_argument('--tensor_fn', type=str, default="PIPE",
                         help="Tensor input, use PIPE for standard input")

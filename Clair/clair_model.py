@@ -17,7 +17,7 @@ import shared.param as param
 
 class Clair(object):
     """
-    Modification of Clairvoyante v3
+    Modification of Clairvoyante
     Keywords arguments:
     float_type: The type of float to be used for tensorflow, default tf.float64
     input_shape: Shpae of the input tensor, a tuple or list of 3 integers
@@ -1239,7 +1239,7 @@ class FunctionCallConsumer(multiprocessing.Process):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Clair Model")
+    parser = argparse.ArgumentParser(description="Model")
 
     parser.add_argument('-v', '--variables', type=str, default=None,
                         help="Print variables matching the regular expression. default: %(default)s")

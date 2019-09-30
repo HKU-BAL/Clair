@@ -97,7 +97,7 @@ def Run(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Predict and compare using Clairvoyante")
+        description="Predict and compare")
 
     parser.add_argument('--tensor_can_fn', type=str, default=None,
                         help="Tensors generated at randome genome positions by ExtractVariantCandidates.py+CreateTensor.py")
