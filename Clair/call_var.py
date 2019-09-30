@@ -995,6 +995,8 @@ def batch_output(
             )
             continue
 
+        is_multi = "," in str(alternate_base)
+
         # geno type string
         if is_reference:
             genotype_string = genotype_string_from(Genotype.homo_reference)
@@ -1002,20 +1004,17 @@ def batch_output(
             genotype_string = genotype_string_from(Genotype.homo_variant)
         elif is_hetero_SNP or is_hetero_ACGT_Ins or is_hetero_InsIns or is_hetero_ACGT_Del or is_hetero_DelDel:
             genotype_string = genotype_string_from(Genotype.hetero_variant)
-        if "," in str(alternate_base):
+        if is_multi:
             genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
 
         # allele frequency / supported reads
-        is_SNP = is_homo_SNP or is_hetero_SNP
-        is_insertion = is_homo_insertion or is_hetero_ACGT_Ins or is_hetero_InsIns
-        is_deletion = is_homo_deletion or is_hetero_ACGT_Del or is_hetero_DelDel
         supported_reads_count = 0
         if is_reference:
             supported_reads_count = (
                 x[tensor_position_center,   base2num[reference_base], Channel.reference] +
                 x[tensor_position_center, base2num[reference_base]+4, Channel.reference]
             )
-        elif is_SNP:
+        elif is_homo_SNP or is_hetero_SNP:
             for base in str(alternate_base):
                 if base == ',':
                     continue
@@ -1025,13 +1024,38 @@ def batch_output(
                     x[tensor_position_center,   base2num[base], Channel.reference] +
                     x[tensor_position_center, base2num[base]+4, Channel.reference]
                 )
-        elif is_insertion:
+        elif is_homo_insertion or is_hetero_InsIns:
             supported_reads_count = (
                 sum(x[tensor_position_center+1, :, Channel.insert]) -
                 sum(x[tensor_position_center+1, :, Channel.SNP])
             )
-        elif is_deletion:
+        elif is_hetero_ACGT_Ins:
+            is_SNP_Ins_multi = is_multi
+            SNP_base = alternate_base.split(",")[0][0] if is_SNP_Ins_multi else None
+            supported_reads_for_SNP = (
+                x[tensor_position_center,   base2num[SNP_base], Channel.SNP] +
+                x[tensor_position_center, base2num[SNP_base]+4, Channel.SNP] +
+                x[tensor_position_center,   base2num[SNP_base], Channel.reference] +
+                x[tensor_position_center, base2num[SNP_base]+4, Channel.reference]
+            ) if is_SNP_Ins_multi else 0
+
+            supported_reads_count = (
+                sum(x[tensor_position_center+1, :, Channel.insert]) -
+                sum(x[tensor_position_center+1, :, Channel.SNP])
+            ) + supported_reads_for_SNP
+        elif is_homo_deletion or is_hetero_DelDel:
             supported_reads_count = sum(x[tensor_position_center+1, :, Channel.delete])
+        elif is_hetero_ACGT_Del:
+            is_SNP_Del_multi = is_multi
+            SNP_base = alternate_base.split(",")[1][0] if is_SNP_Del_multi else None
+            supported_reads_for_SNP = (
+                x[tensor_position_center,   base2num[SNP_base], Channel.SNP] +
+                x[tensor_position_center, base2num[SNP_base]+4, Channel.SNP] +
+                x[tensor_position_center,   base2num[SNP_base], Channel.reference] +
+                x[tensor_position_center, base2num[SNP_base]+4, Channel.reference]
+            ) if is_SNP_Del_multi else 0
+
+            supported_reads_count = sum(x[tensor_position_center+1, :, Channel.delete]) + supported_reads_for_SNP
         elif is_insertion_and_deletion:
             supported_reads_count = (
                 sum(x[tensor_position_center+1, :, Channel.insert]) +
