@@ -178,7 +178,7 @@ def samtools_view_process_from(
     region_str = ("%s:%d-%d" % (ctg_name, ctg_start, ctg_end)) if have_start_and_end_position else ctg_name
 
     return subprocess.Popen(
-        shlex.split("%s view -F 2308 %s %s" % (samtools, bam_file_path, region_str)),
+        shlex.split("%s view -F %d %s %s" % (samtools, param.SAMTOOLS_VIEW_FILTER_FLAG, bam_file_path, region_str)),
         stdout=subprocess.PIPE,
         bufsize=8388608
     )

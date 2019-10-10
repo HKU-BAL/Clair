@@ -1,6 +1,7 @@
 NUM_THREADS = 12
 parameterOutputPlaceHolder = 6
 expandReferenceRegion = 1000000
+SAMTOOLS_VIEW_FILTER_FLAG = 2316
 
 # Tensor related parameters, please use the same values for creating tensor, model training and variant calling
 # Please change below value(s) in the dataPrepScripts at the same time

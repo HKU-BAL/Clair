@@ -87,7 +87,7 @@ def pileup(sam_file, contig, position_start, position_end, func):
             contig,
             start=position_start,
             stop=position_end,
-            flag_filter=2308,
+            flag_filter=param.SAMTOOLS_VIEW_FILTER_FLAG,
             min_base_quality=0,
             max_depth=250
         ):

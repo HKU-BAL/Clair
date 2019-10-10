@@ -236,7 +236,7 @@ def make_candidates(args):
         sys.exit(1)
 
     samtools_view_process = subprocess.Popen(
-        shlex.split("{} view -F 2308 {} {}".format(samtools_execute_command, bam_file_path, " ".join(regions))),
+        shlex.split("{} view -F {} {} {}".format(samtools_execute_command, param.SAMTOOLS_VIEW_FILTER_FLAG, bam_file_path, " ".join(regions))),
         stdout=subprocess.PIPE,
         bufsize=8388608
     )
