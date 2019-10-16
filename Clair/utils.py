@@ -355,7 +355,7 @@ def new_mini_batch(
             read_index_list=tensor_block_index_list
         )
     x_batch, next_x_first_blosc_block_data_index, next_x_blosc_index = decompress_array_from(x_array_compressed)
-    y_batch, _next_x_first_blosc_block_data_index, next_y_blosc_index = decompress_array_from(y_array_compressed)
+    y_batch, _next_y_first_blosc_block_data_index, next_y_blosc_index = decompress_array_from(y_array_compressed)
 
     x_batch_size, y_batch_size = np.shape(x_batch)[0], np.shape(y_batch)[0]
     x_end_flag, y_end_flag = next_x_blosc_index == -1, next_y_blosc_index == -1
