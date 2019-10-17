@@ -20,12 +20,12 @@ from Clair.task.gt21 import (
 )
 from Clair.task.genotype import Genotype, genotype_string_from, genotype_enum_from, genotype_enum_for_task
 from Clair.task.variant_length import VariantLength
+from shared.utils import IUPAC_base_to_num_dict
 import shared.param as param
 
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 num2base = dict(zip((0, 1, 2, 3), "ACGT"))
-base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 minimum_variant_length_that_need_infer = VariantLength.max
 maximum_variant_length_that_need_infer = 50
 inferred_indel_length_minimum_allele_frequency = 0.125
@@ -1011,18 +1011,18 @@ def batch_output(
         supported_reads_count = 0
         if is_reference:
             supported_reads_count = (
-                x[tensor_position_center,   base2num[reference_base], Channel.reference] +
-                x[tensor_position_center, base2num[reference_base]+4, Channel.reference]
+                x[tensor_position_center, IUPAC_base_to_num_dict[reference_base], Channel.reference] +
+                x[tensor_position_center, IUPAC_base_to_num_dict[reference_base]+4, Channel.reference]
             )
         elif is_homo_SNP or is_hetero_SNP:
             for base in str(alternate_base):
                 if base == ',':
                     continue
                 supported_reads_count += (
-                    x[tensor_position_center,   base2num[base], Channel.SNP] +
-                    x[tensor_position_center, base2num[base]+4, Channel.SNP] +
-                    x[tensor_position_center,   base2num[base], Channel.reference] +
-                    x[tensor_position_center, base2num[base]+4, Channel.reference]
+                    x[tensor_position_center, IUPAC_base_to_num_dict[base], Channel.SNP] +
+                    x[tensor_position_center, IUPAC_base_to_num_dict[base]+4, Channel.SNP] +
+                    x[tensor_position_center, IUPAC_base_to_num_dict[base], Channel.reference] +
+                    x[tensor_position_center, IUPAC_base_to_num_dict[base]+4, Channel.reference]
                 )
         elif is_homo_insertion or is_hetero_InsIns:
             supported_reads_count = (
@@ -1033,10 +1033,10 @@ def batch_output(
             is_SNP_Ins_multi = is_multi
             SNP_base = alternate_base.split(",")[0][0] if is_SNP_Ins_multi else None
             supported_reads_for_SNP = (
-                x[tensor_position_center,   base2num[SNP_base], Channel.SNP] +
-                x[tensor_position_center, base2num[SNP_base]+4, Channel.SNP] +
-                x[tensor_position_center,   base2num[SNP_base], Channel.reference] +
-                x[tensor_position_center, base2num[SNP_base]+4, Channel.reference]
+                x[tensor_position_center, IUPAC_base_to_num_dict[SNP_base], Channel.SNP] +
+                x[tensor_position_center, IUPAC_base_to_num_dict[SNP_base]+4, Channel.SNP] +
+                x[tensor_position_center, IUPAC_base_to_num_dict[SNP_base], Channel.reference] +
+                x[tensor_position_center, IUPAC_base_to_num_dict[SNP_base]+4, Channel.reference]
             ) if is_SNP_Ins_multi else 0
 
             supported_reads_count = (
@@ -1049,10 +1049,10 @@ def batch_output(
             is_SNP_Del_multi = is_multi
             SNP_base = alternate_base.split(",")[1][0] if is_SNP_Del_multi else None
             supported_reads_for_SNP = (
-                x[tensor_position_center,   base2num[SNP_base], Channel.SNP] +
-                x[tensor_position_center, base2num[SNP_base]+4, Channel.SNP] +
-                x[tensor_position_center,   base2num[SNP_base], Channel.reference] +
-                x[tensor_position_center, base2num[SNP_base]+4, Channel.reference]
+                x[tensor_position_center, IUPAC_base_to_num_dict[SNP_base], Channel.SNP] +
+                x[tensor_position_center, IUPAC_base_to_num_dict[SNP_base]+4, Channel.SNP] +
+                x[tensor_position_center, IUPAC_base_to_num_dict[SNP_base], Channel.reference] +
+                x[tensor_position_center, IUPAC_base_to_num_dict[SNP_base]+4, Channel.reference]
             ) if is_SNP_Del_multi else 0
 
             supported_reads_count = sum(x[tensor_position_center+1, :, Channel.delete]) + supported_reads_for_SNP
@@ -1230,7 +1230,7 @@ def main():
                         help="Tensor input, use PIPE for standard input")
 
     parser.add_argument('--chkpnt_fn', type=str, default=None,
-                        help="Input a checkpoint for testing or continue training")
+                        help="Input a checkpoint for testing")
 
     parser.add_argument('--call_fn', type=str, default=None,
                         help="Output variant predictions")

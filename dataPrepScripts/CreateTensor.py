@@ -10,6 +10,7 @@ import gc
 from collections import namedtuple
 
 import shared.param as param
+from shared.utils import IUPAC_base_to_num_dict
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
@@ -20,8 +21,7 @@ def PypyGCCollect(signum, frame):
     gc.collect()
     signal.alarm(60)
 
-
-base2num = dict(zip("ACGT", (0, 1, 2, 3)))
+BASES = set(IUPAC_base_to_num_dict.keys() + ["-"])
 stripe2 = param.matrixRow * param.matrixNum
 stripe1 = param.matrixNum
 
@@ -30,7 +30,6 @@ def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_
     flanking_base_num = param.flankingBaseNum
     matrix_row = param.matrixRow
     matrix_num = param.matrixNum
-    BASES = set("ACGT-")
     NUMBER_OF_POSITIONS = 2 * flanking_base_num + 1
 
     alignment_code = [0] * (NUMBER_OF_POSITIONS * matrix_row * matrix_num)
@@ -45,15 +44,15 @@ def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_
             offset = reference_position - center + (flanking_base_num + 1)
             if query_base != "-" and reference_base != "-":
                 depth[offset] = depth[offset] + 1
-                alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 0] += 1
-                alignment_code[stripe2*offset + stripe1*(base2num[query_base] + STRAND*4) + 1] += 1
-                alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 2] += 1
-                alignment_code[stripe2*offset + stripe1*(base2num[query_base] + STRAND*4) + 3] += 1
+                alignment_code[stripe2*offset + stripe1*(IUPAC_base_to_num_dict[reference_base] + STRAND*4) + 0] += 1
+                alignment_code[stripe2*offset + stripe1*(IUPAC_base_to_num_dict[query_base] + STRAND*4) + 1] += 1
+                alignment_code[stripe2*offset + stripe1*(IUPAC_base_to_num_dict[reference_base] + STRAND*4) + 2] += 1
+                alignment_code[stripe2*offset + stripe1*(IUPAC_base_to_num_dict[query_base] + STRAND*4) + 3] += 1
             elif query_base != "-" and reference_base == "-":
                 idx = min(offset+queryAdv, NUMBER_OF_POSITIONS - 1)
-                alignment_code[stripe2*idx + stripe1*(base2num[query_base] + STRAND*4) + 1] += 1
+                alignment_code[stripe2*idx + stripe1*(IUPAC_base_to_num_dict[query_base] + STRAND*4) + 1] += 1
             elif query_base == "-" and reference_base != "-":
-                alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 2] += 1
+                alignment_code[stripe2*offset + stripe1*(IUPAC_base_to_num_dict[reference_base] + STRAND*4) + 2] += 1
             else:
                 print >> sys.stderr, "Should not reach here: %s, %s" % (reference_base, query_base)
 

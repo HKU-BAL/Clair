@@ -13,11 +13,9 @@ from collections import namedtuple
 from Clair.task.main import output_labels_from_reference, output_labels_from_vcf_columns
 import shared.param as param
 from shared.interval_tree import interval_tree_from
+from shared.utils import IUPAC_base_to_num_dict
 
-BASES = set("ACGT")
-base2num = dict(zip("ACGT", (0, 1, 2, 3)))
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
 
 DatasetInfo = namedtuple('DatasetInfo', [
     'dataset_size',
@@ -88,7 +86,7 @@ def tensor_generator_from(tensor_file_path, batch_size):
         non_tensor_infos = []
         for non_tensor_info, tensor in batch:
             _, _, sequence = non_tensor_info
-            if sequence[param.flankingBaseNum] not in BASES:  # TODO: Support IUPAC in the future
+            if sequence[param.flankingBaseNum] not in IUPAC_base_to_num_dict:
                 continue
             tensors[len(non_tensor_infos)] = tensor
             non_tensor_infos.append(non_tensor_info)
@@ -147,7 +145,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
             if len(tree[chrom].search(int(coord))) == 0:
                 continue
         seq = seq.upper()
-        if seq[param.flankingBaseNum] not in BASES:
+        if seq[param.flankingBaseNum] not in IUPAC_base_to_num_dict:
             continue
         key = chrom + ":" + coord
 

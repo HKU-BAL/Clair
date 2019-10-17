@@ -2,6 +2,30 @@ from os.path import isfile, abspath
 from sys import exit
 from subprocess import check_output
 
+# A->A
+# C->C
+# G->G
+# T or U->T
+# R->A or G
+# Y->C or T
+# S->G or C
+# W->A or T
+# K->G or T
+# M->A or C
+# B->C or G or T
+# D->A or G or T
+# H->A or C or T
+# V->A or C or G
+IUPAC_base_to_ACGT_base_dict = dict(zip(
+    "ACGTURYSWKMBDHV",
+    ("A", "C", "G", "T", "T", "A", "C", "C", "A", "G", "A", "C", "A", "A", "A")
+))
+
+IUPAC_base_to_num_dict = dict(zip(
+    "ACGTURYSWKMBDHV",
+    (0, 1, 2, 3, 3, 0, 1, 1, 0, 2, 0, 1, 0, 0, 0)
+))
+
 
 def is_file_exists(file_name, suffix=""):
     if not isinstance(file_name, str) or not isinstance(suffix, str):
