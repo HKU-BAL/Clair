@@ -2,7 +2,6 @@ import os
 import cPickle
 import argparse
 import random
-import concurrent.futures
 from collections import namedtuple
 
 Data = namedtuple('Data', ['x', 'y', 'pos', 'total'])
