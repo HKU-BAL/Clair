@@ -2,7 +2,7 @@ import sys
 import argparse
 import logging
 import cPickle
-import utils
+import Clair.utils as utils
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
