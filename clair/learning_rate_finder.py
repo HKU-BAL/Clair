@@ -161,7 +161,7 @@ def train_model(m, training_config):
 
     while epoch_count <= param.lr_finder_max_epoch:
         # init variables for process one epoch
-        epoch_start_time = time.time()
+        epoch_start_time = time()
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
