@@ -908,17 +908,13 @@ def output_from(
     )
 
 
-def batch_output(
-    mini_batch,
-    batch_gt21_probabilities,
-    batch_genotype_probabilities,
-    batch_variant_length_probabilities_1,
-    batch_variant_length_probabilities_2,
-    output_config,
-    output_utilities,
-):
+def batch_output(mini_batch, batch_Y, output_config, output_utilities):
     X, batch_chr_pos_seq = mini_batch
     batch_size = len(batch_chr_pos_seq)
+
+    batch_gt21_probabilities, batch_genotype_probabilities, \
+        batch_variant_length_probabilities_1, batch_variant_length_probabilities_2 = batch_Y
+
     if len(batch_gt21_probabilities) != batch_size:
         sys.exit(
             "Inconsistent shape between input tensor and output predictions %d/%d" %
@@ -1180,22 +1176,14 @@ def call_variants(args, m):
 
         if len(mini_batches_to_output) > 0:
             mini_batch = mini_batches_to_output.pop(0)
-            gt21, zygosity, variant_length_1, variant_length_2 = (
-                m.predictBaseRTVal, m.predictGenotypeRTVal, m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2
-            )
             thread_pool.append(Thread(
-                target=batch_output,
-                args=(
-                    mini_batch,
-                    gt21, zygosity, variant_length_1, variant_length_2,
-                    output_config, output_utilities,
-                )
+                target=batch_output, args=(mini_batch, m.prediction, output_config, output_utilities)
             ))
 
         if len(mini_batches_to_predict) > 0:
             mini_batch = mini_batches_to_predict.pop(0)
             X, _ = mini_batch
-            thread_pool.append(Thread(target=m.predict, args=(X, True)))
+            thread_pool.append(Thread(target=m.predict, args=(X)))
             mini_batches_to_output.append(mini_batch)
 
         if not is_finish_loaded_all_mini_batches:

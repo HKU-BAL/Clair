@@ -13,6 +13,7 @@ from collections import defaultdict
 from clair.task.main import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 import shared.param as param
 
+
 class Clair(object):
     """
     Keywords arguments:
@@ -160,8 +161,6 @@ class Clair(object):
             self.float_type = tf.float32
         else:
             self.float_type = params['float_type']
-
-        self.output_cache = {}
 
         # Specify the way to split the output ground truth label
         self.output_label_split = [
@@ -869,18 +868,17 @@ class Clair(object):
         """
         self.session.close()
 
-    def lr_train(self, batchX, batchY, result_caching=False):
+    def lr_train(self, batchX, batchY):
         """
-        Train the model in batch with input tensor batchX and truth tensor batchY, caching the results in
-        self.output_cache['training_loss'] and self.output_cache['training_summary'] if result_caching is True
+        Train the model in batch with input tensor batchX and truth tensor batchY
         The tensor transform function is applied prior to training
         Returns:
-            loss: The loss value from the batch
-            summary: The tf.summary of the training
+            prediction: predictions from the model in batch
+            training_loss: training loss from the batch
+            summary: tf.summary of the training
         """
-        # for i in range(len(batchX)):
-        #    tf.image.per_image_standardization(batchX[i])
         transformed_batch_X, transformed_batch_Y = self.tensor_transform_function(batchX, batchY, "train")
+
         input_dictionary = {
             self.X_placeholder: transformed_batch_X,
             self.Y_placeholder: transformed_batch_Y,
@@ -895,40 +893,26 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='train'))
 
-        (gt21, genotype, indel_length_1, indel_length_2), loss, _, summary = self.session.run(
+        prediction, training_loss, _, summary = self.session.run(
             (self.Y, self.loss, self.training_op, self.training_summary_op),
             feed_dict=input_dictionary
         )
-        # if result_caching:
-        self.output_cache['training_loss'] = loss
-        self.output_cache['training_summary'] = summary
-        self.output_cache['prediction_gt21'] = gt21
-        self.output_cache['prediction_genotype'] = genotype
-        self.output_cache['prediction_indel_length_1'] = indel_length_1
-        self.output_cache['prediction_indel_length_2'] = indel_length_2
+        self.prediction = prediction
+        self.training_loss_on_one_batch = training_loss
+        self.training_summary_on_one_batch = summary
 
-        # Aliasing
-        self.trainLossRTVal = loss
-        self.trainSummaryRTVal = summary
-        self.predictBaseRTVal = self.output_cache['prediction_gt21']
-        self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
-        self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
-        self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
+        return prediction, training_loss, summary
 
-        return gt21, genotype, indel_length_1, indel_length_2, loss, summary
-
-    def train(self, batchX, batchY, result_caching=False):
+    def train(self, batchX, batchY):
         """
-        Train the model in batch with input tensor batchX and truth tensor batchY, caching the results in
-        self.output_cache['training_loss'] and self.output_cache['training_summary'] if result_caching is True
+        Train the model in batch with input tensor batchX and truth tensor batchY
         The tensor transform function is applied prior to training
         Returns:
-            loss: The loss value from the batch
-            summary: The tf.summary of the training
+            training_loss: training loss value from the batch
+            summary: tf.summary of the training
         """
-        # for i in range(len(batchX)):
-        #    tf.image.per_image_standardization(batchX[i])
         transformed_batch_X, transformed_batch_Y = self.tensor_transform_function(batchX, batchY, "train")
+
         input_dictionary = {
             self.X_placeholder: transformed_batch_X,
             self.Y_placeholder: transformed_batch_Y,
@@ -943,34 +927,22 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='train'))
 
-        loss, _, summary = self.session.run(
+        training_loss, _, summary = self.session.run(
             (self.loss, self.training_op, self.training_summary_op),
             feed_dict=input_dictionary
         )
-        # if result_caching:
-        self.output_cache['training_loss'] = loss
-        self.output_cache['training_summary'] = summary
+        self.training_loss_on_one_batch = training_loss
+        self.training_summary_on_one_batch = summary
 
-        # Aliasing
-        self.trainLossRTVal = loss
-        self.trainSummaryRTVal = summary
+        return training_loss, summary
 
-        return loss, summary
-
-    def predict(self, batchX, result_caching=False):
+    def predict(self, batchX):
         """
-        Predict using model in batch with input tensor batchX, caching the results in
-        self.output_cache['prediction_gt21'],
-        self.output_cache['prediction_genotype'],
-        self.output_cache['prediction_indel_length_1']
-        self.output_cache['prediction_indel_length_2']
-        if result_caching is True
+        Predict using model in batch with input tensor batchX,
         The tensor transform function is applied prior to prediction
         Returns:
-            gt21, genotype, indel_length_1, indel_length_2: The four predictions from the model in batch
+            prediction: predictions from the model in batch
         """
-        # for i in range(len(batchX)):
-        #    tf.image.per_image_standardization(XArray[i])
         transformed_batch_X, _ = self.tensor_transform_function(batchX, None, "predict")
 
         input_dictionary = {
@@ -981,26 +953,14 @@ class Clair(object):
         }
         input_dictionary.update(self.get_structure_dict(phase='predict'))
 
-        gt21, genotype, indel_length_1, indel_length_2 = self.session.run(self.Y, feed_dict=input_dictionary)
+        prediction = self.session.run(self.Y, feed_dict=input_dictionary)
+        self.prediction = prediction
 
-        if result_caching:
-            self.output_cache['prediction_gt21'] = gt21
-            self.output_cache['prediction_genotype'] = genotype
-            self.output_cache['prediction_indel_length_1'] = indel_length_1
-            self.output_cache['prediction_indel_length_2'] = indel_length_2
+        return prediction
 
-            # Aliasing
-            self.predictBaseRTVal = self.output_cache['prediction_gt21']
-            self.predictGenotypeRTVal = self.output_cache['prediction_genotype']
-            self.predictIndelLengthRTVal1 = self.output_cache['prediction_indel_length_1']
-            self.predictIndelLengthRTVal2 = self.output_cache['prediction_indel_length_2']
-
-        return gt21, genotype, indel_length_1, indel_length_2
-
-    def get_loss(self, batchX, batchY, result_caching=False):
+    def validate(self, batchX, batchY):
         """
-        Getting the loss using model in batch with input tensor batchX and truth tensor batchY, caching the results in
-        self.output_cache['prediction_loss'] if result_caching is True
+        Getting the loss using model in batch with input tensor batchX and truth tensor batchY
         The tensor transform function is applied prior to getting loss
         Returns:
             loss: The loss value for this batch
@@ -1029,18 +989,15 @@ class Clair(object):
             self.regularization_L2_loss_without_lambda
         ], feed_dict=input_dictionary)
 
-        if result_caching:
-            self.output_cache['prediction_loss'] = loss
+        self.validation_loss_on_one_batch = loss
 
-            # Aliasing
-            self.getLossLossRTVal = self.output_cache['prediction_loss']
+        self.gt21_loss = gt21_loss
+        self.genotype_loss = genotype_loss
+        self.indel_length_loss = indel_length_loss_1 + indel_length_loss_2
+        self.indel_length_loss_1 = indel_length_loss_1
+        self.indel_length_loss_2 = indel_length_loss_2
+        self.l2_loss = l2_loss * param.l2RegularizationLambda
 
-            self.gt21_loss = gt21_loss
-            self.genotype_loss = genotype_loss
-            self.indel_length_loss = indel_length_loss_1 + indel_length_loss_2
-            self.indel_length_loss_1 = indel_length_loss_1
-            self.indel_length_loss_2 = indel_length_loss_2
-            self.l2_loss = l2_loss * param.l2RegularizationLambda
         return loss
 
     def save_parameters(self, file_name):
