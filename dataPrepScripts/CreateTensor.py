@@ -35,22 +35,22 @@ def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_
         for reference_position, queryAdv, reference_base, query_base, STRAND in alignment:
             if str(reference_base) not in BASES or str(query_base) not in BASES:
                 continue
-            position_offset = reference_position - center + (flanking_base_num + 1)
-            if not (0 <= position_offset < no_of_positions):
+            position_index = reference_position - center + (flanking_base_num + 1)
+            if not (0 <= position_index < no_of_positions):
                 continue
 
             strand_offset = 4 if STRAND else 0
             if query_base != "-" and reference_base != "-":
-                depth[position_offset] = depth[position_offset] + 1
-                tensor[position_offset][BASE2NUM[reference_base] + strand_offset][0] += 1
-                tensor[position_offset][BASE2NUM[query_base] + strand_offset][1] += 1
-                tensor[position_offset][BASE2NUM[reference_base] + strand_offset][2] += 1
-                tensor[position_offset][BASE2NUM[query_base] + strand_offset][3] += 1
+                depth[position_index] = depth[position_index] + 1
+                tensor[position_index][BASE2NUM[reference_base] + strand_offset][0] += 1
+                tensor[position_index][BASE2NUM[query_base] + strand_offset][1] += 1
+                tensor[position_index][BASE2NUM[reference_base] + strand_offset][2] += 1
+                tensor[position_index][BASE2NUM[query_base] + strand_offset][3] += 1
             elif query_base != "-" and reference_base == "-":
-                position_offset = min(position_offset + queryAdv, no_of_positions - 1)
-                tensor[position_offset][BASE2NUM[query_base] + strand_offset][1] += 1
+                position_index = min(position_index + queryAdv, no_of_positions - 1)
+                tensor[position_index][BASE2NUM[query_base] + strand_offset][1] += 1
             elif query_base == "-" and reference_base != "-":
-                tensor[position_offset][BASE2NUM[reference_base] + strand_offset][2] += 1
+                tensor[position_index][BASE2NUM[reference_base] + strand_offset][2] += 1
             else:
                 print >> sys.stderr, "Should not reach here: %s, %s" % (reference_base, query_base)
 
