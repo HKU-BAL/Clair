@@ -1,25 +1,25 @@
 import sys
 import os
 import time
-import argparse
 import logging
 import numpy as np
 import pysam
+from argparse import ArgumentParser
 from threading import Thread
 from math import log, e
 from enum import IntEnum
 from collections import namedtuple, defaultdict
 from itertools import izip
 
-import Clair.utils as utils
-import Clair.clair_model as cv
-from Clair.task.gt21 import (
+import clair.utils as utils
+from clair.model import Clair
+from clair.task.gt21 import (
     GT21_Type, gt21_enum_from_label, gt21_enum_from,
     HOMO_SNP_GT21, HOMO_SNP_LABELS,
     HETERO_SNP_GT21, HETERO_SNP_LABELS
 )
-from Clair.task.genotype import Genotype, genotype_string_from, genotype_enum_from, genotype_enum_for_task
-from Clair.task.variant_length import VariantLength
+from clair.task.genotype import Genotype, genotype_string_from, genotype_enum_from, genotype_enum_for_task
+from clair.task.variant_length import VariantLength
 import shared.param as param
 
 
@@ -185,7 +185,7 @@ def Run(args):
         if param.NUM_THREADS < 1:
             param.NUM_THREADS = 1
 
-    m = cv.Clair()
+    m = Clair()
     m.init()
     m.restore_parameters(os.path.abspath(args.chkpnt_fn))
 
@@ -1223,8 +1223,7 @@ def call_variants(args, m):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Call variants using a trained model and tensors of candididate variants")
+    parser = ArgumentParser(description="Call variants using a trained model and tensors of candididate variants")
 
     parser.add_argument('--tensor_fn', type=str, default="PIPE",
                         help="Tensor input, use PIPE for standard input")

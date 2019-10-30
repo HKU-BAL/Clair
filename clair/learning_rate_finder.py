@@ -1,32 +1,91 @@
 import sys
-import os
-import time
-import argparse
 import logging
 import random
 import numpy as np
+import pandas as pd
+from os.path import abspath
+from time import time
+from argparse import ArgumentParser
 from threading import Thread
 
-import Clair.clair_model as cv
-import Clair.utils as utils
-import Clair.evaluate as evaluate
+import clair.evaluate as evaluate
+from clair.model import Clair
+import clair.utils as utils
+from clair.task.main import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 import shared.param as param
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 
-def is_last_five_epoch_approaches_minimum(validation_losses):
-    if len(validation_losses) <= 5:
-        return True
+def accuracy(gt21, genotype, indel_length_1, indel_length_2, y_batch):
+    gt21_samples = len(gt21) + 0.0
+    genotype_samples = len(genotype) + 0.0
+    indel1_samples = len(indel_length_1) + 0.0
+    indel2_samples = len(indel_length_2) + 0.0
+    gt21_TP = 0.0
+    genotype_TP = 0.0
+    indel1_TP = 0.0
+    indel2_TP = 0.0
 
-    minimum_validation_loss = min(np.asarray(validation_losses)[:, 0])
-    return (
-        validation_losses[-5][0] == minimum_validation_loss or
-        validation_losses[-4][0] == minimum_validation_loss or
-        validation_losses[-3][0] == minimum_validation_loss or
-        validation_losses[-2][0] == minimum_validation_loss or
-        validation_losses[-1][0] == minimum_validation_loss
-    )
+    for gt21_prediction, gt21_label in zip(
+        gt21,
+        y_batch[:, GT21.y_start_index:GT21.y_end_index]
+    ):
+        true_label_index = np.argmax(gt21_label)
+        predict_label_index = np.argmax(gt21_prediction)
+        if true_label_index == predict_label_index:
+            gt21_TP += 1
+
+    for genotype_prediction, true_genotype_label in zip(
+        genotype,
+        y_batch[:, GENOTYPE.y_start_index:GENOTYPE.y_end_index]
+    ):
+        true_label_index = np.argmax(true_genotype_label)
+        predict_label_index = np.argmax(genotype_prediction)
+        if true_label_index == predict_label_index:
+            genotype_TP += 1
+
+    for indel_length_prediction_1, true_indel_length_label_1, indel_length_prediction_2, true_indel_length_label_2 in zip(
+        indel_length_1,
+        y_batch[:, VARIANT_LENGTH_1.y_start_index:VARIANT_LENGTH_1.y_end_index],
+        indel_length_2,
+        y_batch[:, VARIANT_LENGTH_2.y_start_index:VARIANT_LENGTH_2.y_end_index]
+    ):
+        true_label_index_1 = np.argmax(true_indel_length_label_1)
+        true_label_index_2 = np.argmax(true_indel_length_label_2)
+        predict_label_index_1 = np.argmax(indel_length_prediction_1)
+        predict_label_index_2 = np.argmax(indel_length_prediction_2)
+
+        if true_label_index_1 > true_label_index_2:
+            true_label_index_1, true_label_index_2 = true_label_index_2, true_label_index_1
+        if predict_label_index_1 > predict_label_index_2:
+            predict_label_index_1, predict_label_index_2 = predict_label_index_2, predict_label_index_1
+
+        if true_label_index_1 == predict_label_index_1:
+            indel1_TP += 1
+        if true_label_index_2 == predict_label_index_2:
+            indel2_TP += 1
+
+    gt21_acc = gt21_TP / gt21_samples
+    genotype_acc = genotype_TP / genotype_samples
+    indel1_acc = indel1_TP / indel1_samples
+    indel2_acc = indel2_TP / indel2_samples
+    acc = (gt21_acc + genotype_acc + indel1_acc + indel2_acc) / 4
+    return acc
+
+
+def lr_finder(lr_accuracy):
+    df = pd.DataFrame(lr_accuracy, columns=["lr", "accuracy", "loss"])
+    df['diff'] = df['accuracy'].diff()
+    df = df.dropna().reset_index(drop=True)
+    minimum_lr = df[df['diff'] == max(df['diff'])]['lr'].sort_values(ascending=False).item()
+    maximum_lr = df[df['diff'] == min(df['diff'])]['lr'].sort_values(ascending=True).item()
+    if minimum_lr > maximum_lr:
+        minimum_lr, maximum_lr = maximum_lr, minimum_lr
+    return minimum_lr, maximum_lr, df
+
+
+logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 
 def is_validation_loss_goes_up_and_down(validation_losses):
@@ -48,6 +107,20 @@ def is_validation_loss_goes_up_and_down(validation_losses):
     )
 
 
+def is_last_five_epoch_approaches_minimum(validation_losses):
+    if len(validation_losses) <= 5:
+        return True
+
+    minimum_validation_loss = min(np.asarray(validation_losses)[:, 0])
+    return (
+        validation_losses[-5][0] == minimum_validation_loss or
+        validation_losses[-4][0] == minimum_validation_loss or
+        validation_losses[-3][0] == minimum_validation_loss or
+        validation_losses[-2][0] == minimum_validation_loss or
+        validation_losses[-1][0] == minimum_validation_loss
+    )
+
+
 def is_validation_losses_keep_increasing(validation_losses):
     if len(validation_losses) <= 6:
         return False
@@ -63,9 +136,6 @@ def is_validation_losses_keep_increasing(validation_losses):
 
 
 def shuffle_first_n_items(array, n):
-    """
-        Shuffle first n items on given array.
-    """
     if len(array) <= n:
         np.random.shuffle(array)
         return array
@@ -76,7 +146,7 @@ def shuffle_first_n_items(array, n):
 
 
 def train_model(m, training_config):
-    learning_rate = training_config.learning_rate
+    learning_rate = param.min_lr
     l2_regularization_lambda = training_config.l2_regularization_lambda
     output_file_path_prefix = training_config.output_file_path_prefix
     summary_writer = training_config.summary_writer
@@ -87,17 +157,17 @@ def train_model(m, training_config):
 
     training_losses = []
     validation_losses = []
+    lr_accuracy = []
 
     if model_initalization_file_path is not None:
-        m.restore_parameters(os.path.abspath(model_initalization_file_path))
+        m.restore_parameters(abspath(model_initalization_file_path))
 
     logging.info("[INFO] Start training...")
     logging.info("[INFO] Learning rate: %.2e" % m.set_learning_rate(learning_rate))
     logging.info("[INFO] L2 regularization lambda: %.2e" % m.set_l2_regularization_lambda(l2_regularization_lambda))
 
     # Model Constants
-    training_start_time = time.time()
-    learning_rate_switch_count = param.maxLearningRateSwitch
+    training_start_time = time()
     no_of_training_examples = (
         dataset_info.no_of_training_examples_from_train_binary or int(dataset_size * param.trainingDatasetPercentage)
     )
@@ -110,20 +180,23 @@ def train_model(m, training_config):
     no_of_training_blosc_blocks = int(no_of_training_examples / param.bloscBlockSize)
     tensor_block_index_list = np.arange(no_of_blosc_blocks, dtype=int)
 
+    total_numbers_of_iterations = np.ceil(no_of_training_examples / param.trainBatchSize+1)
+    step_size = param.stepsizeConstant * total_numbers_of_iterations
+
     # Initialize variables
     epoch_count = 1
     if model_initalization_file_path is not None:
-        epoch_count = int(model_initalization_file_path[-param.parameterOutputPlaceHolder:]) + 1
+        epoch_count = int(model_initalization_file_path[-param.parameterOutputPlaceHolder:])+1
 
-    epoch_start_time = time.time()
+    epoch_start_time = time()
     training_loss_sum = 0
     validation_loss_sum = 0
-    no_of_epochs_with_current_learning_rate = 0  # Variables for learning rate decay
     data_index = 0
     blosc_index = 0
     first_blosc_block_data_index = 0
     x_batch = None
     y_batch = None
+    global_step = 0
 
     gt21_loss_sum = 0
     genotype_loss_sum = 0
@@ -131,15 +204,15 @@ def train_model(m, training_config):
     indel_length_loss_sum_2 = 0
     l2_loss_sum = 0
 
-    while True:
+    while epoch_count <= param.lr_finder_max_epoch:
         is_training = data_index < no_of_training_examples
-        is_validation = not is_training
+        is_validation = data_index >= no_of_training_examples
         is_with_batch_data = x_batch is not None and y_batch is not None
 
         # threads for either train or validation
         thread_pool = []
         if is_with_batch_data and is_training:
-            thread_pool.append(Thread(target=m.train, args=(x_batch, y_batch, True)))
+            thread_pool.append(Thread(target=m.lr_train, args=(x_batch, y_batch)))
         elif is_with_batch_data and is_validation:
             thread_pool.append(Thread(target=m.get_loss, args=(x_batch, y_batch, True)))
         for t in thread_pool:
@@ -162,6 +235,9 @@ def train_model(m, training_config):
         # add training loss or validation loss
         if is_with_batch_data and is_training:
             training_loss_sum += m.trainLossRTVal
+            batch_acc = accuracy(m.predictBaseRTVal, m.predictGenotypeRTVal,
+                                 m.predictIndelLengthRTVal1, m.predictIndelLengthRTVal2, y_batch)
+            lr_accuracy.append((learning_rate, batch_acc, m.trainLossRTVal))
             if summary_writer is not None:
                 summary = m.trainSummaryRTVal
                 summary_writer.add_summary(summary, epoch_count)
@@ -183,6 +259,9 @@ def train_model(m, training_config):
         if next_first_blosc_block_data_index >= 0 and next_blosc_start_index >= 0:
             x_batch = next_x_batch
             y_batch = next_y_batch
+            learning_rate, global_step, _max_learning_rate = m.clr(
+                global_step, step_size, param.max_lr, "tri"
+            )
             continue
 
         logging.info(
@@ -199,47 +278,25 @@ def train_model(m, training_config):
             ])
         )
 
-        logging.info("[INFO] Epoch time elapsed: %.2f s" % (time.time() - epoch_start_time))
+        logging.info("[INFO] Epoch time elapsed: %.2f s" % (time() - epoch_start_time))
         training_losses.append((training_loss_sum, epoch_count))
         validation_losses.append((validation_loss_sum, epoch_count))
 
         # Output the model
-        if output_file_path_prefix is not None:
+        if output_file_path_prefix != None:
             parameter_output_path = "%s-%%0%dd" % (output_file_path_prefix, param.parameterOutputPlaceHolder)
-            m.save_parameters(os.path.abspath(parameter_output_path % epoch_count))
-
-        # Adaptive learning rate decay
-        no_of_epochs_with_current_learning_rate += 1
-
-        need_learning_rate_update = (
-            (
-                no_of_epochs_with_current_learning_rate >= 6 and
-                not is_last_five_epoch_approaches_minimum(validation_losses) and
-                is_validation_loss_goes_up_and_down(validation_losses)
-            ) or
-            (
-                no_of_epochs_with_current_learning_rate >= 8 and
-                is_validation_losses_keep_increasing(validation_losses)
-            )
-        )
-
-        if need_learning_rate_update:
-            learning_rate_switch_count -= 1
-            if learning_rate_switch_count == 0:
-                break
-            logging.info("[INFO] New learning rate: %.2e" % m.decay_learning_rate())
-            logging.info("[INFO] New L2 regularization lambda: %.2e" % m.decay_l2_regularization_lambda())
-            no_of_epochs_with_current_learning_rate = 0
+            m.save_parameters(abspath(parameter_output_path % epoch_count))
 
         # variables update per epoch
         epoch_count += 1
+        minimum_lr, maximum_lr, df = lr_finder(lr_accuracy)
+        logging.info("[INFO] min_lr: %g, max_lr: %g" % (minimum_lr, maximum_lr))
+        df.to_csv("lr_finder.txt", sep=',', index=False)
 
-        epoch_start_time = time.time()
+        epoch_start_time = time()
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
-        blosc_index = 0
-        first_blosc_block_data_index = 0
         x_batch = None
         y_batch = None
 
@@ -255,36 +312,20 @@ def train_model(m, training_config):
             [str(x) for x in np.append(tensor_block_index_list[:5], tensor_block_index_list[-5:])]
         ))
 
-    logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
-
+    logging.info("[INFO] Training time elapsed: %.2f s" % (time() - training_start_time))
     return training_losses, validation_losses
 
 
-def main():
+if __name__ == "__main__":
+
     random.seed(param.RANDOM_SEED)
     np.random.seed(param.RANDOM_SEED)
 
-    parser = argparse.ArgumentParser(description="Train model")
-
-    # optimizer
-    parser.add_argument('--SGDM', action='store_true',
-                        help="Use Stochastic Gradient Descent with momentum as optimizer")
-    parser.add_argument('--Adam', action='store_true',
-                        help="Use Adam as optimizer")
-
-    # loss function
-    parser.add_argument('--cross_entropy', action='store_true',
-                        help="Use Cross Entropy as loss function")
-    parser.add_argument('--focal_loss', action='store_true',
-                        help="Use Focal Loss as loss function")
+    parser = ArgumentParser(description="Learning rate finder")
 
     # binary file path
     parser.add_argument('--bin_fn', type=str, default=None,
                         help="Binary tensor input generated by tensor2Bin.py, tensor_fn, var_fn and bed_fn will be ignored")
-    parser.add_argument('--train_bin_fn', type=str, default=None,
-                        help="Train Binary, used together with --validation_bin_fn (would ignore: bin_fn, tensor_fn, var_fn, bed_fn)")
-    parser.add_argument('--validation_bin_fn', type=str, default=None,
-                        help="Validation Binary, used together with --train_bin_fn (would ignore: bin_fn, tensor_fn, var_fn, bed_fn)")
 
     # tensor file path
     parser.add_argument('--tensor_fn', type=str, default="vartensors", help="Tensor input")
@@ -324,27 +365,14 @@ def main():
     # initialize
     logging.info("[INFO] Initializing")
     utils.setup_environment()
-
-    optimizer = "SGDM" if args.SGDM else ("Adam" if args.Adam else param.default_optimizer)
-    loss_function = (
-        "FocalLoss" if args.focal_loss else ("CrossEntropy" if args.cross_entropy else param.default_loss_function)
-    )
-    logging.info("[INFO] Optimizer: {}".format(optimizer))
-    logging.info("[INFO] Loss Function: {}".format(loss_function))
-
-    m = cv.Clair(
-        optimizer_name=optimizer,
-        loss_function=loss_function
-    )
+    m = Clair()
     m.init()
 
     dataset_info = utils.dataset_info_from(
         binary_file_path=args.bin_fn,
         tensor_file_path=args.tensor_fn,
         variant_file_path=args.var_fn,
-        bed_file_path=args.bed_fn,
-        train_binary_file_path=args.train_bin_fn,
-        validation_binary_file_path=args.validation_bin_fn,
+        bed_file_path=args.bed_fn
     )
     training_config = utils.TrainingConfig(
         dataset_info=dataset_info,
@@ -365,9 +393,5 @@ def main():
     # load best validation model and evaluate it
     model_file_path = "%s-%%0%dd" % (training_config.output_file_path_prefix, param.parameterOutputPlaceHolder)
     best_validation_model_file_path = model_file_path % best_validation_epoch
-    m.restore_parameters(os.path.abspath(best_validation_model_file_path))
+    m.restore_parameters(abspath(best_validation_model_file_path))
     evaluate.evaluate_model(m, dataset_info)
-
-
-if __name__ == "__main__":
-    main()

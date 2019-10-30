@@ -1,23 +1,20 @@
 import tensorflow as tf
-from tensorflow.python.client import device_lib
-from tensorflow.python.ops import array_ops
 import numpy as np
-import sys
-import argparse
-import io
-import os
 import re
 import selu
-import math
 import multiprocessing
+from sys import exit
+from os.path import abspath
+from argparse import ArgumentParser
+from tensorflow.python.client import device_lib
+from tensorflow.python.ops import array_ops
 
 from collections import defaultdict
-from Clair.task.main import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
+from clair.task.main import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
 import shared.param as param
 
 class Clair(object):
     """
-    Modification of Clairvoyante
     Keywords arguments:
     float_type: The type of float to be used for tensorflow, default tf.float64
     input_shape: Shpae of the input tensor, a tuple or list of 3 integers
@@ -1239,7 +1236,7 @@ class FunctionCallConsumer(multiprocessing.Process):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Model")
+    parser = ArgumentParser(description="Model")
 
     parser.add_argument('-v', '--variables', type=str, default=None,
                         help="Print variables matching the regular expression. default: %(default)s")
@@ -1259,6 +1256,6 @@ if __name__ == "__main__":
         q = Clair()
         q.init()
         if args.restore_model is not None:
-            q.restore_parameters(os.path.abspath(args.restore_model))
+            q.restore_parameters(abspath(args.restore_model))
         print(q.pretty_print_variables(args.variables))
-        sys.exit(0)
+        exit(0)

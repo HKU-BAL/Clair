@@ -1,8 +1,8 @@
 from collections import namedtuple
 
-from Clair.task.genotype import Genotype, genotype_enum_from, genotype_enum_for_task
-from Clair.task.gt21 import gt21_enum_from_label, gt21_enum_from
-from Clair.task.variant_length import VariantLength
+from clair.task.genotype import Genotype, genotype_enum_from, genotype_enum_for_task
+from clair.task.gt21 import gt21_enum_from_label, gt21_enum_from
+from clair.task.variant_length import VariantLength
 
 OutputLabelNamedTuple = namedtuple(
     'BasePredictNamedTuple', ['output_label_count', 'y_start_index', 'y_end_index']

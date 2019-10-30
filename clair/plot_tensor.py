@@ -7,11 +7,10 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 
-import Clair.clair_model as cv
-import Clair.utils as utils
+from clair.utils import setup_environment
 
 def Prepare(args):
-    utils.setup_environment()
+    setup_environment()
 
 
 def PlotTensor(ofn, XArray):

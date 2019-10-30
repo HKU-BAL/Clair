@@ -1,5 +1,5 @@
-import sys
 import numpy as np
+from sys import stdin
 
 source_no_of_flanking_bases = 32
 target_no_of_flanking_bases = 16
@@ -39,7 +39,7 @@ target_tensor_end_index =  source_tensor_size - target_tensor_start_index
 ref_seq_start_index = source_no_of_flanking_bases - target_no_of_flanking_bases
 ref_seq_end_index = source_no_of_flanking_bases + target_no_of_flanking_bases + 1
 
-for row in sys.stdin:
+for row in stdin:
     columns = row.strip().split()
     ctg_name, ctg_pos, ref_seq, tensor = columns[0], columns[1], columns[2], columns[3:]
 

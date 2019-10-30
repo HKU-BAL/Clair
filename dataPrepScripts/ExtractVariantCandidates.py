@@ -1,11 +1,11 @@
-import os
 import sys
-import argparse
 import shlex
 import subprocess
 import gc
 import signal
 import random
+from os.path import isfile
+from argparse import ArgumentParser
 from math import log
 from collections import defaultdict
 
@@ -207,7 +207,7 @@ def make_candidates(args):
     )
     output_probability_outside_variant = 3500000.0 * RATIO_OF_NON_VARIANT_TO_VARIANT / (3000000000 - 14000000)
 
-    if not os.path.isfile("{}.fai".format(fasta_file_path)):
+    if not isfile("{}.fai".format(fasta_file_path)):
         print >> sys.stderr, "Fasta index {}.fai doesn't exist.".format(fasta_file_path)
         sys.exit(1)
 
@@ -398,7 +398,7 @@ def make_candidates(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate 1-based variant candidates using alignments")
+    parser = ArgumentParser(description="Generate 1-based variant candidates using alignments")
 
     parser.add_argument('--bam_fn', type=str, default="input.bam",
                         help="Sorted bam file input, default: %(default)s")

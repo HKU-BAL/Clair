@@ -1,4 +1,3 @@
-import os
 import sys
 import gc
 import shlex
@@ -7,10 +6,11 @@ import logging
 import cPickle
 import numpy as np
 import blosc
+from os import environ
 from enum import IntEnum
 from collections import namedtuple
 
-from Clair.task.main import output_labels_from_reference, output_labels_from_vcf_columns
+from clair.task.main import output_labels_from_reference, output_labels_from_vcf_columns
 import shared.param as param
 from shared.interval_tree import interval_tree_from
 
@@ -38,8 +38,8 @@ TrainingConfig = namedtuple('TrainingConfig', [
 
 
 def setup_environment():
-    os.environ["CXX"] = "g++"
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    environ["CXX"] = "g++"
+    environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
     blosc.set_nthreads(4)
     gc.enable()

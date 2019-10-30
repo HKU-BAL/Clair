@@ -1,58 +1,64 @@
 #!/usr/bin/env python
-
-import os
 import sys
-import importlib
-import subprocess
+from os.path import dirname, abspath
+from importlib import import_module
+from collections import namedtuple
 
+from shared.param import REPO_NAME
 
-clair_folder = [
+DATA_PREP_SCRIPTS_FOLDER="dataPrepScripts"
+DEEP_LEARNING_FOLDER="clair"
+
+deep_learning_folder = [
     "callVarBamParallel",
     "callVarBam",
     "call_var",
     "evaluate",
     "plot_tensor",
-    "tensor2Bin",
     "train",
     "train_clr",
 ]
 data_prep_scripts_folder = [
-    "CombineBins",
     "CreateTensor",
     "ExtractVariantCandidates",
     "GetTruth",
     "PairWithNonVariants",
+    "Tensor2Bin",
+    "CombineBins",
 ]
 
 
 def directory_for(submodule_name):
-    if submodule_name in clair_folder:
-        return "Clair"
+    if submodule_name in deep_learning_folder:
+        return DEEP_LEARNING_FOLDER
     if submodule_name in data_prep_scripts_folder:
-        return "dataPrepScripts"
+        return DATA_PREP_SCRIPTS_FOLDER
     return ""
 
 
 def print_help_messages():
     from textwrap import dedent
     print dedent("""\
-        Clairvoyante submodule invocator:
-            Usage: clairvoyante.py SubmoduleName [Options of the submodule]
+        {0} submodule invocator:
+            Usage: index.py SubmoduleName [Options of the submodule]
 
-        Available data preparation submodules:\n{0}
+        Available data preparation submodules:\n{1}
 
-        Available clairvoyante submodules:\n{1}
+        Available {2} submodules:\n{3}
 
         Data preparation scripts:
-        {2}
+        {4}
 
-        Clairvoyante scripts:
-        {3}
+        {5} scripts:
+        {6}
         """.format(
+            REPO_NAME,
             "\n".join("          - %s" % submodule_name for submodule_name in data_prep_scripts_folder),
-            "\n".join("          - %s" % submodule_name for submodule_name in clair_folder),
-            "%s/dataPrepScripts" % os.path.dirname(os.path.abspath(sys.argv[0])),
-            "%s/Clair" % os.path.dirname(os.path.abspath(sys.argv[0]))
+            REPO_NAME,
+            "\n".join("          - %s" % submodule_name for submodule_name in deep_learning_folder),
+            "%s/%s" % (dirname(abspath(sys.argv[0])), DATA_PREP_SCRIPTS_FOLDER),
+            REPO_NAME,
+            "%s/%s" % (dirname(abspath(sys.argv[0])), DEEP_LEARNING_FOLDER)
         )
     )
 
@@ -64,15 +70,15 @@ def main():
 
     submodule_name = sys.argv[1]
     if (
-        submodule_name not in clair_folder and
+        submodule_name not in deep_learning_folder and
         submodule_name not in data_prep_scripts_folder
     ):
         sys.exit("[ERROR] Submodule %s not found." % (submodule_name))
 
     directory = directory_for(submodule_name)
-    submodule = importlib.import_module("%s.%s" % (directory, submodule_name))
+    submodule = import_module("%s.%s" % (directory, submodule_name))
 
-    # filter arguments (i.e. filter clairvoyante.py) and add ".py" for that submodule
+    # filter arguments (i.e. filter index.py) and add ".py" for that submodule
     sys.argv = sys.argv[1:]
     sys.argv[0] += (".py")
 

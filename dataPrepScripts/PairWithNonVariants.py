@@ -1,10 +1,9 @@
-import os
 import sys
-import argparse
 import logging
-import random
 import subprocess
 import shlex
+from argparse import ArgumentParser
+from random import random
 
 from shared.interval_tree import interval_tree_from
 
@@ -83,7 +82,7 @@ def Run(args):
         key = "-".join([ctgName, str(pos)])
         if key in d:
             continue
-        if random.random() < r:
+        if random() < r:
             output_fh.stdin.write(rawRow)
             output_fh.stdin.write("\n")
             o2 += 1
@@ -96,8 +95,7 @@ def Run(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Predict and compare")
+    parser = ArgumentParser(description="Predict and compare")
 
     parser.add_argument('--tensor_can_fn', type=str, default=None,
                         help="Tensors generated at randome genome positions by ExtractVariantCandidates.py+CreateTensor.py")

@@ -1,15 +1,15 @@
 import sys
 import os
-import time
-import argparse
 import logging
 import random
 import numpy as np
+from time import time
+from argparse import ArgumentParser
 from threading import Thread
 
-import Clair.utils as utils
-import Clair.clair_model as cv
-import Clair.evaluate as evaluate
+from clair.model import Clair
+import clair.utils as utils
+import clair.evaluate as evaluate
 import shared.param as param
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
@@ -47,7 +47,7 @@ def train_model(m, training_config, clr_mode):
     logging.info("[INFO] L2 regularization lambda: %.2e" % m.set_l2_regularization_lambda(l2_regularization_lambda))
 
     # Model Constants
-    training_start_time = time.time()
+    training_start_time = time()
     no_of_training_examples = (
         dataset_info.no_of_training_examples_from_train_binary or int(dataset_size * param.trainingDatasetPercentage)
     )
@@ -69,7 +69,7 @@ def train_model(m, training_config, clr_mode):
     if model_initalization_file_path != None:
         epoch_count = int(model_initalization_file_path[-param.parameterOutputPlaceHolder:])+1
 
-    epoch_start_time = time.time()
+    epoch_start_time = time()
     training_loss_sum = 0
     validation_loss_sum = 0
     data_index = 0
@@ -155,7 +155,7 @@ def train_model(m, training_config, clr_mode):
             ])
         )
 
-        logging.info("[INFO] Epoch time elapsed: %.2f s" % (time.time() - epoch_start_time))
+        logging.info("[INFO] Epoch time elapsed: %.2f s" % (time() - epoch_start_time))
         training_losses.append((training_loss_sum, epoch_count))
         validation_losses.append((validation_loss_sum, epoch_count))
 
@@ -167,7 +167,7 @@ def train_model(m, training_config, clr_mode):
         # variables update per epoch
         epoch_count += 1
 
-        epoch_start_time = time.time()
+        epoch_start_time = time()
         training_loss_sum = 0
         validation_loss_sum = 0
         data_index = 0
@@ -188,7 +188,7 @@ def train_model(m, training_config, clr_mode):
             [str(x) for x in np.append(tensor_block_index_list[:5], tensor_block_index_list[-5:])]
         ))
 
-    logging.info("[INFO] Training time elapsed: %.2f s" % (time.time() - training_start_time))
+    logging.info("[INFO] Training time elapsed: %.2f s" % (time() - training_start_time))
     return training_losses, validation_losses
 
 
@@ -196,7 +196,7 @@ def main():
     random.seed(param.RANDOM_SEED)
     np.random.seed(param.RANDOM_SEED)
 
-    parser = argparse.ArgumentParser(description="Train model")
+    parser = ArgumentParser(description="Train model with cyclical learning rate")
 
     # clr mode
     parser.add_argument('--clr_mode', type=str, default="exp",
@@ -268,7 +268,7 @@ def main():
     logging.info("[INFO] Optimizer: {}".format(optimizer))
     logging.info("[INFO] Loss Function: {}".format(loss_function))
 
-    m = cv.Clair(
+    m = Clair(
         optimizer_name=optimizer,
         loss_function=loss_function
     )

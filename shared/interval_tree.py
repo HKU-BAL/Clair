@@ -1,6 +1,6 @@
 import subprocess
 import shlex
-import intervaltree
+from intervaltree import IntervalTree
 
 def interval_tree_from(bed_file_path):
     """
@@ -27,7 +27,7 @@ def interval_tree_from(bed_file_path):
 
             ctg_name = columns[0]
             if ctg_name not in tree:
-                tree[ctg_name] = intervaltree.IntervalTree()
+                tree[ctg_name] = IntervalTree()
 
             ctg_start, ctg_end = int(columns[1]), int(columns[2])
             if ctg_start == ctg_end:

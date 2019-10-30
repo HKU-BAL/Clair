@@ -1,12 +1,9 @@
-import os
 import sys
-import argparse
-import os
-import re
 import shlex
 import subprocess
 import signal
 import gc
+from argparse import ArgumentParser
 from collections import namedtuple
 
 import shared.param as param
@@ -405,7 +402,7 @@ def OutputAlnTensor(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         description="Generate tensors summarizing local alignments from a BAM file and a list of candidate locations")
 
     parser.add_argument('--bam_fn', type=str, default="input.bam",

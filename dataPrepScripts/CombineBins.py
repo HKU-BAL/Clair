@@ -1,14 +1,14 @@
 import os
 import cPickle
-import argparse
-import random
+from random import shuffle
+from argparse import ArgumentParser
 from collections import namedtuple
 
 Data = namedtuple('Data', ['x', 'y', 'pos', 'total'])
 
 
 def process_command():
-    parser = argparse.ArgumentParser(description="Combine small bins into a large bin.")
+    parser = ArgumentParser(description="Combine small bins into a large bin.")
     parser.add_argument(
         '--src', type=str, default=os.path.join(os.curdir, "all_bins"),
         help="Path to directory that stores small bins. (default: %(default)s)"
@@ -53,7 +53,7 @@ def load_data_from(directory_path, need_shuffle_file_paths=False):
     file_paths = os.listdir(directory_path)
     file_paths.sort()
     if need_shuffle_file_paths:
-        random.shuffle(file_paths)
+        shuffle(file_paths)
 
     absolute_file_paths = []
     for file_path in file_paths:

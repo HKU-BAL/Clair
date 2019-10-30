@@ -1,10 +1,11 @@
+REPO_NAME="Clair"
+
 NUM_THREADS = 12
 parameterOutputPlaceHolder = 6
 expandReferenceRegion = 1000000
 SAMTOOLS_VIEW_FILTER_FLAG = 2316
 
 # Tensor related parameters, please use the same values for creating tensor, model training and variant calling
-# Please change below value(s) in the dataPrepScripts at the same time
 flankingBaseNum = 16
 matrixRow = 8
 matrixNum = 4
@@ -18,7 +19,7 @@ learningRateDecay = 0.1
 maxLearningRateSwitch = 3
 trainingDatasetPercentage = 0.9
 
-# Clair specific
+# other hyperparameters
 l2RegularizationLambda = 0.005
 l2RegularizationLambdaDecay = 1
 dropoutRateFC4 = 0.5

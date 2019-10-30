@@ -2,7 +2,7 @@ import os
 import sys
 import argparse
 
-from Clair.command_options import (
+from shared.command_options import (
     CommandOption,
     CommandOptionWithNoValue,
     ExecuteCommand,
@@ -18,7 +18,7 @@ major_contigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) fo
 def Run(args):
     basedir = os.path.dirname(__file__)
 
-    callVarBamBin = basedir + "/../clairvoyante.py callVarBam"
+    callVarBamBin = basedir + "/../index.py callVarBam"
     pypyBin = executable_command_string_from(args.pypy, exit_on_not_found=True)
     samtoolsBin = executable_command_string_from(args.samtools, exit_on_not_found=True)
 

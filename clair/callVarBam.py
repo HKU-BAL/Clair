@@ -1,14 +1,14 @@
-import os
 import sys
-import argparse
 import shlex
 import subprocess
 import multiprocessing
 import signal
 import random
-import time
+from os.path import dirname
+from time import sleep
+from argparse import ArgumentParser
 
-from Clair.command_options import (
+from shared.command_options import (
     CommandOption,
     CommandOptionWithNoValue,
     ExecuteCommand,
@@ -60,11 +60,11 @@ def check_return_code(signum, frame):
 
 
 def Run(args):
-    basedir = os.path.dirname(__file__)
-    EVCBin = basedir + "/../clairvoyante.py ExtractVariantCandidates"
-    GTBin = basedir + "/../clairvoyante.py GetTruth"
-    CTBin = basedir + "/../clairvoyante.py CreateTensor"
-    CVBin = basedir + "/../clairvoyante.py call_var"
+    basedir = dirname(__file__)
+    EVCBin = basedir + "/../index.py ExtractVariantCandidates"
+    GTBin = basedir + "/../index.py GetTruth"
+    CTBin = basedir + "/../index.py CreateTensor"
+    CVBin = basedir + "/../index.py call_var"
 
     pypyBin = executable_command_string_from(args.pypy, exit_on_not_found=True)
     samtoolsBin = executable_command_string_from(args.samtools, exit_on_not_found=True)
@@ -114,7 +114,7 @@ def Run(args):
     if args.delay > 0:
         delay = random.randrange(0, args.delay)
         print >> sys.stderr, "Delay %d seconds before starting variant calling ..." % (delay)
-        time.sleep(delay)
+        sleep(delay)
 
     extract_variant_candidate_command_options = [
         pypyBin,
@@ -230,8 +230,7 @@ def Run(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Call variants using a trained model and a BAM file")
+    parser = ArgumentParser(description="Call variants using a trained model and a BAM file")
 
     parser.add_argument('--chkpnt_fn', type=str, default=None,
                         help="Input a model")

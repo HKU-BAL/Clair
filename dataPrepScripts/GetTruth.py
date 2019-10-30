@@ -1,8 +1,7 @@
 import sys
-import argparse
 import subprocess
 import shlex
-import os
+from argparse import ArgumentParser
 
 from shared.utils import file_path_from, executable_command_string_from
 
@@ -80,8 +79,7 @@ def OutputVariant(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Extract variant type and allele from a Truth dataset")
+    parser = ArgumentParser(description="Extract variant type and allele from a Truth dataset")
 
     parser.add_argument('--vcf_fn', type=str, default="input.vcf",
                         help="Truth vcf file input, default: %(default)s")

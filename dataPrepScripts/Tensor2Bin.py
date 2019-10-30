@@ -1,8 +1,9 @@
 import sys
-import argparse
 import logging
 import cPickle
-import Clair.utils as utils
+from argparse import ArgumentParser
+
+import clair.utils as utils
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
@@ -33,8 +34,7 @@ def Run(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate a binary format input tensor")
+    parser = ArgumentParser(description="Generate a binary format input tensor")
 
     parser.add_argument('--tensor_fn', type=str, default="vartensors",
                         help="Tensor input")
