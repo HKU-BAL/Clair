@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from collections import namedtuple
 
 import shared.param as param
+from shared.utils import IUPAC_base_to_num_dict as BASE2NUM
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
@@ -18,39 +19,38 @@ def PypyGCCollect(signum, frame):
     signal.alarm(60)
 
 
-base2num = dict(zip("ACGT", (0, 1, 2, 3)))
-stripe2 = param.matrixRow * param.matrixNum
-stripe1 = param.matrixNum
+BASES = set(BASE2NUM.keys() + ["-"])
+
+no_of_positions = 2 * param.flankingBaseNum + 1
+matrix_row = param.matrixRow
+matrix_num = param.matrixNum
 
 
 def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_start_0_based, minimum_coverage):
     flanking_base_num = param.flankingBaseNum
-    matrix_row = param.matrixRow
-    matrix_num = param.matrixNum
-    BASES = set("ACGT-")
-    NUMBER_OF_POSITIONS = 2 * flanking_base_num + 1
+    tensor = [[[0] * matrix_num for _ in xrange(matrix_row)] for _ in xrange(no_of_positions)]
+    depth = [0] * no_of_positions
 
-    alignment_code = [0] * (NUMBER_OF_POSITIONS * matrix_row * matrix_num)
-    depth = [0] * NUMBER_OF_POSITIONS
     for alignment in alignments:
         for reference_position, queryAdv, reference_base, query_base, STRAND in alignment:
             if str(reference_base) not in BASES or str(query_base) not in BASES:
                 continue
-            if not (-(flanking_base_num + 1) <= reference_position - center < flanking_base_num):
+            position_offset = reference_position - center + (flanking_base_num + 1)
+            if not (0 <= position_offset < no_of_positions):
                 continue
 
-            offset = reference_position - center + (flanking_base_num + 1)
+            strand_offset = 4 if STRAND else 0
             if query_base != "-" and reference_base != "-":
-                depth[offset] = depth[offset] + 1
-                alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 0] += 1
-                alignment_code[stripe2*offset + stripe1*(base2num[query_base] + STRAND*4) + 1] += 1
-                alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 2] += 1
-                alignment_code[stripe2*offset + stripe1*(base2num[query_base] + STRAND*4) + 3] += 1
+                depth[position_offset] = depth[position_offset] + 1
+                tensor[position_offset][BASE2NUM[reference_base] + strand_offset][0] += 1
+                tensor[position_offset][BASE2NUM[query_base] + strand_offset][1] += 1
+                tensor[position_offset][BASE2NUM[reference_base] + strand_offset][2] += 1
+                tensor[position_offset][BASE2NUM[query_base] + strand_offset][3] += 1
             elif query_base != "-" and reference_base == "-":
-                idx = min(offset+queryAdv, NUMBER_OF_POSITIONS - 1)
-                alignment_code[stripe2*idx + stripe1*(base2num[query_base] + STRAND*4) + 1] += 1
+                position_offset = min(position_offset + queryAdv, no_of_positions - 1)
+                tensor[position_offset][BASE2NUM[query_base] + strand_offset][1] += 1
             elif query_base == "-" and reference_base != "-":
-                alignment_code[stripe2*offset + stripe1*(base2num[reference_base] + STRAND*4) + 2] += 1
+                tensor[position_offset][BASE2NUM[reference_base] + strand_offset][2] += 1
             else:
                 print >> sys.stderr, "Should not reach here: %s, %s" % (reference_base, query_base)
 
@@ -61,7 +61,7 @@ def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_
         ctg_name,
         center,
         reference_sequence[new_reference_position-(flanking_base_num+1):new_reference_position + flanking_base_num],
-        " ".join("%d" % x for x in alignment_code)
+        " ".join((" ".join(" ".join("%d" % x for x in innerlist) for innerlist in outerlist)) for outerlist in tensor)
     )
 
 

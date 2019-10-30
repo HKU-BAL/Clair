@@ -10,6 +10,7 @@ from math import log
 from collections import defaultdict
 
 import shared.param as param
+from shared.utils import IUPAC_base_to_ACGT_base_dict as BASE2ACGT
 from shared.interval_tree import interval_tree_from
 
 is_pypy = '__pypy__' in sys.builtin_module_names
@@ -292,7 +293,7 @@ def make_candidates(args):
 
                 elif c == "M" or c == "=" or c == "X":
                     for _ in xrange(advance):
-                        base = SEQ[query_position]
+                        base = BASE2ACGT[SEQ[query_position]]
                         pileup[reference_position][base] += 1
 
                         # those CIGAR operations consumes query and reference
