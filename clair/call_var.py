@@ -1183,7 +1183,7 @@ def call_variants(args, m):
         if len(mini_batches_to_predict) > 0:
             mini_batch = mini_batches_to_predict.pop(0)
             X, _ = mini_batch
-            thread_pool.append(Thread(target=m.predict, args=(X)))
+            thread_pool.append(Thread(target=m.predict, kwargs={"batchX":X}))
             mini_batches_to_output.append(mini_batch)
 
         if not is_finish_loaded_all_mini_batches:
