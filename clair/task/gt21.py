@@ -1,5 +1,30 @@
 from enum import IntEnum
 
+GT21_LABELS = [
+    'AA',
+    'AC',
+    'AG',
+    'AT',
+    'CC',
+    'CG',
+    'CT',
+    'GG',
+    'GT',
+    'TT',
+    'DelDel',
+    'ADel',
+    'CDel',
+    'GDel',
+    'TDel',
+    'InsIns',
+    'AIns',
+    'CIns',
+    'GIns',
+    'TIns',
+    'InsDel'
+]
+GT21_LABELS_MAP = dict(zip(GT21_LABELS, range(0, 21)))
+
 
 class GT21_Type(IntEnum):
     AA = 0
@@ -26,55 +51,14 @@ class GT21_Type(IntEnum):
 
 
 def gt21_label_from(gt21_enum):
-    return [
-        'AA',
-        'AC',
-        'AG',
-        'AT',
-        'CC',
-        'CG',
-        'CT',
-        'GG',
-        'GT',
-        'TT',
-        'DelDel',
-        'ADel',
-        'CDel',
-        'GDel',
-        'TDel',
-        'InsIns',
-        'AIns',
-        'CIns',
-        'GIns',
-        'TIns',
-        'InsDel'
-    ][gt21_enum]
+    try:
+        return GT21_LABELS[gt21_enum]
+    except:
+        return ""
 
 
 def gt21_enum_from_label(gt21_label):
-    return {
-        'AA': GT21_Type.AA,
-        'AC': GT21_Type.AC,
-        'AG': GT21_Type.AG,
-        'AT': GT21_Type.AT,
-        'CC': GT21_Type.CC,
-        'CG': GT21_Type.CG,
-        'CT': GT21_Type.CT,
-        'GG': GT21_Type.GG,
-        'GT': GT21_Type.GT,
-        'TT': GT21_Type.TT,
-        'DelDel': GT21_Type.DelDel,
-        'ADel': GT21_Type.ADel,
-        'CDel': GT21_Type.CDel,
-        'GDel': GT21_Type.GDel,
-        'TDel': GT21_Type.TDel,
-        'InsIns': GT21_Type.InsIns,
-        'AIns': GT21_Type.AIns,
-        'CIns': GT21_Type.CIns,
-        'GIns': GT21_Type.GIns,
-        'TIns': GT21_Type.TIns,
-        'InsDel': GT21_Type.InsDel,
-    }[gt21_label]
+    return GT21_LABELS_MAP[gt21_label]
 
 
 def partial_label_from(ref, alt):

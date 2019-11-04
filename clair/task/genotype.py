@@ -1,5 +1,7 @@
 from enum import IntEnum
 
+GENOTYPES = ["0/0", "1/1", "0/1", "1/2"]
+
 
 class Genotype(IntEnum):
     homo_reference = 0          # 0/0
@@ -8,16 +10,11 @@ class Genotype(IntEnum):
     hetero_variant_multi = 3    # 1/2
 
 
-def genotype_string_from(genotype):
-    if genotype == Genotype.homo_reference:
-        return "0/0"
-    if genotype == Genotype.homo_variant:
-        return "1/1"
-    if genotype == Genotype.hetero_variant:
-        return "0/1"
-    if genotype == Genotype.hetero_variant_multi:
-        return "1/2"
-    return ""
+def genotype_string_from(genotype_enum):
+    try:
+        return GENOTYPES[genotype_enum]
+    except:
+        return ""
 
 
 def genotype_enum_from(genotype_1, genotype_2):
