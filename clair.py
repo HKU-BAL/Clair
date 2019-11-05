@@ -40,7 +40,7 @@ def print_help_messages():
     from textwrap import dedent
     print dedent("""\
         {0} submodule invocator:
-            Usage: index.py SubmoduleName [Options of the submodule]
+            Usage: clair.py SubmoduleName [Options of the submodule]
 
         Available data preparation submodules:\n{1}
 
@@ -78,7 +78,7 @@ def main():
     directory = directory_for(submodule_name)
     submodule = import_module("%s.%s" % (directory, submodule_name))
 
-    # filter arguments (i.e. filter index.py) and add ".py" for that submodule
+    # filter arguments (i.e. filter clair.py) and add ".py" for that submodule
     sys.argv = sys.argv[1:]
     sys.argv[0] += (".py")
 

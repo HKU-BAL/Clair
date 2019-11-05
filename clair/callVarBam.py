@@ -61,10 +61,10 @@ def check_return_code(signum, frame):
 
 def Run(args):
     basedir = dirname(__file__)
-    EVCBin = basedir + "/../index.py ExtractVariantCandidates"
-    GTBin = basedir + "/../index.py GetTruth"
-    CTBin = basedir + "/../index.py CreateTensor"
-    CVBin = basedir + "/../index.py call_var"
+    EVCBin = basedir + "/../clair.py ExtractVariantCandidates"
+    GTBin = basedir + "/../clair.py GetTruth"
+    CTBin = basedir + "/../clair.py CreateTensor"
+    CVBin = basedir + "/../clair.py call_var"
 
     pypyBin = executable_command_string_from(args.pypy, exit_on_not_found=True)
     samtoolsBin = executable_command_string_from(args.samtools, exit_on_not_found=True)
