@@ -66,7 +66,7 @@ def CreatePNGs(args):
     XArray = np.array(splitted_array).reshape((-1, 33, 8, 4))
     _YArray = np.zeros((1, 16))
     varName = args.name
-    print >> sys.stderr, "Plotting %s..." % (varName)
+    print("Plotting %s..." % (varName), file=sys.stderr)
 
     # Create folder
     if not os.path.exists(varName):

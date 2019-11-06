@@ -103,7 +103,7 @@ def Run(args):
         numCpus = args.threads if args.threads < multiprocessing.cpu_count() else multiprocessing.cpu_count()
 
     maxCpus = multiprocessing.cpu_count()
-    _cpuSet = ",".join(str(x) for x in random.sample(xrange(0, maxCpus), numCpus))
+    _cpuSet = ",".join(str(x) for x in random.sample(range(0, maxCpus), numCpus))
 
     taskSet = "taskset -c %s" % (_cpuSet)
     try:
@@ -113,7 +113,7 @@ def Run(args):
 
     if args.delay > 0:
         delay = random.randrange(0, args.delay)
-        print >> sys.stderr, "Delay %d seconds before starting variant calling ..." % (delay)
+        print("Delay %d seconds before starting variant calling ..." % (delay), file=sys.stderr)
         sleep(delay)
 
     extract_variant_candidate_command_options = [
@@ -194,7 +194,7 @@ def Run(args):
             stdin=c.create_tensor.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608
         )
     except Exception as e:
-        print >> sys.stderr, e
+        print(e, file=sys.stderr)
         sys.exit("Failed to start required processes. Exiting...")
 
     signal.signal(signal.SIGALRM, check_return_code)
@@ -213,18 +213,18 @@ def Run(args):
             c.create_tensor.terminate()
             c.extract_variant_candidate.terminate()
         except Exception as e:
-            print(e.message)
+            print(e)
 
         raise KeyboardInterrupt
     except Exception as e:
         print("Exception received when waiting at CallVarBam, terminating all scripts.")
-        print(e.message)
+        print(e)
         try:
             c.call_variant.terminate()
             c.create_tensor.terminate()
             c.extract_variant_candidate.terminate()
         except Exception as e:
-            print(e.message)
+            print(e)
 
         raise e
 

@@ -19,7 +19,7 @@ def PypyGCCollect(signum, frame):
     signal.alarm(60)
 
 
-BASES = set(BASE2NUM.keys() + ["-"])
+BASES = set(list(BASE2NUM.keys()) + ["-"])
 
 no_of_positions = 2 * param.flankingBaseNum + 1
 matrix_row = param.matrixRow
@@ -28,7 +28,7 @@ matrix_num = param.matrixNum
 
 def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_start_0_based, minimum_coverage):
     flanking_base_num = param.flankingBaseNum
-    tensor = [[[0] * matrix_num for _ in xrange(matrix_row)] for _ in xrange(no_of_positions)]
+    tensor = [[[0] * matrix_num for _ in range(matrix_row)] for _ in range(no_of_positions)]
     depth = [0] * no_of_positions
 
     for alignment in alignments:
@@ -52,7 +52,7 @@ def generate_tensor(ctg_name, alignments, center, reference_sequence, reference_
             elif query_base == "-" and reference_base != "-":
                 tensor[position_index][BASE2NUM[reference_base] + strand_offset][2] += 1
             else:
-                print >> sys.stderr, "Should not reach here: %s, %s" % (reference_base, query_base)
+                print("Should not reach here: %s, %s" % (reference_base, query_base), file=sys.stderr)
 
     new_reference_position = center - reference_start_0_based
     if new_reference_position - (flanking_base_num+1) < 0 or depth[flanking_base_num] < minimum_coverage:
@@ -210,10 +210,10 @@ def OutputAlnTensor(args):
     have_reference_sequence = reference_result is not None and len(reference_sequence) > 0
 
     if reference_result is None or is_faidx_process_have_error or not have_reference_sequence:
-        print >> sys.stderr, "Failed to load reference seqeunce. Please check if the provided reference fasta %s and the ctgName %s are correct." % (
+        print("Failed to load reference seqeunce. Please check if the provided reference fasta %s and the ctgName %s are correct." % (
             reference_file_path,
             ctg_name
-        )
+        ), file=sys.stderr)
         sys.exit(1)
 
     reference_start = reference_result.start
@@ -296,7 +296,7 @@ def OutputAlnTensor(args):
 
             # match / mismatch
             if c == "M" or c == "=" or c == "X":
-                for _ in xrange(advance):
+                for _ in range(advance):
                     if reference_position in begin_to_end:
                         for rEnd, rCenter in begin_to_end[reference_position]:
                             if rCenter in active_set:
@@ -325,7 +325,7 @@ def OutputAlnTensor(args):
 
             # insertion
             if c == "I":
-                for queryAdv in xrange(advance):
+                for queryAdv in range(advance):
                     for center in list(active_set):
                         if available_slots <= 0:
                             break
@@ -342,7 +342,7 @@ def OutputAlnTensor(args):
 
             # deletion
             if c == "D":
-                for _ in xrange(advance):
+                for _ in range(advance):
                     for center in list(active_set):
                         if available_slots <= 0:
                             break

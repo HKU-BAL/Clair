@@ -209,7 +209,7 @@ def make_candidates(args):
     output_probability_outside_variant = 3500000.0 * RATIO_OF_NON_VARIANT_TO_VARIANT / (3000000000 - 14000000)
 
     if not isfile("{}.fai".format(fasta_file_path)):
-        print >> sys.stderr, "Fasta index {}.fai doesn't exist.".format(fasta_file_path)
+        print("Fasta index {}.fai doesn't exist.".format(fasta_file_path), file=sys.stderr)
         sys.exit(1)
 
     # 1-based regions [start, end] (start and end inclusive)
@@ -228,12 +228,12 @@ def make_candidates(args):
         regions=regions
     )
     if reference_sequence is None or len(reference_sequence) == 0:
-        print >> sys.stderr, "[ERROR] Failed to load reference seqeunce from file ({}).".format(fasta_file_path)
+        print("[ERROR] Failed to load reference seqeunce from file ({}).".format(fasta_file_path), file=sys.stderr)
         sys.exit(1)
 
     tree = interval_tree_from(bed_file_path=bed_file_path)
     if is_bed_file_given and ctg_name not in tree:
-        print >> sys.stderr, "[ERROR] ctg_name({}) not exists in bed file({}).".format(ctg_name, bed_file_path)
+        print("[ERROR] ctg_name({}) not exists in bed file({}).".format(ctg_name, bed_file_path), file=sys.stderr)
         sys.exit(1)
 
     samtools_view_process = subprocess.Popen(
@@ -292,7 +292,7 @@ def make_candidates(args):
                     query_position += advance
 
                 elif c == "M" or c == "=" or c == "X":
-                    for _ in xrange(advance):
+                    for _ in range(advance):
                         base = BASE2ACGT[SEQ[query_position]]
                         pileup[reference_position][base] += 1
 
@@ -315,7 +315,7 @@ def make_candidates(args):
                 # reset advance
                 advance = 0
 
-        positions = list(filter(lambda x: x < POS, pileup.keys())) if not is_finish_reading_output else pileup.keys()
+        positions = [x for x in pileup.keys() if x < POS] if not is_finish_reading_output else list(pileup.keys())
         positions.sort()
         for zero_based_position in positions:
             baseCount = depth = reference_base = temp_key = None
@@ -342,7 +342,7 @@ def make_candidates(args):
             # depth checking
             pass_depth = False
             if pass_ctg and pass_bed and pass_output_probability:
-                baseCount = pileup[zero_based_position].items()
+                baseCount = list(pileup[zero_based_position].items())
                 depth = sum(x[1] for x in baseCount)
                 pass_depth = depth >= minimum_depth_for_candidate
 
@@ -381,8 +381,8 @@ def make_candidates(args):
             break
 
     if need_consider_candidates_near_variant:
-        print "# of candidates near variant: ", no_of_candidates_near_variant
-        print "# of candidates outside variant: ", no_of_candidates_outside_variant
+        print("# of candidates near variant: ", no_of_candidates_near_variant)
+        print("# of candidates outside variant: ", no_of_candidates_outside_variant)
 
     samtools_view_process.stdout.close()
     samtools_view_process.wait()
@@ -393,8 +393,8 @@ def make_candidates(args):
         can_fpo.close()
 
     if number_of_reads_processed == 0:
-        print >> sys.stderr, "No read has been process, either the genome region you specified has no read cover, or please check the correctness of your BAM input (%s)." % (
-            bam_file_path)
+        print("No read has been process, either the genome region you specified has no read cover, or please check the correctness of your BAM input (%s)." % (
+            bam_file_path), file=sys.stderr)
         sys.exit(0)
 
 

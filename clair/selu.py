@@ -2,7 +2,7 @@
 Tensorflow Implementation of the Scaled ELU function and Dropout
 '''
 
-from __future__ import absolute_import, division, print_function
+
 import numbers
 from tensorflow.contrib import layers
 from tensorflow.python.framework import ops
@@ -67,4 +67,3 @@ def dropout_selu(x, rate, alpha= -1.7580993408473766, fixedPointMean=0.0, fixedP
         return utils.smart_cond(training,
             lambda: dropout_selu_impl(x, rate, alpha, noise_shape, seed, name),
             lambda: array_ops.identity(x))
-

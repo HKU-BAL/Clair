@@ -7,7 +7,7 @@ from os.path import abspath
 from time import time
 from argparse import ArgumentParser
 from threading import Thread
-from itertools import izip
+
 
 import clair.evaluate as evaluate
 from clair.model import Clair
@@ -26,7 +26,7 @@ def accuracy(y_pred, y_true):
     indel1_TP = 0
     indel2_TP = 0
 
-    for gt21_prediction, gt21_true_label in izip(
+    for gt21_prediction, gt21_true_label in zip(
         gt21,
         y_true[:, GT21.y_start_index:GT21.y_end_index]
     ):
@@ -35,7 +35,7 @@ def accuracy(y_pred, y_true):
         if true_label_index == predict_label_index:
             gt21_TP += 1
 
-    for genotype_prediction, true_genotype_label in izip(
+    for genotype_prediction, true_genotype_label in zip(
         genotype,
         y_true[:, GENOTYPE.y_start_index:GENOTYPE.y_end_index]
     ):
@@ -44,7 +44,7 @@ def accuracy(y_pred, y_true):
         if true_label_index == predict_label_index:
             genotype_TP += 1
 
-    for indel_length_prediction_1, true_indel_length_label_1, indel_length_prediction_2, true_indel_length_label_2 in izip(
+    for indel_length_prediction_1, true_indel_length_label_1, indel_length_prediction_2, true_indel_length_label_2 in zip(
         indel_length_1,
         y_true[:, VARIANT_LENGTH_1.y_start_index:VARIANT_LENGTH_1.y_end_index],
         indel_length_2,

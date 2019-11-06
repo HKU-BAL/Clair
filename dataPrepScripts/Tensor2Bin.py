@@ -1,6 +1,6 @@
 import sys
 import logging
-import cPickle
+import pickle
 from argparse import ArgumentParser
 
 import clair.utils as utils
@@ -9,7 +9,7 @@ logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 
 def pickle_dump(obj, file):
-    return cPickle.dump(obj, file, protocol=cPickle.HIGHEST_PROTOCOL)
+    return pickle.dump(obj, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def Run(args):

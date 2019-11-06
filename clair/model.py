@@ -1,16 +1,16 @@
 import tensorflow as tf
 import numpy as np
 import re
-import selu
 import multiprocessing
 from sys import exit
 from os.path import abspath
 from argparse import ArgumentParser
 from tensorflow.python.client import device_lib
 from tensorflow.python.ops import array_ops
-
 from collections import defaultdict
+
 from clair.task.main import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2
+import clair.selu as selu
 import shared.param as param
 
 
@@ -716,9 +716,9 @@ class Clair(object):
                             learning_rate=self.learning_rate_placeholder,
                             momentum=param.momentum
                         )
-                    gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss))
+                    gradients, variables = list(zip(*self.optimizer.compute_gradients(self.total_loss)))
                     gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-                    self.training_op = self.optimizer.apply_gradients(zip(gradients, variables))
+                    self.training_op = self.optimizer.apply_gradients(list(zip(gradients, variables)))
             else:
                 if self.optimizer_name == "Adam":
                     self.training_op = tf.train.AdamOptimizer(

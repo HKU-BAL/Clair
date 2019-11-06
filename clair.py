@@ -38,7 +38,7 @@ def directory_for(submodule_name):
 
 def print_help_messages():
     from textwrap import dedent
-    print dedent("""\
+    print(dedent("""\
         {0} submodule invocator:
             Usage: clair.py SubmoduleName [Options of the submodule]
 
@@ -60,7 +60,7 @@ def print_help_messages():
             REPO_NAME,
             "%s/%s" % (dirname(abspath(sys.argv[0])), DEEP_LEARNING_FOLDER)
         )
-    )
+    ))
 
 
 def main():

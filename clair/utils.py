@@ -3,7 +3,7 @@ import gc
 import shlex
 import subprocess
 import logging
-import cPickle
+import pickle
 import numpy as np
 import blosc
 from os import environ
@@ -55,7 +55,7 @@ def batches_from(iterable, item_from, batch_size=1):
     iterable = iter(iterable)
     while True:
         chunk = []
-        for _ in xrange(batch_size):
+        for _ in range(batch_size):
             try:
                 chunk.append(item_from(next(iterable)))
             except StopIteration:
@@ -93,11 +93,11 @@ def tensor_generator_from(tensor_file_path, batch_size):
 
         current_batch_size = len(non_tensor_infos)
         X = np.reshape(tensors, (batch_size, no_of_positions, matrix_row, matrix_num))
-        for i in xrange(1, matrix_num):
+        for i in range(1, matrix_num):
             X[:current_batch_size, :, :, i] -= X[:current_batch_size, :, :, 0]
 
         processed_tensors += current_batch_size
-        print >> sys.stderr, "Processed %d tensors" % processed_tensors
+        print("Processed %d tensors" % processed_tensors, file=sys.stderr)
 
         if current_batch_size <= 0:
             continue
@@ -150,7 +150,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
         key = chrom + ":" + coord
 
         x = np.reshape(mat, (no_of_positions, matrix_row, matrix_num))
-        for i in xrange(1, matrix_num):
+        for i in range(1, matrix_num):
             x[:, :, i] -= x[:, :, 0]
 
         if key not in X:
@@ -171,7 +171,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
 
         total += 1
         if total % 100000 == 0:
-            print >> sys.stderr, "Processed %d tensors" % total
+            print("Processed %d tensors" % total, file=sys.stderr)
     f.stdout.close()
     f.wait()
 
@@ -210,7 +210,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
             count = 0
 
         if total % 50000 == 0:
-            print >> sys.stderr, "Compressed %d/%d tensor" % (total, len(all_chr_pos))
+            print("Compressed %d/%d tensor" % (total, len(all_chr_pos)), file=sys.stderr)
 
     if count > 0:
         X_compressed.append(blosc_pack_array(np.array(X_array)))
@@ -237,7 +237,7 @@ def decompress_array(
     """
     data_rows = []
     no_of_data_rows = 0
-    for i in xrange(blosc_start_index, no_of_blosc_blocks):
+    for i in range(blosc_start_index, no_of_blosc_blocks):
         new_data_rows = blosc.unpack_array(array[i if read_index_list is None else read_index_list[i]])
         data_rows.append(new_data_rows)
         no_of_data_rows += len(new_data_rows)
@@ -276,24 +276,24 @@ def dataset_info_from(
     if train_binary_file_path is not None and validation_binary_file_path is not None:
         logging.info("[INFO] Loading compressed data from train and validation binary file path")
         with open(train_binary_file_path, "rb") as fh:
-            dataset_size = cPickle.load(fh)
-            x_array_compressed = cPickle.load(fh)
-            y_array_compressed = cPickle.load(fh)
-            position_array_compressed = cPickle.load(fh)
+            dataset_size = pickle.load(fh)
+            x_array_compressed = pickle.load(fh)
+            y_array_compressed = pickle.load(fh)
+            position_array_compressed = pickle.load(fh)
         no_of_training_examples_from_train_binary = dataset_size
         with open(validation_binary_file_path, "rb") as fh:
-            dataset_size += cPickle.load(fh)
-            x_array_compressed += cPickle.load(fh)
-            y_array_compressed += cPickle.load(fh)
-            position_array_compressed += cPickle.load(fh)
+            dataset_size += pickle.load(fh)
+            x_array_compressed += pickle.load(fh)
+            y_array_compressed += pickle.load(fh)
+            position_array_compressed += pickle.load(fh)
 
     elif binary_file_path != None:
         logging.info("[INFO] Loading compressed data from binary file path")
         with open(binary_file_path, "rb") as fh:
-            dataset_size = cPickle.load(fh)
-            x_array_compressed = cPickle.load(fh)
-            y_array_compressed = cPickle.load(fh)
-            position_array_compressed = cPickle.load(fh)
+            dataset_size = pickle.load(fh)
+            x_array_compressed = pickle.load(fh)
+            y_array_compressed = pickle.load(fh)
+            position_array_compressed = pickle.load(fh)
     else:
         logging.info("[INFO] Loading compressed data from utils get training array")
         dataset_size, x_array_compressed, y_array_compressed, position_array_compressed = \

@@ -4,7 +4,7 @@ import numpy as np
 from os.path import abspath
 from argparse import ArgumentParser
 from time import time
-from itertools import izip
+
 
 from clair.model import Clair
 import clair.utils as utils
@@ -85,7 +85,7 @@ def evaluate_model(m, dataset_info):
         first_blosc_block_data_index = next_x_first_blosc_block_data_index
 
         # update confusion matrix for gt21 prediction
-        for gt21_prediction, gt21_label in izip(
+        for gt21_prediction, gt21_label in zip(
             minibatch_gt21_prediction,
             y_batch[:, GT21.y_start_index:GT21.y_end_index]
         ):
@@ -102,14 +102,14 @@ def evaluate_model(m, dataset_info):
                 top_2_count += 1
 
         # update confusion matrix for genotype
-        for genotype_prediction, true_genotype_label in izip(
+        for genotype_prediction, true_genotype_label in zip(
             minibatch_genotype_prediction,
             y_batch[:, GENOTYPE.y_start_index:GENOTYPE.y_end_index]
         ):
             confusion_matrix_genotype[np.argmax(true_genotype_label)][np.argmax(genotype_prediction)] += 1
 
         # update confusion matrix for indel length 1 and 2
-        for indel_length_prediction_1, true_indel_length_label_1, indel_length_prediction_2, true_indel_length_label_2 in izip(
+        for indel_length_prediction_1, true_indel_length_label_1, indel_length_prediction_2, true_indel_length_label_2 in zip(
             minibatch_indel_length_prediction_1,
             y_batch[:, VARIANT_LENGTH_1.y_start_index:VARIANT_LENGTH_1.y_end_index],
             minibatch_indel_length_prediction_2,

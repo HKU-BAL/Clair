@@ -9,7 +9,7 @@ from threading import Thread
 from math import log, e
 from enum import IntEnum
 from collections import namedtuple, defaultdict
-from itertools import izip
+
 
 import clair.utils as utils
 from clair.model import Clair
@@ -208,7 +208,7 @@ def output_utilties_from(
     output_file = open(output_file_path, "w")
 
     def output(string_value):
-        print >> output_file, string_value
+        print(string_value, file=output_file)
 
     def print_debug_message(
         chromosome,
@@ -317,7 +317,7 @@ def homo_Ins_tuples_from(variant_length_probabilities_1, variant_length_probabil
         i,
         variant_length_probabilities_1[i + VariantLength.index_offset] *
         variant_length_probabilities_2[i + VariantLength.index_offset] * extra_probability
-    ) for i in xrange(1, VariantLength.max + 1)]
+    ) for i in range(1, VariantLength.max + 1)]
 
 
 def hetero_Ins_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2):
@@ -329,13 +329,13 @@ def hetero_Ins_tuples_from(variant_length_probabilities_1, variant_length_probab
             variant_length_probabilities_1[i + VariantLength.index_offset] *
             variant_length_probabilities_2[0 + VariantLength.index_offset],
         )
-    ) for i in xrange(1, VariantLength.max + 1)]
+    ) for i in range(1, VariantLength.max + 1)]
 
 
 def hetero_InsIns_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2, extra_probability):
     probabilities = []
-    for i in xrange(1, VariantLength.max + 1):
-        for j in xrange(1, VariantLength.max + 1):
+    for i in range(1, VariantLength.max + 1):
+        for j in range(1, VariantLength.max + 1):
             # note: one kind of InsIns is same # of insertion bases but different kind of ACGT
             probabilities.append((
                 (i, j) if i <= j else (j, i),
@@ -350,7 +350,7 @@ def homo_Del_tuples_from(variant_length_probabilities_1, variant_length_probabil
         i,
         variant_length_probabilities_1[-i + VariantLength.index_offset] *
         variant_length_probabilities_2[-i + VariantLength.index_offset] * extra_probability
-    ) for i in xrange(1, VariantLength.max + 1)]
+    ) for i in range(1, VariantLength.max + 1)]
 
 
 def hetero_Del_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2):
@@ -362,13 +362,13 @@ def hetero_Del_tuples_from(variant_length_probabilities_1, variant_length_probab
             variant_length_probabilities_1[-i + VariantLength.index_offset] *
             variant_length_probabilities_2[0 + VariantLength.index_offset],
         )
-    ) for i in xrange(1, VariantLength.max + 1)]
+    ) for i in range(1, VariantLength.max + 1)]
 
 
 def hetero_DelDel_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2, extra_probability):
     probabilities = []
-    for i in xrange(1, VariantLength.max + 1):
-        for j in xrange(1, VariantLength.max + 1):
+    for i in range(1, VariantLength.max + 1):
+        for j in range(1, VariantLength.max + 1):
             if i == j:
                 continue
             probabilities.append((
@@ -381,8 +381,8 @@ def hetero_DelDel_tuples_from(variant_length_probabilities_1, variant_length_pro
 
 def hetero_InsDel_tuples_from(variant_length_probabilities_1, variant_length_probabilities_2, extra_probability):
     probabilities = []
-    for i in xrange(1, VariantLength.max + 1):
-        for j in xrange(1, VariantLength.max + 1):
+    for i in range(1, VariantLength.max + 1):
+        for j in range(1, VariantLength.max + 1):
             probabilities.append((
                 (j, i),
                 variant_length_probabilities_1[i + VariantLength.index_offset] *
@@ -398,7 +398,7 @@ def hetero_InsDel_tuples_from(variant_length_probabilities_1, variant_length_pro
 
 def inferred_insertion_bases_from(tensor_input):
     insertion_bases = ""
-    for position in xrange(flanking_base_number + 1, 2 * flanking_base_number + 1):
+    for position in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
         reference_tensor = tensor_input[position, :, Channel.reference]
         insertion_tensor = np.copy(tensor_input[position, :, Channel.insert])
         for base_index in range(0, 4):
@@ -416,7 +416,7 @@ def inferred_insertion_bases_from(tensor_input):
 
 def inferred_deletion_length_from(tensor_input):
     deletion_length = 0
-    for position in xrange(flanking_base_number + 1, 2 * flanking_base_number + 1):
+    for position in range(flanking_base_number + 1, 2 * flanking_base_number + 1):
         reference_tensor = tensor_input[position, :, Channel.reference]
         deletion_tensor = tensor_input[position, :, Channel.delete]
         if (
@@ -931,7 +931,7 @@ def batch_output(mini_batch, batch_Y, output_config, output_utilities):
         genotype_probabilities,
         variant_length_probabilities_1,
         variant_length_probabilities_2
-    ) in izip(
+    ) in zip(
         X,
         batch_chr_pos_seq,
         batch_gt21_probabilities,

@@ -1,5 +1,5 @@
 import os
-import cPickle
+import pickle
 from random import shuffle
 from argparse import ArgumentParser
 from collections import namedtuple
@@ -36,10 +36,10 @@ def load_data_from_one_file_path(file_path):
     total = 0
 
     with open(file_path, "rb") as f:
-        total = int(cPickle.load(f))
-        X = cPickle.load(f)
-        Y = cPickle.load(f)
-        pos = cPickle.load(f)
+        total = int(pickle.load(f))
+        X = pickle.load(f)
+        Y = pickle.load(f)
+        pos = pickle.load(f)
 
     return Data(x=X, y=Y, pos=pos, total=total)
 
@@ -67,17 +67,17 @@ def load_data_from(directory_path, need_shuffle_file_paths=False):
         Y += data.y
         pos += data.pos
 
-        print "[INFO] Data loaded: {}".format(absolute_file_path)
+        print("[INFO] Data loaded: {}".format(absolute_file_path))
 
     return Data(x=X, y=Y, pos=pos, total=total)
 
 
 def pickle_dump(obj, file):
-    return cPickle.dump(obj, file, protocol=cPickle.HIGHEST_PROTOCOL)
+    return pickle.dump(obj, file, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def output_data(dst, data):
-    print "[INFO] Output: {}".format(os.path.abspath(dst))
+    print("[INFO] Output: {}".format(os.path.abspath(dst)))
     with open(dst, "wb") as f:
         pickle_dump(data.total, f)
         pickle_dump(data.x, f)

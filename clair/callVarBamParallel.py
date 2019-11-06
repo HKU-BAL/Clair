@@ -12,7 +12,7 @@ from shared.command_options import (
 from shared.interval_tree import interval_tree_from
 from shared.utils import file_path_from, executable_command_string_from
 
-major_contigs = {"chr"+str(a) for a in range(0, 23)+["X", "Y"]}.union({str(a) for a in range(0, 23)+["X", "Y"]})
+major_contigs = {"chr"+str(a) for a in list(range(0, 23))+["X", "Y"]}.union({str(a) for a in list(range(0, 23))+["X", "Y"]})
 
 
 def Run(args):
@@ -197,9 +197,9 @@ def main():
         sys.exit(1)
 
     if not args.includingAllContigs:
-        print "echo \"[INFO] --includingAllContigs not enabled, use chr{1..22,X,Y,M,MT} and {1..22,X,Y,MT} by default\"\n"
+        print("echo \"[INFO] --includingAllContigs not enabled, use chr{1..22,X,Y,M,MT} and {1..22,X,Y,MT} by default\"\n")
     else:
-        print "echo \"[INFO] --includingAllContigs enabled\"\n"
+        print("echo \"[INFO] --includingAllContigs enabled\"\n")
 
     Run(args)
 

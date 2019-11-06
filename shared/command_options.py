@@ -17,7 +17,7 @@ def command_option_string_from(command):
 
 
 def command_string_from(command_options):
-    return " ".join(list(filter(lambda x: x is not None, list(map(command_option_string_from, command_options)))))
+    return " ".join(x for x in map(command_option_string_from, command_options) if x is not None)
 
 
 def command_option_from(args_value, option_name, option_value=None):
