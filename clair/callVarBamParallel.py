@@ -9,7 +9,7 @@ from shared.command_options import (
     command_string_from,
     command_option_from
 )
-from shared.interval_tree import interval_tree_from
+from shared.interval_tree import bed_tree_from, is_region_in
 from shared.utils import file_path_from, executable_command_string_from
 
 major_contigs = {"chr"+str(a) for a in list(range(0, 23))+["X", "Y"]}.union({str(a) for a in list(range(0, 23))+["X", "Y"]})
@@ -32,7 +32,7 @@ def Run(args):
     output_prefix = args.output_prefix
     af_threshold = args.threshold
 
-    tree = interval_tree_from(bed_file_path=bed_fn)
+    tree = bed_tree_from(bed_file_path=bed_fn)
 
     minCoverage = args.minCoverage
     sampleName = args.sampleName
@@ -98,10 +98,7 @@ def Run(args):
                     region_end = contig_length
                 output_fn = "%s.%s_%d_%d.vcf" % (output_prefix, contig_name, region_start, region_end)
 
-                is_region_in_bed = (
-                    is_bed_file_provided and
-                    contig_name in tree and len(tree[contig_name].search(region_start, region_end)) != 0
-                )
+                is_region_in_bed = is_bed_file_provided and is_region_in(tree, contig_name, region_start, region_end)
                 need_output_command = not is_bed_file_provided or is_region_in_bed
                 if not need_output_command:
                     continue

@@ -5,13 +5,13 @@ import shlex
 from argparse import ArgumentParser
 from random import random
 
-from shared.interval_tree import interval_tree_from
+from shared.interval_tree import bed_tree_from, is_region_in
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 
 def Run(args):
-    tree = interval_tree_from(bed_file_path=args.bed_fn)
+    tree = bed_tree_from(bed_file_path=args.bed_fn)
 
     logging.info("Counting the number of Truth Variants in %s ..." % args.tensor_var_fn)
     v = 0
@@ -39,9 +39,7 @@ def Run(args):
         ctgName = row[0]
         pos = int(row[1])
         if args.bed_fn != None:
-            if ctgName not in tree:
-                continue
-            if len(tree[ctgName].search(pos)) == 0:
+            if not is_region_in(tree, ctgName, pos):
                 continue
         key = "-".join([ctgName, str(pos)])
         if key in d:
@@ -75,9 +73,7 @@ def Run(args):
         ctgName = row[0]
         pos = int(row[1])
         if args.bed_fn != None:
-            if ctgName not in tree:
-                continue
-            if len(tree[ctgName].search(pos)) == 0:
+            if not is_region_in(tree, ctgName, pos):
                 continue
         key = "-".join([ctgName, str(pos)])
         if key in d:

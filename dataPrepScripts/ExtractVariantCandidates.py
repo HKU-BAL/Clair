@@ -11,7 +11,7 @@ from collections import defaultdict
 
 import shared.param as param
 from shared.utils import IUPAC_base_to_ACGT_base_dict as BASE2ACGT
-from shared.interval_tree import interval_tree_from
+from shared.interval_tree import bed_tree_from, is_region_in
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
@@ -231,7 +231,7 @@ def make_candidates(args):
         print("[ERROR] Failed to load reference seqeunce from file ({}).".format(fasta_file_path), file=sys.stderr)
         sys.exit(1)
 
-    tree = interval_tree_from(bed_file_path=bed_file_path)
+    tree = bed_tree_from(bed_file_path=bed_file_path)
     if is_bed_file_given and ctg_name not in tree:
         print("[ERROR] ctg_name({}) not exists in bed file({}).".format(ctg_name, bed_file_path), file=sys.stderr)
         sys.exit(1)
@@ -322,9 +322,7 @@ def make_candidates(args):
 
             # ctg and bed checking (region [ctg_start, ctg_end] is 1-based, inclusive start and end positions)
             pass_ctg = not is_ctg_range_given or ctg_start <= zero_based_position+1 <= ctg_end
-            pass_bed = not is_bed_file_given or (
-                ctg_name in tree and len(tree[ctg_name].search(zero_based_position)) != 0
-            )
+            pass_bed = not is_bed_file_given or is_region_in(tree, ctg_name, zero_based_position)
 
             # output probability checking
             pass_output_probability = True

@@ -12,7 +12,7 @@ from collections import namedtuple
 
 from clair.task.main import output_labels_from_reference, output_labels_from_vcf_columns
 import shared.param as param
-from shared.interval_tree import interval_tree_from
+from shared.interval_tree import bed_tree_from, is_region_in
 from shared.utils import IUPAC_base_to_num_dict as BASE2NUM
 
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -108,7 +108,7 @@ def tensor_generator_from(tensor_file_path, batch_size):
         f.wait()
 
 
-def variant_map_from(var_fn, interval_tree):
+def variant_map_from(var_fn, tree, is_tree_empty):
     Y = {}
     if var_fn is None:
         return Y
@@ -117,7 +117,8 @@ def variant_map_from(var_fn, interval_tree):
     for row in f.stdout:
         columns = row.split()
         ctg_name, position_str = columns[0], columns[1]
-        if ctg_name in interval_tree and len(interval_tree[ctg_name].search(int(position_str))) == 0:
+
+        if not (is_tree_empty or is_region_in(tree, ctg_name, int(position_str))):
             continue
 
         key = ctg_name + ":" + position_str
@@ -129,9 +130,10 @@ def variant_map_from(var_fn, interval_tree):
 
 
 def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplicate_chr_pos=False):
-    tree = interval_tree_from(bed_file_path=bed_fn)
+    tree = bed_tree_from(bed_file_path=bed_fn)
+    is_tree_empty = len(tree.keys()) == 0
 
-    Y = variant_map_from(var_fn, tree)
+    Y = variant_map_from(var_fn, tree, is_tree_empty)
 
     X = {}
     f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
@@ -139,11 +141,8 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
     mat = np.empty(input_tensor_size, dtype=np.float32)
     for row in f.stdout:
         chrom, coord, seq, mat = unpack_a_tensor_record(*(row.split()))
-        if bed_fn is not None:
-            if chrom not in tree:
-                continue
-            if len(tree[chrom].search(int(coord))) == 0:
-                continue
+        if not (is_tree_empty or is_region_in(tree, chrom, int(coord))):
+            continue
         seq = seq.upper()
         if seq[param.flankingBaseNum] not in BASE2NUM:
             continue
