@@ -1,6 +1,6 @@
 from os.path import isfile, abspath
-from sys import exit
-from subprocess import check_output
+from sys import exit, stderr
+from subprocess import check_output, PIPE, Popen
 
 # A->A
 # C->C
@@ -58,3 +58,7 @@ def executable_command_string_from(command_to_execute, exit_on_not_found=False):
     if exit_on_not_found:
         exit("[ERROR] %s executable not found" % (command_to_execute))
     return None
+
+
+def subprocess_popen(args, stdin=None, stdout=PIPE, stderr=stderr, bufsize=8388608):
+    return Popen(args, stdin=stdin, stdout=stdout, stderr=stderr, bufsize=bufsize, universal_newlines=True)

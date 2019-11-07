@@ -1,13 +1,13 @@
 import sys
 import shlex
-import subprocess
 import signal
 import gc
+from subprocess import PIPE
 from argparse import ArgumentParser
 from collections import namedtuple
 
 import shared.param as param
-from shared.utils import IUPAC_base_to_num_dict as BASE2NUM
+from shared.utils import subprocess_popen, IUPAC_base_to_num_dict as BASE2NUM
 
 is_pypy = '__pypy__' in sys.builtin_module_names
 
@@ -77,9 +77,7 @@ def candidate_position_generator_from(
     if is_read_file_from_standard_input:
         candidate_file_path_output = sys.stdin
     else:
-        candidate_file_path_process = subprocess.Popen(
-            shlex.split("pigz -fdc %s" % (candidate_file_path)), stdout=subprocess.PIPE, bufsize=8388608
-        )
+        candidate_file_path_process = subprocess_popen(shlex.split("pigz -fdc %s" % (candidate_file_path)))
         candidate_file_path_output = candidate_file_path_process.stdout
 
     is_ctg_region_provided = ctg_start is not None and ctg_end is not None
@@ -135,11 +133,7 @@ def reference_result_from(
     else:
         region_str = ctg_name
 
-    faidx_process = subprocess.Popen(
-        shlex.split("%s faidx %s %s" % (samtools, reference_file_path, region_str)),
-        stdout=subprocess.PIPE,
-        bufsize=8388608
-    )
+    faidx_process = subprocess_popen(shlex.split("%s faidx %s %s" % (samtools, reference_file_path, region_str)),)
     if faidx_process is None:
         return None
 
@@ -174,10 +168,8 @@ def samtools_view_process_from(
     have_start_and_end_position = ctg_start != None and ctg_end != None
     region_str = ("%s:%d-%d" % (ctg_name, ctg_start, ctg_end)) if have_start_and_end_position else ctg_name
 
-    return subprocess.Popen(
-        shlex.split("%s view -F %d %s %s" % (samtools, param.SAMTOOLS_VIEW_FILTER_FLAG, bam_file_path, region_str)),
-        stdout=subprocess.PIPE,
-        bufsize=8388608
+    return subprocess_popen(
+        shlex.split("%s view -F %d %s %s" % (samtools, param.SAMTOOLS_VIEW_FILTER_FLAG, bam_file_path, region_str))
     )
 
 
@@ -241,9 +233,7 @@ def OutputAlnTensor(args):
 
     if tensor_file_path != "PIPE":
         tensor_fpo = open(tensor_file_path, "wb")
-        tensor_fp = subprocess.Popen(
-            shlex.split("pigz -c"), stdin=subprocess.PIPE, stdout=tensor_fpo, stderr=sys.stderr, bufsize=8388608
-        )
+        tensor_fp = subprocess_popen(shlex.split("pigz -c"), stdin=PIPE, stdout=tensor_fpo)
     else:
         tensor_fp = TensorStdout(sys.stdout)
 
@@ -372,7 +362,7 @@ def OutputAlnTensor(args):
             advance = 0
 
         if depthCap == 0:
-            for center in center_to_alignment.keys():
+            for center in list(center_to_alignment.keys()):
                 if center + (param.flankingBaseNum + 1) >= POS:
                     continue
                 l = generate_tensor(

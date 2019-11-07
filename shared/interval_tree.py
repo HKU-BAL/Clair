@@ -1,6 +1,7 @@
-import subprocess
 import shlex
 from intervaltree import IntervalTree
+
+from shared.utils import subprocess_popen
 
 
 def bed_tree_from(bed_file_path):
@@ -12,11 +13,7 @@ def bed_tree_from(bed_file_path):
     if bed_file_path is None:
         return tree
 
-    unzip_process = subprocess.Popen(
-        shlex.split("pigz -fdc %s" % (bed_file_path)),
-        stdout=subprocess.PIPE,
-        bufsize=8388608
-    )
+    unzip_process = subprocess_popen(shlex.split("pigz -fdc %s" % (bed_file_path)))
     while True:
         row = unzip_process.stdout.readline()
         is_finish_reading_output = row == '' and unzip_process.poll() is not None

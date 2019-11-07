@@ -1,10 +1,11 @@
 import sys
 import logging
-import subprocess
 import shlex
+from subprocess import PIPE
 from argparse import ArgumentParser
 from random import random
 
+from shared.utils import subprocess_popen
 from shared.interval_tree import bed_tree_from, is_region_in
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
@@ -16,7 +17,7 @@ def Run(args):
     logging.info("Counting the number of Truth Variants in %s ..." % args.tensor_var_fn)
     v = 0
     d = {}
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.tensor_var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess_popen(shlex.split("gzip -fdc %s" % (args.tensor_var_fn)))
     for row in f.stdout:
         row = row.strip().split()
         ctgName = row[0]
@@ -33,7 +34,7 @@ def Run(args):
 
     logging.info("Counting the number of usable non-variants in %s ..." % args.tensor_can_fn)
     c = 0
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.tensor_can_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess_popen(shlex.split("gzip -fdc %s" % (args.tensor_can_fn)))
     for row in f.stdout:
         row = row.strip().split()
         ctgName = row[0]
@@ -56,9 +57,8 @@ def Run(args):
     o1 = 0
     o2 = 0
     output_fpo = open(args.output_fn, "wb")
-    output_fh = subprocess.Popen(shlex.split("gzip -c"), stdin=subprocess.PIPE,
-                                 stdout=output_fpo, stderr=sys.stderr, bufsize=8388608)
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.tensor_var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+    output_fh = subprocess_popen(shlex.split("gzip -c"), stdin=PIPE, stdout=output_fpo)
+    f = subprocess_popen(shlex.split("gzip -fdc %s" % (args.tensor_var_fn)))
     for row in f.stdout:
         row = row.strip()
         output_fh.stdin.write(row)
@@ -66,7 +66,7 @@ def Run(args):
         o1 += 1
     f.stdout.close()
     f.wait()
-    f = subprocess.Popen(shlex.split("gzip -fdc %s" % (args.tensor_can_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess_popen(shlex.split("gzip -fdc %s" % (args.tensor_can_fn)))
     for row in f.stdout:
         rawRow = row.strip()
         row = rawRow.split()

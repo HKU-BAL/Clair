@@ -1,9 +1,10 @@
 import sys
-import subprocess
 import shlex
+from subprocess import PIPE
 from argparse import ArgumentParser
 
-from shared.utils import file_path_from, executable_command_string_from
+from shared.utils import file_path_from, executable_command_string_from, subprocess_popen
+
 
 class TruthStdout(object):
     def __init__(self, handle):
@@ -22,8 +23,7 @@ def OutputVariant(args):
 
     if args.var_fn != "PIPE":
         var_fpo = open(var_fn, "wb")
-        var_fp = subprocess.Popen(shlex.split("gzip -c"), stdin=subprocess.PIPE,
-                                  stdout=var_fpo, stderr=sys.stderr, bufsize=8388608)
+        var_fp = subprocess_popen(shlex.split("gzip -c"), stdin=PIPE, stdout=var_fpo)
     else:
         var_fp = TruthStdout(sys.stdout)
 
@@ -33,13 +33,9 @@ def OutputVariant(args):
         file_path_from("%s.tbi" % (vcf_fn)) is not None and
         executable_command_string_from("tabix") is not None
     ):
-        vcf_fp = subprocess.Popen(
-            shlex.split("tabix -f -p vcf %s %s:%s-%s" % (vcf_fn, ctg_name, ctg_start, ctg_end)),
-            stdout=subprocess.PIPE,
-            bufsize=8388608
-        )
+        vcf_fp = subprocess_popen(shlex.split("tabix -f -p vcf %s %s:%s-%s" % (vcf_fn, ctg_name, ctg_start, ctg_end)))
     else:
-        vcf_fp = subprocess.Popen(shlex.split("gzip -fdc %s" % (vcf_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+        vcf_fp = subprocess_popen(shlex.split("gzip -fdc %s" % (vcf_fn)))
 
     for row in vcf_fp.stdout:
         columns = row.strip().split()
@@ -66,8 +62,8 @@ def OutputVariant(args):
         if int(genotype_1) > int(genotype_2):
             genotype_1, genotype_2 = genotype_2, genotype_1
 
-        var_fp.stdin.write(" ".join([chromosome, position, reference, alternate, genotype_1, genotype_2]))
-        var_fp.stdin.write("\n")
+        var_fp.stdin.write(" ".join((chromosome, position, reference, alternate, genotype_1, genotype_2)).encode())
+        var_fp.stdin.write(b"\n")
 
     vcf_fp.stdout.close()
     vcf_fp.wait()

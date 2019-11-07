@@ -1,7 +1,6 @@
 import sys
 import gc
 import shlex
-import subprocess
 import logging
 import pickle
 import numpy as np
@@ -13,7 +12,7 @@ from collections import namedtuple
 from clair.task.main import output_labels_from_reference, output_labels_from_vcf_columns
 import shared.param as param
 from shared.interval_tree import bed_tree_from, is_region_in
-from shared.utils import IUPAC_base_to_num_dict as BASE2NUM
+from shared.utils import subprocess_popen, IUPAC_base_to_num_dict as BASE2NUM
 
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -70,7 +69,7 @@ input_tensor_size = no_of_positions * matrix_row * matrix_num
 
 def tensor_generator_from(tensor_file_path, batch_size):
     if tensor_file_path != "PIPE":
-        f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
+        f = subprocess_popen(shlex.split("pigz -fdc %s" % (tensor_file_path)))
         fo = f.stdout
     else:
         fo = sys.stdin
@@ -113,7 +112,7 @@ def variant_map_from(var_fn, tree, is_tree_empty):
     if var_fn is None:
         return Y
 
-    f = subprocess.Popen(shlex.split("pigz -fdc %s" % (var_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess_popen(shlex.split("pigz -fdc %s" % (var_fn)))
     for row in f.stdout:
         columns = row.split()
         ctg_name, position_str = columns[0], columns[1]
@@ -136,7 +135,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
     Y = variant_map_from(var_fn, tree, is_tree_empty)
 
     X = {}
-    f = subprocess.Popen(shlex.split("pigz -fdc %s" % (tensor_fn)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess_popen(shlex.split("pigz -fdc %s" % (tensor_fn)))
     total = 0
     mat = np.empty(input_tensor_size, dtype=np.float32)
     for row in f.stdout:

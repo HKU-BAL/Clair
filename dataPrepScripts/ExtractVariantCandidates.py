@@ -1,16 +1,16 @@
 import sys
 import shlex
-import subprocess
 import gc
 import signal
 import random
+from subprocess import PIPE
 from os.path import isfile
 from argparse import ArgumentParser
 from math import log
 from collections import defaultdict
 
 import shared.param as param
-from shared.utils import IUPAC_base_to_ACGT_base_dict as BASE2ACGT
+from shared.utils import subprocess_popen, IUPAC_base_to_ACGT_base_dict as BASE2ACGT
 from shared.interval_tree import bed_tree_from, is_region_in
 
 is_pypy = '__pypy__' in sys.builtin_module_names
@@ -31,7 +31,7 @@ def variants_map_from(variant_file_path):
         return {}
 
     variants_map = {}
-    f = subprocess.Popen(shlex.split("pigz -fdc %s" % (variant_file_path)), stdout=subprocess.PIPE, bufsize=8388608)
+    f = subprocess_popen(shlex.split("pigz -fdc %s" % (variant_file_path)))
 
     while True:
         row = f.stdout.readline()
@@ -123,10 +123,8 @@ def reference_sequence_from(samtools_execute_command, fasta_file_path, regions):
     refernce_sequences = []
     region_value_for_faidx = " ".join(regions)
 
-    samtools_faidx_process = subprocess.Popen(
-        shlex.split("{} faidx {} {}".format(samtools_execute_command, fasta_file_path, region_value_for_faidx)),
-        stdout=subprocess.PIPE,
-        bufsize=8388608
+    samtools_faidx_process = subprocess_popen(
+        shlex.split("{} faidx {} {}".format(samtools_execute_command, fasta_file_path, region_value_for_faidx))
     )
     while True:
         row = samtools_faidx_process.stdout.readline()
@@ -236,19 +234,15 @@ def make_candidates(args):
         print("[ERROR] ctg_name({}) not exists in bed file({}).".format(ctg_name, bed_file_path), file=sys.stderr)
         sys.exit(1)
 
-    samtools_view_process = subprocess.Popen(
-        shlex.split("{} view -F {} {} {}".format(samtools_execute_command, param.SAMTOOLS_VIEW_FILTER_FLAG, bam_file_path, " ".join(regions))),
-        stdout=subprocess.PIPE,
-        bufsize=8388608
+    samtools_view_process = subprocess_popen(
+        shlex.split("{} view -F {} {} {}".format(samtools_execute_command, param.SAMTOOLS_VIEW_FILTER_FLAG, bam_file_path, " ".join(regions)))
     )
 
     if is_using_stdout_for_output_candidate:
         can_fp = CandidateStdout(sys.stdout)
     else:
         can_fpo = open(candidate_output_path, "wb")
-        can_fp = subprocess.Popen(
-            shlex.split("pigz -c"), stdin=subprocess.PIPE, stdout=can_fpo, stderr=sys.stderr, bufsize=8388608
-        )
+        can_fp = subprocess_popen(shlex.split("pigz -c"), stdin=PIPE, stdout=can_fpo)
 
     pileup = defaultdict(lambda: {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
     POS = 0
