@@ -12,7 +12,7 @@ from shared.command_options import (
 from shared.interval_tree import bed_tree_from, is_region_in
 from shared.utils import file_path_from, executable_command_string_from
 
-major_contigs = {"chr"+str(a) for a in list(range(0, 23))+["X", "Y"]}.union({str(a) for a in list(range(0, 23))+["X", "Y"]})
+major_contigs = {"chr"+str(a) for a in list(range(1, 23))+["X", "Y"]}.union({str(a) for a in list(range(1, 23))+["X", "Y"]})
 
 
 def Run(args):
