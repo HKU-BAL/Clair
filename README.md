@@ -26,14 +26,13 @@ __[TODO] introduction__
 #### If anaconda3 not installed, checkout https://docs.anaconda.com/anaconda/install/ for the installation guide
 ```bash
 # create and activate the environment named clair
-conda create —name clair python=3.7
+conda create -n clair python=3.7
 conda activate clair
 
 # install pypy and packages on clair environemnt
 conda install -c conda-forge pypy3.6
 pypy3 -m ensurepip
-pypy3 -m pip install blosc
-pypy3 -m pip install intervaltree
+pypy3 -m pip install blosc intervaltree
 
 # install python packages on clair environment
 pip install numpy blosc intervaltree tensorflow==1.13.2 pysam
@@ -92,8 +91,8 @@ CLAIR="[PATH_TO_CLAIR]/clair.py"
 # to run a submodule using python
 python $CLAIR [submodule] [options]
 
-# to run a PyPy-able submodule using pypy
-pypy3 $CLAIR [submodule] [options]
+# to run a PyPy-able submodule using pypy (if `pypy` is the executable command for PyPy)
+pypy $CLAIR [submodule] [options]
 ```
 
 <h2>
@@ -140,7 +139,7 @@ less "$VARIANT_CALLING_OUTPUT_PATH"
 ### Call variants from BAM in parallel (using `callVarBamParallel`)
 ```bash
 # variables
-SAMPLE_NAME="call"
+SAMPLE_NAME="sample"
 OUTPUT_PREFIX="tmp"
 
 # create command.sh for run jobs in parallel
@@ -150,7 +149,8 @@ python $CLAIR callVarBamParallel \
 --bed_fn "$BED_FILE_PATH" \
 --bam_fn "$BAM_FILE_PATH" \
 --pypy "$PYPY" \
---sampleName="$SAMPLE_NAME" > command.sh
+--sampleName="$SAMPLE_NAME" \
+--output_prefix $OUTPUT_PREFIX > command.sh
 
 export CUDA_VISIBLE_DEVICES=""
 cat command.sh | parallel -j4
