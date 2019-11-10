@@ -1,12 +1,16 @@
-import tensorflow as tf
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=FutureWarning)
+    import tensorflow as tf
+    from tensorflow.python.client import device_lib
+    from tensorflow.python.ops import array_ops
+
 import numpy as np
 import re
 import multiprocessing
 from sys import exit
 from os.path import abspath
 from argparse import ArgumentParser
-from tensorflow.python.client import device_lib
-from tensorflow.python.ops import array_ops
 from collections import defaultdict
 
 from clair.task.main import GT21, GENOTYPE, VARIANT_LENGTH_1, VARIANT_LENGTH_2

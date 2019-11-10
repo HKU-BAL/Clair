@@ -1,18 +1,20 @@
 '''
 Tensorflow Implementation of the Scaled ELU function and Dropout
 '''
-
-
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=FutureWarning)
+    import tensorflow as tf
+    from tensorflow.contrib import layers
+    from tensorflow.python.framework import ops
+    from tensorflow.python.framework import tensor_shape
+    from tensorflow.python.framework import tensor_util
+    from tensorflow.python.ops import math_ops
+    from tensorflow.python.ops import random_ops
+    from tensorflow.python.ops import array_ops
+    from tensorflow.contrib.layers.python.layers import utils
 import numbers
-from tensorflow.contrib import layers
-from tensorflow.python.framework import ops
-from tensorflow.python.framework import tensor_shape
-from tensorflow.python.framework import tensor_util
-from tensorflow.python.ops import math_ops
-from tensorflow.python.ops import random_ops
-from tensorflow.python.ops import array_ops
-from tensorflow.contrib.layers.python.layers import utils
-import tensorflow as tf
+
 
 # (1) scale inputs to zero mean and unit variance
 
