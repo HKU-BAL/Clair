@@ -40,7 +40,7 @@ def print_help_messages():
     from textwrap import dedent
     print(dedent("""\
         {0} submodule invocator:
-            Usage: clair.py SubmoduleName [Options of the submodule]
+            Usage: python clair.py [submodule] [options of the submodule]
 
         Available data preparation submodules:\n{1}
 
@@ -64,7 +64,7 @@ def print_help_messages():
 
 
 def main():
-    if len(sys.argv) <= 1:
+    if len(sys.argv) <= 1 or sys.argv[1] == "-h" or sys.argv[1] == "--help":
         print_help_messages()
         sys.exit(0)
 
