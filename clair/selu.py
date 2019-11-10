@@ -3,7 +3,10 @@ Tensorflow Implementation of the Scaled ELU function and Dropout
 '''
 import warnings
 with warnings.catch_warnings():
-    warnings.filterwarnings("ignore",category=FutureWarning)
+    warnings.filterwarnings('ignore', category=DeprecationWarning)
+    warnings.filterwarnings("ignore", category=FutureWarning)
+    from tensorflow.python.util import deprecation
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
     import tensorflow as tf
     from tensorflow.contrib import layers
     from tensorflow.python.framework import ops

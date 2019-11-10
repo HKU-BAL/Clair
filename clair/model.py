@@ -1,6 +1,9 @@
 import warnings
 with warnings.catch_warnings():
-    warnings.filterwarnings("ignore",category=FutureWarning)
+    warnings.filterwarnings('ignore', category=DeprecationWarning)
+    warnings.filterwarnings("ignore", category=FutureWarning)
+    from tensorflow.python.util import deprecation
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
     import tensorflow as tf
     from tensorflow.python.client import device_lib
     from tensorflow.python.ops import array_ops
