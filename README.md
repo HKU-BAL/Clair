@@ -61,7 +61,33 @@ tar -xf trained_models.tar
 cd ../
 ```
 
-### [TODO] Option 2. Bioconda
+### Option 2. Bioconda
+
+```bash
+# make sure channels are added in conda
+conda config --add channels defaults
+conda config --add channels bioconda
+conda config --add channels conda-forge
+
+# create conda environment named "clair-env"
+conda create -n clair-env -c bioconda clair
+conda activate clair-env
+
+# use `clair.py` instead of `python clair.py`, same afterwards
+clair.py --help
+```
+
+The conda environment has the Pypy intepreter installed, but still have missing package(s). The reason why the package is not installed by default is because it is not available in any conda repositories. To install those package(s) for Pypy, after activation, please use the following commands:
+
+```bash
+wget https://bootstrap.pypa.io/get-pip.py
+pypy3 -m ensurepip
+pypy3 -m pip install --no-cache-dir intervaltree blosc
+```
+
+Download the models to a folder and continue the process \
+(reference ```# download pretrained model``` in  [Installation Option 1](#option-1.-conda-for-virtual-environment))
+
 
 ### [TODO] Option 3. Docker
 
@@ -107,7 +133,7 @@ BED_FILE_PATH="[YOUR_BED_FILE]"                          # e.g. chr21.bed
 PYPY="[PYPY_BIN_PATH]"                                   # e.g. pypy
 ```
 #### Note
-* For `PYPY` variable, if installed using installation option 1, use `PYPY="pypy3"`
+* For `PYPY` variable, if installed using installation option 1 or 2, use `PYPY="pypy3"`
 * For `MODEL` variable, no need to type anything after `model`<br>(if you are using pretrained model with 3 files named _model.data-00000-of-00001_, _model.index_, _model.meta_)
 
 <h2>
