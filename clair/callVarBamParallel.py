@@ -162,7 +162,7 @@ def main():
     parser.add_argument('--samtools', type=str, default="samtools",
                         help="Path to the 'samtools', default: %(default)s")
 
-    parser.add_argument('--pypy', type=str, default="pypy",
+    parser.add_argument('--pypy', type=str, default="pypy3",
                         help="Path to the 'pypy', default: %(default)s")
 
     parser.add_argument('--delay', type=int, default=10,

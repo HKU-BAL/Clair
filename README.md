@@ -86,7 +86,7 @@ pypy3 -m pip install --no-cache-dir intervaltree blosc
 ```
 
 Download the models to a folder and continue the process \
-(reference ```# download pretrained model``` in  [Installation Option 1](#option-1.-conda-for-virtual-environment))
+(reference ```# download pretrained model``` in  [Installation Option 1](#option-1-conda-for-virtual-environment))
 
 
 ### [TODO] Option 3. Docker
@@ -117,8 +117,8 @@ CLAIR="[PATH_TO_CLAIR]/clair.py"
 # to run a submodule using python
 python $CLAIR [submodule] [options]
 
-# to run a PyPy-able submodule using pypy (if `pypy` is the executable command for PyPy)
-pypy $CLAIR [submodule] [options]
+# to run a PyPy-able submodule using pypy (if `pypy3` is the executable command for PyPy)
+pypy3 $CLAIR [submodule] [options]
 ```
 
 <h2>
@@ -130,7 +130,7 @@ MODEL="[MODEL_PATH]"                                     # e.g. [PATH_TO_CLAIR]/
 BAM_FILE_PATH="[YOUR_BAM_FILE]"                          # e.g. chr21.bam
 REFERENCE_FASTA_FILE_PATH="[YOUR_REFERENCE_FASTA_FILE]"  # e.g. chr21.fa
 BED_FILE_PATH="[YOUR_BED_FILE]"                          # e.g. chr21.bed
-PYPY="[PYPY_BIN_PATH]"                                   # e.g. pypy
+PYPY="[PYPY_BIN_PATH]"                                   # e.g. pypy3
 ```
 #### Note
 * For `PYPY` variable, if installed using installation option 1 or 2, use `PYPY="pypy3"`
@@ -175,7 +175,7 @@ python $CLAIR callVarBamParallel \
 --bed_fn "$BED_FILE_PATH" \
 --bam_fn "$BAM_FILE_PATH" \
 --pypy "$PYPY" \
---sampleName="$SAMPLE_NAME" \
+--sampleName "$SAMPLE_NAME" \
 --output_prefix $OUTPUT_PREFIX > command.sh
 
 export CUDA_VISIBLE_DEVICES=""
@@ -202,7 +202,7 @@ vcfcat tmp*.vcf | vcfstreamsort | bgziptabix snp_and_indel.vcf.gz
 There are two separated folders storing different submodules for different purposes. \
 __`clair/`__ is for variant calling and model training submodules, and __`dataPrepScripts`__ is for dataset building submodules.
 
-*For the submodule lists below, you can also run the program with `-h or --help` option for arguments details.*
+*For the submodule lists below, you can also run the program with `-h` or `--help` option for arguments details.*
 
 `clair/` | Note: submodules under this folder is `pypy` incompatiable, please run in `python`
 ---: | ---
@@ -262,15 +262,6 @@ cd pypy3.6-7.2.0-linux_x86_64-portable/bin
 ./pypy -m ensurepip
 ./pip install -U pip wheel intervaltree
 # Use pypy as an inplace substitution of python to run PyPy-able scripts
-```
-
-Alternatively, if you can use apt-get or yum in your system, please install both `pypy` and `pypy-dev` packages. And then install the pip for pypy.
-
-```bash
-sudo apt-get install pypy pypy-dev
-wget https://bootstrap.pypa.io/get-pip.py
-sudo pypy get-pip.py
-sudo pypy -m pip install intervaltree
 ```
 
 To guarantee a good user experience (good speed), pypy must be installed to run `callVarBam` (call variants from BAM), and `callVarBamParallel` that generate parallelizable commands to run `callVarBam`.
