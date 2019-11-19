@@ -36,7 +36,7 @@ pypy3 -m pip install blosc intervaltree
 
 # install python packages on clair environment
 pip install numpy blosc intervaltree tensorflow==1.13.2 pysam
-conda install pigz
+conda install pigz samtools
 
 # clone Clair
 git clone --depth=1 https://github.com/HKU-BAL/Clair.git
@@ -73,7 +73,7 @@ conda config --add channels conda-forge
 conda create -n clair-env -c bioconda clair
 conda activate clair-env
 
-# use `clair.py` instead of `python clair.py`, same afterwards
+# use `clair.py` instead of `python clair.py`, the same afterwards
 clair.py --help
 ```
 
