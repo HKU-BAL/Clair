@@ -20,7 +20,7 @@ from clair.task.gt21 import (
 )
 from clair.task.genotype import Genotype, genotype_string_from, genotype_enum_from, genotype_enum_for_task
 from clair.task.variant_length import VariantLength
-from shared.utils import IUPAC_base_to_num_dict as BASE2NUM
+from shared.utils import IUPAC_base_to_num_dict as BASE2NUM, IUPAC_base_to_ACGT_base_dict as BASE2ACGT
 import shared.param as param
 
 
@@ -671,6 +671,7 @@ def output_from(
         output_utilities.insertion_bases_using_pysam_using,
     )
 
+    reference_base_ACGT = BASE2ACGT[reference_sequence[tensor_position_center]]
     (
         homo_Ref_probability,
         homo_SNP_probabilities,
@@ -687,7 +688,7 @@ def output_from(
         genotype_probabilities,
         variant_length_probabilities_1,
         variant_length_probabilities_2,
-        reference_base=reference_sequence[tensor_position_center],
+        reference_base=reference_base_ACGT,
     )
 
     reference_base, alternate_base = None, None
@@ -709,7 +710,7 @@ def output_from(
         if is_reference:
             return (
                 (True, False, False, False, False, False, False, False, False, False),
-                (reference_sequence[tensor_position_center], reference_sequence[tensor_position_center])
+                (reference_base_ACGT, reference_base_ACGT)
             )
 
         is_homo_SNP = maximum_probability in homo_SNP_probabilities
@@ -976,7 +977,10 @@ def batch_output(mini_batch, batch_Y, output_config, output_utilities):
             output_utilities,
         )
 
-        if not output_config.is_debug and not output_config.is_show_reference and is_reference:
+        if not output_config.is_debug and (
+            (not output_config.is_show_reference and is_reference) or
+            (not is_reference and reference_base == alternate_base)
+        ):
             continue
 
         if reference_base is None or alternate_base is None:
