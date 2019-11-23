@@ -1,6 +1,6 @@
 # Clair - Yet another deep neural network based variant caller
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-Contact: Ruibang Luo
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0) <br>
+Contact: Ruibang Luo <br>
 Email: rbluo@cs.hku.hk
 
 ## Introduction
