@@ -44,7 +44,7 @@ def check_return_code(signum, frame):
     if c.create_tensor.returncode != None and c.create_tensor.returncode != 0:
         c.extract_variant_candidate.kill()
         c.call_variant.kill()
-        sys.exit("CreateTensors.py exited with exceptions. Exiting...")
+        sys.exit("CreateTensor.py exited with exceptions. Exiting...")
 
     if c.call_variant.returncode != None and c.call_variant.returncode != 0:
         c.extract_variant_candidate.kill()
