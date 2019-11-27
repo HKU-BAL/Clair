@@ -233,9 +233,9 @@ Please download models from [here](http://www.bio8.cs.hku.hk/clair_models/) or c
 
 Folder | Tech | Sample used | Aligner | Download |
 --- | :---: | :---: | :---: | :---: |
-illumina | Illumina | HG001,2,3,4,5 | Novoalign | [Download](http://www.bio8.cs.hku.hk/clair_models/illumina/trained_models.tar)
-pacbio/ccs | PacBio CCS | HG001,5 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/pacbio/ccs/trained_models.tar)
-ont | ONT R9.4.1 | HG001,2 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/ont/trained_models.tar)
+illumina | Illumina | HG001,2,3,4,5 | Novoalign | [Download](http://www.bio8.cs.hku.hk/clair_models/illumina/12345.tar)
+pacbio/ccs | PacBio CCS | HG001,5 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/pacbio/ccs/15.tar)
+ont | ONT R9.4.1 | HG001,2 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/ont/12.tar)
 
 ---
 
