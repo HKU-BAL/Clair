@@ -33,9 +33,10 @@ pypy3 -m ensurepip
 pypy3 -m pip install blosc intervaltree
 
 # install python packages on clair environment
-pip install numpy blosc intervaltree tensorflow==1.13.2 pysam
-conda install pigz
-conda install -c bioconda samtools
+pip install numpy blosc intervaltree tensorflow==1.13.2 pysam matplotlib
+conda install -c anaconda pigz
+conda install -c conda-forge parallel zstd
+conda install -c bioconda samtools vcflib
 
 # clone Clair
 git clone --depth=1 https://github.com/HKU-BAL/Clair.git
