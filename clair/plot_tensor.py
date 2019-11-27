@@ -1,19 +1,14 @@
-import matplotlib.pyplot as plt
 import sys
 import os
-import argparse
-import math
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
+from matplotlib import pyplot as plt
+from argparse import ArgumentParser
 
 from clair.utils import setup_environment
 
-def Prepare(args):
-    setup_environment()
-
-
-def PlotTensor(ofn, XArray):
+def plot_tensor(ofn, XArray):
     plot = plt.figure(figsize=(15, 8))
 
     plt.subplot(4, 1, 1)
@@ -44,7 +39,7 @@ def PlotTensor(ofn, XArray):
     plt.close(plot)
 
 
-def CreatePNGs(args):
+def create_png(args):
     f = open(args.array_fn, 'r')
     array = f.read()
     f.close()
@@ -63,7 +58,11 @@ def CreatePNGs(args):
     # for i in range(len(splitted_array)):
     #     splitted_array[i] = int(splitted_array[i])
 
-    XArray = np.array(splitted_array).reshape((-1, 33, 8, 4))
+    XArray = np.array(splitted_array, dtype=np.float32).reshape((-1, 33, 8, 4))
+    XArray[0, :, :, 1] -= XArray[0, :, :, 0]
+    XArray[0, :, :, 2] -= XArray[0, :, :, 0]
+    XArray[0, :, :, 3] -= XArray[0, :, :, 0]
+
     _YArray = np.zeros((1, 16))
     varName = args.name
     print("Plotting %s..." % (varName), file=sys.stderr)
@@ -73,11 +72,11 @@ def CreatePNGs(args):
         os.makedirs(varName)
 
     # Plot tensors
-    PlotTensor(varName+"/tensor.png", XArray)
+    plot_tensor(varName+"/tensor.png", XArray)
 
 
 def ParseArgs():
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         description="Visualize tensors and hidden layers in PNG")
 
     parser.add_argument('--array_fn', type=str, default="vartensors",
@@ -97,8 +96,8 @@ def ParseArgs():
 
 def main():
     args = ParseArgs()
-    Prepare(args)
-    CreatePNGs(args)
+    setup_environment()
+    create_png(args)
 
 
 if __name__ == "__main__":
