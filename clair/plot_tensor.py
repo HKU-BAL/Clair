@@ -11,28 +11,32 @@ from clair.utils import setup_environment
 def plot_tensor(ofn, XArray):
     plot = plt.figure(figsize=(15, 8))
 
+    plot_min = -30
+    plot_max = 30
+    plot_arr = ["A+", "C+", "G+", "T+", "A-", "C-", "G-", "T-"]
+
     plt.subplot(4, 1, 1)
     plt.xticks(np.arange(0, 33, 1))
-    plt.yticks(np.arange(0, 8, 1), ['A', 'C', 'G', 'T', 'a', 'c', 'g', 't'])
-    plt.imshow(XArray[0, :, :, 0].transpose(), vmin=0, vmax=50, interpolation="nearest", cmap=plt.cm.hot)
+    plt.yticks(np.arange(0, 8, 1), plot_arr)
+    plt.imshow(XArray[0, :, :, 0].transpose(), vmin=0, vmax=plot_max, interpolation="nearest", cmap=plt.cm.hot)
     plt.colorbar()
 
     plt.subplot(4, 1, 2)
     plt.xticks(np.arange(0, 33, 1))
-    plt.yticks(np.arange(0, 8, 1), ['A', 'C', 'G', 'T', 'a', 'c', 'g', 't'])
-    plt.imshow(XArray[0, :, :, 1].transpose(), vmin=-50, vmax=50, interpolation="nearest", cmap=plt.cm.bwr)
+    plt.yticks(np.arange(0, 8, 1), plot_arr)
+    plt.imshow(XArray[0, :, :, 1].transpose(), vmin=plot_min, vmax=plot_max, interpolation="nearest", cmap=plt.cm.bwr)
     plt.colorbar()
 
     plt.subplot(4, 1, 3)
     plt.xticks(np.arange(0, 33, 1))
-    plt.yticks(np.arange(0, 8, 1), ['A', 'C', 'G', 'T', 'a', 'c', 'g', 't'])
-    plt.imshow(XArray[0, :, :, 2].transpose(), vmin=-50, vmax=50, interpolation="nearest", cmap=plt.cm.bwr)
+    plt.yticks(np.arange(0, 8, 1), plot_arr)
+    plt.imshow(XArray[0, :, :, 2].transpose(), vmin=plot_min, vmax=plot_max, interpolation="nearest", cmap=plt.cm.bwr)
     plt.colorbar()
 
     plt.subplot(4, 1, 4)
     plt.xticks(np.arange(0, 33, 1))
-    plt.yticks(np.arange(0, 8, 1), ['A', 'C', 'G', 'T', 'a', 'c', 'g', 't'])
-    plt.imshow(XArray[0, :, :, 3].transpose(), vmin=-50, vmax=50, interpolation="nearest", cmap=plt.cm.bwr)
+    plt.yticks(np.arange(0, 8, 1), plot_arr)
+    plt.imshow(XArray[0, :, :, 3].transpose(), vmin=plot_min, vmax=plot_max, interpolation="nearest", cmap=plt.cm.bwr)
     plt.colorbar()
 
     plot.savefig(ofn, dpi=300, transparent=True, bbox_inches='tight')
