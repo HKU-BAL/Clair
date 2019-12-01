@@ -14,7 +14,7 @@ Single Molecule Sequencing technologies have emerged in recent years and revolut
 - [Submodule Descriptions](#submodule-descriptions)
 - [Download Pretrained Models](#pretrained-models)
 - [Advanced Guides](#advanced-guides)
-- [[TODO] Model Training](#todo-model-training)
+- [Model Training](docs/TRAIN.md)
 
 ---
 
@@ -80,7 +80,6 @@ clair.py --help
 The conda environment has the Pypy intepreter installed, but two Pypy libraries `intervaltree` and `blosc` are still missing. The reason why the two packages are not installed by default is because they are not yet available in any conda repositories. To install the two libraries for Pypy, after activating the conda environment, please run the follow commands:
 
 ```bash
-wget https://bootstrap.pypa.io/get-pip.py
 pypy3 -m ensurepip
 pypy3 -m pip install --no-cache-dir intervaltree blosc
 ```
@@ -184,7 +183,7 @@ export CUDA_VISIBLE_DEVICES=""
 cat command.sh | parallel -j4
 
 # concatenate vcf files and sort the variants called
-vcfcat var*.vcf | vcfstreamsort | bgziptabix snp_and_indel.vcf.gz
+vcfcat "${OUTPUT_PREFIX}*.vcf" | vcfstreamsort | bgziptabix snp_and_indel.vcf.gz
 ```
 
 #### Note
@@ -268,8 +267,3 @@ To guarantee a good user experience (good speed), pypy must be installed to run 
 Tensorflow is optimized using Cython thus not compatible with `pypy3`. For the list of scripts compatible to `pypy3`, please refer to the [Submodule Descriptions](#submodule-descriptions).
 
 *Pypy is an awesome Python JIT intepreter, you can donate to [the project](https://pypy.org).*
-
-
----
-
-## [TODO] Model Training
