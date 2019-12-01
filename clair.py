@@ -25,6 +25,7 @@ data_prep_scripts_folder = [
     "PairWithNonVariants",
     "Tensor2Bin",
     "CombineBins",
+    "Bin2To3",
 ]
 
 

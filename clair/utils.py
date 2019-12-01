@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import gc
 import shlex
@@ -251,8 +253,8 @@ def decompress_array(
             )
             return (
                 np.concatenate(data_rows[:])[0:no_of_data_rows_to_retrieve],
-                next_first_blosc_block_data_index,
-                next_blosc_start_index
+                next_first_blosc_block_data_index if next_blosc_start_index < no_of_blosc_blocks else -1,
+                next_blosc_start_index if next_blosc_start_index < no_of_blosc_blocks else -1
             )
 
     if no_of_data_rows <= 0:
