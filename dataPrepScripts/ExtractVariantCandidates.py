@@ -31,7 +31,7 @@ def variants_map_from(variant_file_path):
         return {}
 
     variants_map = {}
-    f = subprocess_popen(shlex.split("pigz -fdc %s" % (variant_file_path)))
+    f = subprocess_popen(shlex.split("gzip -fdc %s" % (variant_file_path)))
 
     while True:
         row = f.stdout.readline()
@@ -242,7 +242,7 @@ def make_candidates(args):
         can_fp = CandidateStdout(sys.stdout)
     else:
         can_fpo = open(candidate_output_path, "wb")
-        can_fp = subprocess_popen(shlex.split("pigz -c"), stdin=PIPE, stdout=can_fpo)
+        can_fp = subprocess_popen(shlex.split("gzip -c"), stdin=PIPE, stdout=can_fpo)
 
     pileup = defaultdict(lambda: {"A": 0, "C": 0, "G": 0, "T": 0, "I": 0, "D": 0, "N": 0})
     POS = 0

@@ -185,7 +185,7 @@ parallel --joblog ./create_tensor_pair.log -j${THREADS} \
 # first round shuffle
 ls tensor_pair/*/tensor_pair* | \
 parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS} \
---line-buffer --shuf --verbose --compress pigz -dc ::: | \
+--line-buffer --shuf --verbose --compress gzip -dc ::: | \
 parallel --joblog ./round_robin_cat_round_1.log -j${THREADS} \
 --line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
 split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
@@ -194,7 +194,7 @@ split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
 # second round shuffle
 ls ${SHUFFLED_TENSORS_FILE_PATH}/round1_* | \
 parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} \
---line-buffer --shuf --verbose --compress pigz -dc ::: | \
+--line-buffer --shuf --verbose --compress gzip -dc ::: | \
 parallel --joblog ./round_robin_cat.log -j${THREADS} \
 --line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
 split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
@@ -358,7 +358,7 @@ do
   SAMPLE_DIR="${VARIANT_FOLDER_PATH}/${SAMPLE_NAME}"
   cd ${SAMPLE_DIR}
 
-  pigz -dc all_var | \
+  gzip -dc all_var | \
   awk -v pre="${PREFIX}" '{print pre $0}' | \
   pigz -c > all_var_prefixed
 done
@@ -388,7 +388,7 @@ do
     do
       TENSOR_PAIR_FILE_NAME="${SAMPLE_DIR}/${DEPTH}/tensor_pair_${SAMPLE_SOURCE_CHR[i]}"
 
-      pigz -dc ${TENSOR_PAIR_FILE_NAME} | \
+      gzip -dc ${TENSOR_PAIR_FILE_NAME} | \
       awk -v pre="${PREFIX}" '{print pre $0}' | \
       pigz -c > ${TENSOR_PAIR_FILE_NAME}_prefixed
     done
@@ -403,7 +403,7 @@ cd ${TARGET_DATASET_FOLDER_PATH}
 # first round shuffle
 ls tensor_pair/*/*/tensor_pair*prefixed | \
 parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS} \
---line-buffer --shuf --verbose --compress pigz -dc ::: | \
+--line-buffer --shuf --verbose --compress gzip -dc ::: | \
 parallel --joblog ./round_robin_cat_round_1.log -j${THREADS} \
 --line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
 split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
@@ -412,7 +412,7 @@ split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
 # second round shuffle
 ls ${SHUFFLED_TENSORS_FILE_PATH}/round1_* | \
 parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} \
---line-buffer --shuf --verbose --compress pigz -dc ::: | \
+--line-buffer --shuf --verbose --compress gzip -dc ::: | \
 parallel --joblog ./round_robin_cat.log -j${THREADS} \
 --line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
 split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \

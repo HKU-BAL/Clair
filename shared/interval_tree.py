@@ -13,7 +13,7 @@ def bed_tree_from(bed_file_path):
     if bed_file_path is None:
         return tree
 
-    unzip_process = subprocess_popen(shlex.split("pigz -fdc %s" % (bed_file_path)))
+    unzip_process = subprocess_popen(shlex.split("gzip -fdc %s" % (bed_file_path)))
     while True:
         row = unzip_process.stdout.readline()
         is_finish_reading_output = row == '' and unzip_process.poll() is not None
