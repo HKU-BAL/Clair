@@ -179,7 +179,7 @@ cd "$VARIANT_CALLING_OUTPUT_PATH"
 * You may consider using the `--pysam_for_all_indel_bases` option for more accurate results. On Illumina data and PacBio CCS data, the option requires 20% to 50% much running time. On ONT data, Clair can run two times slower, while the improvement in accuracy is not significant.
 * About seting an appropriate allele frequency cutoff, please refer to [About Setting the Alternative Allele Frequency Cutoff](#about-setting-the-alternative-allele-frequency-cutoff)
 
-### Call whole-genome variants from BAM in parallel (using `callVarBamParallel`)
+### Call whole-genome variants in parallel (using `callVarBamParallel`)
 ```bash
 # variables
 SAMPLE_NAME="NA12878"
