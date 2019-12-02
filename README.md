@@ -124,57 +124,75 @@ pypy3 $CLAIR [submodule] [options]
 ### Setup variables for variant calling commands afterwards
 
 ```bash
-CLAIR="[PATH_TO_CLAIR]/clair.py"                         # e.g. ./clair.py
-MODEL="[MODEL_PATH]"                                     # e.g. [PATH_TO_CLAIR]/ont/model
+CLAIR="[PATH_TO_CLAIR]/clair.py"                         # e.g. clair.py
+MODEL="[MODEL_PATH]"                                     # e.g. [PATH_TO_CLAIR_MODEL]/ont/model
 BAM_FILE_PATH="[YOUR_BAM_FILE]"                          # e.g. chr21.bam
 REFERENCE_FASTA_FILE_PATH="[YOUR_REFERENCE_FASTA_FILE]"  # e.g. chr21.fa
-BED_FILE_PATH="[YOUR_BED_FILE]"                          # e.g. chr21.bed
-PYPY="[PYPY_BIN_PATH]"                                   # e.g. pypy3
+KNOWN_VARIANTS_VCF="[YOUR_VCF_FILE]"                     # e.g. chr21.vcf
 ```
 
 #### Note
-* For the `PYPY` variable, if installed using installation option 1 or 2, use `PYPY="pypy3"`
 * Each model has three files `model.data-00000-of-00001`, `model.index`, `model.meta`. For the `MODEL` variable, please use the prefix `model`
 
-### Call variants at known variant sites (using `callVarBam`)
+### Call variants at known variant sites or in a chromosome  (using `callVarBam`)
 
+#### Call variants in a chromosome
 ```bash
 # variables
-VARIANT_CALLING_OUTPUT_PATH="[YOUR_OUTPUT_PATH]"         # e.g. chr21.vcf (please make sure the directory exists)
+VARIANT_CALLING_OUTPUT_PATH="[YOUR_OUTPUT_PATH]"         # e.g. calls/chr21.vcf (please make sure the directory exists)
 CONTIG_NAME="[CONTIG_NAME_FOR_VARIANT_CALLING]"          # e.g. chr21
+SAMPLE_NAME="[SAMPLE_NAME]"                              # e.g. HG001
 
 python $CLAIR callVarBam \
 --chkpnt_fn "$MODEL" \
 --ref_fn "$REFERENCE_FASTA_FILE_PATH" \
---bed_fn "$BED_FILE_PATH" \
 --bam_fn "$BAM_FILE_PATH" \
---call_fn "$VARIANT_CALLING_OUTPUT_PATH" \
---pypy "$PYPY" \
---ctgName "$CONTIG_NAME"
+--ctgName "$CONTIG_NAME" \
+--sampleName "$SAMPLE_NAME" \
+--call_fn "$VARIANT_CALLING_OUTPUT_PATH"
 
 cd "$VARIANT_CALLING_OUTPUT_PATH"
 ```
 
-#### Note
-* In practice, we suggest you to use `callVarBamParallel` to generate multiple commands that invokes `callVarBam` on smaller chromosome chucks, instead of directly using `callVarBam` on a whole chromosome.
-* You may consider using the `--pysam_for_all_indel_bases` option for more accurate results. On Illumina data and PacBio CCS data, the option requires 20% to 50% much running time. On ONT data, Clair can run two times slower, while the improvement in accuracy is not significant.
-* About seeting an appropriate allele frequency cutoff, please refer to [About Setting the Alternative Allele Frequency Cutoff](#about-setting-the-alternative-allele-frequency-cutoff)
+#### Call variants at known variant sites in a chromosome
+```bash
+# variables
+VARIANT_CALLING_OUTPUT_PATH="[YOUR_OUTPUT_PATH]"         # e.g. calls/chr21.vcf (please make sure the directory exists)
+CONTIG_NAME="[CONTIG_NAME_FOR_VARIANT_CALLING]"          # e.g. chr21
+SAMPLE_NAME="[SAMPLE_NAME]"                              # e.g. HG001
+KNOWN_VARIANTS_VCF="[YOUR_VCF_PATH]"                     # e.g. chr21_candidates.vcf
 
-### Call variants from BAM in parallel (using `callVarBamParallel`)
+python $CLAIR callVarBam \
+--chkpnt_fn "$MODEL" \
+--ref_fn "$REFERENCE_FASTA_FILE_PATH" \
+--bam_fn "$BAM_FILE_PATH" \
+--ctgName "$CONTIG_NAME" \
+--sampleName "$SAMPLE_NAME" \
+--vcf_fn "$KNOWN_VARIANTS_VCF" \
+--call_fn "$VARIANT_CALLING_OUTPUT_PATH" \
+
+cd "$VARIANT_CALLING_OUTPUT_PATH"
+```
+
+#### Notes
+* Use `callVarBam` to either call variant in a single chromosome. For whole genome variant calling, please use `callVarBamParallel` to generate multiple commands that invokes `callVarBam` on smaller chromosome chucks.
+* You may consider using the `--pysam_for_all_indel_bases` option for more accurate results. On Illumina data and PacBio CCS data, the option requires 20% to 50% much running time. On ONT data, Clair can run two times slower, while the improvement in accuracy is not significant.
+* About seting an appropriate allele frequency cutoff, please refer to [About Setting the Alternative Allele Frequency Cutoff](#about-setting-the-alternative-allele-frequency-cutoff)
+
+### Call whole-genome variants from BAM in parallel (using `callVarBamParallel`)
 ```bash
 # variables
 SAMPLE_NAME="NA12878"
-OUTPUT_PREFIX="var"
+OUTPUT_PREFIX="call/var"                        # please make sure the call/ directory exists
 
 # create command.sh for run jobs in parallel
 python $CLAIR callVarBamParallel \
 --chkpnt_fn "$MODEL" \
 --ref_fn "$REFERENCE_FASTA_FILE_PATH" \
---bed_fn "$BED_FILE_PATH" \
 --bam_fn "$BAM_FILE_PATH" \
---pypy "$PYPY" \
+--threshold 0.2 \
 --sampleName "$SAMPLE_NAME" \
---output_prefix $OUTPUT_PREFIX > command.sh
+--output_prefix "$OUTPUT_PREFIX" > command.sh
 
 # disable GPU if you have one installed
 export CUDA_VISIBLE_DEVICES=""
@@ -183,17 +201,17 @@ export CUDA_VISIBLE_DEVICES=""
 cat command.sh | parallel -j4
 
 # concatenate vcf files and sort the variants called
-vcfcat "${OUTPUT_PREFIX}*.vcf" | vcfstreamsort | bgziptabix snp_and_indel.vcf.gz
+`vcfcat ${OUTPUT_PREFIX}*.vcf | vcfstreamsort | bgziptabix snp_and_indel.vcf.gz`
 ```
 
 #### Note
 * `callVarBamParallel` submodule generates `callVarBam` commands that can be run in parallel
 * `parallel -j4` will run four concurrencies in parallel using GNU parallel. We suggest using half the number of available CPU cores (not threads).
 * If [GNU parallel](https://www.gnu.org/software/parallel/) is not installed, please try ```awk '{print "\""$0"\""}' commands.sh | xargs -P4 -L1 sh -c```
-* If no BED file was provided, Clair will call variants on the whole genome.
-* `vcfcat`, `vcfstreamsort` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib).
+* callVarBamParallel will generate commonds for chr{1..22},X,Y, to call variants on all chromosomes, please use option `--includingAllContigs`.
+* If you are going to call on non-human BAM file (e.g. bacteria), please use `--includingAllContigs` option to include all contigs
 * `CUDA_VISIBLE_DEVICES=""` makes GPUs invisible to Clair so it will use CPU for variant calling. Please notice that unless you want to run `commands.sh` in serial, you cannot use GPU because one running copy of Clair will occupy all available memory of a GPU. While the bottleneck of `callVarBam` is at the `CreateTensor` script, which runs on CPU, the effect of GPU accelerate is insignificant (roughly about 15% faster). But if you have multiple GPU cards in your system, and you want to utilize them in variant calling, you may want split the `commands.sh` in to parts, and run the parts by firstly `export CUDA_VISIBLE_DEVICES="$i"`, where `$i` is an integer from 0 identifying the ID of the GPU to be used.
-* If you are going to call on non-human BAM file (e.g. bacteria), add `--includingAllContigs` option to call on contigs besides chromosome 1-22/X/Y/M/MT
+* `vcfcat`, `vcfstreamsort` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default using option 2 (conda).
 * Please also check the notes in the above sections for other considerations.
 
 ---
