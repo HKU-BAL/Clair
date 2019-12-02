@@ -1,33 +1,45 @@
-# Training
+# Train a model for Clair
 
-Train a new model is separated into three main parts:
+This document shows how to train a deep learning model for Clair.
 
-- [Preprocessing: Subsample one sample](#preprocessing-subsample-one-sample)
-- [Build bin for training](#build-bin-for-training)
-  - [Option 1. single sample](#option-1-single-sample)
-  - [Option 2. multiple samples](#option-2-multiple-samples)
-- [Train a new model](#train-a-new-model)
+## Prerequisitions
+- A powerful GPU
+ - RTX Titan (tested)
+ - GTX 2080 Ti (tested)
+ - GTX 1080 Ti (tested)
+ - Any Nvidia card with 11GB memory or above will suffice, but speeds differ
+- Clair installed
+- GNU Parallel installed
+
+## Catalogue
+- [I. Preprocessing: Downsampling a sample](#i-preprocessing-downsampling-a-sample)
+- [II. Build a compressed binary for training](#ii-build-a-compressed-binary-for-training)
+ - [Single individual](#single-individual)
+ - [Multiple individuals](#multiple-individuals)
+- [III. Model training](#iii-model-training)
 
 ---
 
-## Preprocessing: Subsample one sample
+## I. Preprocessing: Downsampling a sample
 
-If targeted to build a training dataset with multiple subsamples, before the bin building process, the original BAM file should subsampled into multiple BAM files first.
+To build a training dataset with multiple coverages, we need to create multiple downsampled BAM files from the original BAM file.
 
 ```bash
-# make sure the provided bam file is sorted and indexed (e.g. hg001.bam)
+# please make sure the provided bam file is sorted and samtools indexed (e.g. hg001.bam)
 BAM_FILE_PATH="[YOUR_BAM_FILE_PATH]"
 
 # make sure the folder exists
 SUBSAMPLED_BAMS_FOLDER_PATH="[SUBSAMPLED_BAMS_FOLDER_PATH]"
 
-# FRAC values for samtools view -s INT.FRAC
-# check samtools view -s documentation for further information
+# FRAC values for 'samtools view -s INT.FRAC'
+# please refer to samtools' documentation for further information
+# in the exampled we set 80%, 40%, 20% and 10% of the full coverage
 DEPTHS=(800 400 200 100)
 
+# set to the number of CPU cores you have
 THREADS=24
 
-# subsample
+# downsampling
 for i in "${!DEPTHS[@]}"
 do
   samtools view -@ ${THREADS} -s ${i}.${DEPTHS[i]} -b ${BAM_FILE_PATH} \
@@ -35,24 +47,25 @@ do
   samtools index -@ ${THREADS} ${SUBSAMPLED_BAMS_FOLDER_PATH}/0.${DEPTHS[i]}.bam
 done
 
-# add symbolic link named 1.000.bam and 1.000.bam.bai and use it later
+# add symbolic links for the orginal (full coverage) BAM
 ln -s ${BAM_FILE_PATH} ${SUBSAMPLED_BAMS_FOLDER_PATH}/1.000.bam
 ln -s ${BAM_FILE_PATH}.bai ${SUBSAMPLED_BAMS_FOLDER_PATH}/1.000.bam.bai
 ```
 
-## Build bin for training
+## II. Build a compressed binary for training
 
-### Option 1. Single Sample
+### Caveats
+> - The whole procedure was break into blocks for better readability and error-tracing.
+> - For each `parallel` command ran with the `--joblog` option, we can check the `Exitval` column from the job log output. If the column contains a non-zero value, it means error occured, please try to rerun the block again.
+> - We suggest to use absolute path everywhere.
 
-This option provides a building bin script for one sample. (Included both single sample without subsample or single sample with multiple subsamples) \
-> - Intended to separate the script into many script-block for better understanding the whole process to generate a training dataset.
-Moreover, It is easier to trace errors if run the script block-by-block.
-> - for each `parallel` command with `--joblog` option, we can check `Exitval` column from the job log output. If the column contains non-zero value, you may try to re-run the script-block again.
-> - Absolute path is always preferred when using this script.
+### Single indivdiual
+
+This section shows how to build a compressed binary for one individual with or without multiple coverages.
 
 #### 1. Setup variables for building bin
 ```bash
-CLAIR="[PATH_TO_CLAIR]/clair.py"                               # e.g. ./clair.py
+CLAIR="[PATH_TO_CLAIR]/clair.py"                               # e.g. clair.py
 PYPY="[PYPY_BIN_PATH]"                                         # e.g. pypy3
 
 VCF_FILE_PATH="[YOUR_VCF_FILE_PATH]"                           # e.g. hg001.vcf.gz
@@ -62,23 +75,23 @@ REFERENCE_FILE_PATH="[YOUR_FASTA_FILE_PATH]"                   # e.g. hg001.fast
 # dataset output folder (the directory will be created later)
 DATASET_FOLDER_PATH="[OUTPUT_DATASET_FOLDER_PATH]"
 
-# subsamples array, (1.000) for single sample without subsample
+# array of coverages, (1.000) if downsampling was not used
 DEPTHS=(1.000 0.800)
 
-# expected to have bams named in DEPTHS array (e.g. 1.000.bam 0.800.bam)
-# check `Preprocessing: Subsample one sample` section for further information
+# where to find the BAMs prefixed as the elements in the DEPTHS array (e.g. 1.000.bam 0.800.bam)
+# please refer to the `Preprocessing: Downsampling a sample` section
 SUBSAMPLED_BAMS_FOLDER_PATH="[SUBSAMPLED_BAMS_FOLDER_PATH]"
 
-# chromosomes prefix ("chr" if chromosome name have "chr"-prefix)
+# chromosome prefix ("chr" if chromosome names have the "chr"-prefix)
 CHR_PREFIX=""
 
-# chromosomes array (no need to include any "chr"-prefix)
+# array of chromosomes (do not include "chr"-prefix)
 CHR=(21 22 X)
 
-# no of threads
+# number of cores to be used
 THREADS=24
 
-# for some memory intensive options, may use this value instead of THREADS
+# for multiple memory intensive steps, this number of cores will be used
 THREADS_LOW=10
 
 DEPTHS_PER_SAMPLE=${#DEPTHS[@]}
@@ -106,7 +119,7 @@ mkdir ${TENSOR_PAIR_FOLDER_PATH}
 mkdir ${SHUFFLED_TENSORS_FOLDER_PATH}
 mkdir ${BINS_FOLDER_PATH}
 
-# create directories for different depths
+# create directories for different coverages
 for j in "${!DEPTHS[@]}"
 do
   cd ${TENSOR_VARIANT_FOLDER_PATH}
@@ -122,7 +135,7 @@ done
 cd ${DATASET_FOLDER_PATH}
 ```
 
-#### 3. Get variant information using `GetTruth` submodule
+#### 3. Get truth variants using the `GetTruth` submodule
 ```bash
 parallel --joblog ./get_truth.log -j${THREADS} \
 "${PYPY} ${CLAIR} GetTruth \
@@ -130,11 +143,11 @@ parallel --joblog ./get_truth.log -j${THREADS} \
 --var_fn ${VARIANT_FOLDER_PATH}/var_{1} \
 --ctgName ${CHR_PREFIX}{1}" ::: ${CHR[@]}
 
-# merge all variants into a single file (named all_var)
+# merge all truth variants into a single file (named all_var)
 cat ${VARIANT_FOLDER_PATH}/var_* > ${VARIANT_FOLDER_PATH}/all_var
 ```
 
-#### 4. Get information from random positions (as candidates) using `ExtractVariantCandidates` submodule
+#### 4. Get random non-variant candidates using the `ExtractVariantCandidates` submodule
 ```bash
 parallel --joblog ./evc.log -j${THREADS} \
 "${PYPY} ${CLAIR} ExtractVariantCandidates \
@@ -145,7 +158,7 @@ parallel --joblog ./evc.log -j${THREADS} \
 --gen4Training" ::: ${CHR[@]}
 ```
 
-#### 5. Create tensors with variant information using `CreateTensor` submodule
+#### 5. Create tensors for truth variants using the `CreateTensor` submodule
 ```bash
 parallel --joblog ./create_tensor_var.log -j${THREADS} \
 "${PYPY} ${CLAIR} CreateTensor \
@@ -157,7 +170,7 @@ parallel --joblog ./create_tensor_var.log -j${THREADS} \
 --ctgName ${CHR_PREFIX}{2}" ::: ${DEPTHS[@]} ::: ${CHR[@]}
 ```
 
-#### 6. Create tensors with candidate infomation using `CreateTensor` submodule
+#### 6. Create tensors for non-variants using the `CreateTensor` submodule
 ```bash
 parallel --joblog ./create_tensor_can.log -j${THREADS} \
 "${PYPY} ${CLAIR} CreateTensor \
@@ -168,9 +181,8 @@ parallel --joblog ./create_tensor_can.log -j${THREADS} \
 --tensor_fn ${TENSOR_CANDIDATE_FOLDER_PATH}/{1}/tensor_can_{2} \
 --ctgName ${CHR_PREFIX}{2}" ::: ${DEPTHS[@]} ::: ${CHR[@]}
 ```
-> - If you have plenty amount of computing resources, run step 5 and 6 in parallel to speed up the process.
 
-#### 7. Create tensor pair using `PairWithNonVariants` submodule
+#### 7. Merge truth variants and non-variants using the `PairWithNonVariants` submodule
 ```bash
 parallel --joblog ./create_tensor_pair.log -j${THREADS} \
 "${PYPY} ${CLAIR} PairWithNonVariants \
@@ -180,18 +192,31 @@ parallel --joblog ./create_tensor_pair.log -j${THREADS} \
 --amp 2" ::: ${DEPTHS[@]} ::: ${CHR[@]}
 ```
 
-#### 8. Shuffle, split and compress shuffled tensors
+#### 8. Shuffle, split and compress the tensors
+
+##### One round shuffling (recommended)
 ```bash
-# first round shuffle
 ls tensor_pair/*/tensor_pair* | \
-parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS} \
+parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} \
+--line-buffer --shuf --verbose --compress gzip -dc ::: | \
+parallel --joblog ./round_robin_cat.log -j${THREADS} \
+--line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
+split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
+--filter='shuf | pigz > $FILE.gz' -d - ${SHUFFLED_TENSORS_FILE_PATH}/split_
+```
+
+##### Two rounds shuffling (paranoid, but used in paper)
+```bash
+# the first round
+ls tensor_pair/*/tensor_pair* | \
+parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS_LOW} \
 --line-buffer --shuf --verbose --compress gzip -dc ::: | \
 parallel --joblog ./round_robin_cat_round_1.log -j${THREADS} \
 --line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
 split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
 --filter='shuf | pigz > $FILE.gz' -d - ${SHUFFLED_TENSORS_FILE_PATH}/round1_
 
-# second round shuffle
+# the second round
 ls ${SHUFFLED_TENSORS_FILE_PATH}/round1_* | \
 parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} \
 --line-buffer --shuf --verbose --compress gzip -dc ::: | \
@@ -200,10 +225,8 @@ parallel --joblog ./round_robin_cat.log -j${THREADS} \
 split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
 --filter='shuf | pigz > $FILE.gz' -d - ${SHUFFLED_TENSORS_FILE_PATH}/split_
 ```
-> - If shuffle is not very important to you, you may consider not to shuffle or shuffle one round only
-> - if have enough memory resources, welcome to increase # of threads for faster shuffling process.
 
-#### 9. Create small bins for each shuffled tensors using `Tensor2Bin` submodule
+#### 9. Create splited binaries using the `Tensor2Bin` submodule
 ```bash
 ls ${SHUFFLED_TENSORS_FOLDER_PATH}/split_* | \
 parallel --joblog ./tensor2Bin.log -j${THREADS_LOW} \
@@ -214,72 +237,73 @@ parallel --joblog ./tensor2Bin.log -j${THREADS_LOW} \
 --allow_duplicate_chr_pos"
 ```
 
-#### 10. Combine small bins into a training dataset using `CombineBins` submodule
+#### 10. Merge splited binaries into a single binary using the `CombineBins` submodule
 ```bash
+cd ${BINS_FOLDER_PATH}
 python ${CLAIR} CombineBins
 ```
 
 ---
 
-### Option 2. multiple samples
+### Multiple individuals
 
-This option provides a script for building a bin with multiple simples. \
-Like Option 1, it is intended to separate the script into many script-block for better understanding the whole process to generate a training dataset.
-Moreover, It is easier to trace errors if run the script block-by-block.
-> - for each `parallel` command with `--joblog` option, we can check `Exitval` column from the job log output. If the column contains non-zero value, you may try to re-run the script-block again.
-> - Absolute path is always preferred when using this script.
-#### 0. For each sample, apply [Option 1](#option-1-single-sample) from step 1 to step 7. <br> Make sure  DATASET_FOLDER_PATH are different for different samples.
+This section shows how to build a binary of multiple individuals (genomes).
 
-#### 1. Setup variables for building bin
+#### 0. For each individual, apply steps 1 to 7 in [Single individual](#single-individual).
+__Please use different `DATASET_FOLDER_PATH` for different samples.__
+
+#### 1. Setup variables
 ```bash
-CLAIR="[PATH_TO_CLAIR]/clair.py"                               # e.g. ./clair.py
+CLAIR="[PATH_TO_CLAIR]/clair.py"                               # e.g. clair.py
 PYPY="[PYPY_BIN_PATH]"                                         # e.g. pypy3
 
-# dataset output folder (the directory will be created later)
+# output folder
 TARGET_DATASET_FOLDER_PATH="[TARGET_DATASET_FOLDER_PATH]"
 
-# one line for one sample
+# one line for each individual
 SOURCE_SAMPLE_NAMES=(
   "hg001"
   "hg002"
 )
-# provide DATASET_FOLDER_PATH(s) in Option 1.
+# provide the DATASET_FOLDER_PATH directories created in `Single individual`.
 SOURCE_DATASET_PATHS=(
   "[DATASET_FOLDER_PATH_FOR_SAMPLE_1]"
   "[DATASET_FOLDER_PATH_FOR_SAMPLE_2]"
 )
-# make sure the prefixes are different for different samples
+# random prefix for each individuals
 SOURCE_SAMPLE_PREFIX=(
   "u"
   "v"
 )
 
-SAMPLE_1_DEPTHS=(1.000)
+# chromosome prefix ("chr" if chromosome names have the "chr"-prefix)
+CHR_PREFIX=""
+
+SAMPLE_1_DEPTHS=(1.000, 0.800)
 SAMPLE_1_CHR=(21 22 X)
 
-SAMPLE_2_DEPTHS=(1.000)
+SAMPLE_2_DEPTHS=(1.000, 0.800)
 SAMPLE_2_CHR=(21 22)
 
 ALL_SAMPLES_SOURCE_DEPTHS=(
   SAMPLE_1_DEPTHS[@]
   SAMPLE_2_DEPTHS[@]
 )
+
 ALL_SAMPLES_SOURCE_CHR=(
   SAMPLE_1_CHR[@]
   SAMPLE_2_CHR[@]
 )
 
-# chromosomes prefix ("chr" if chromosome name have "chr"-prefix)
-CHR_PREFIX=""
 
 NO_OF_SAMPLES=${#ALL_SAMPLES_SOURCE_DEPTHS[@]}
 DEPTHS_PER_SAMPLE=${#SAMPLE_1_DEPTHS[@]}
 ESTIMATED_SPLIT_NO_OF_LINES=$((90000 * $DEPTHS_PER_SAMPLE * $NO_OF_SAMPLES))
 
-# no of threads
+# number of cores to be used
 THREADS=24
 
-# for some memory intensive options, may use this value instead of THREADS
+# for multiple memory intensive steps, this number of cores will be used
 THREADS_LOW=10
 ```
 
@@ -298,7 +322,7 @@ mkdir ${SHUFFLED_TENSORS_FOLDER_PATH}
 mkdir ${BINS_FOLDER_PATH}
 ```
 
-#### 3. Create symbolic links for variant information from different samples
+#### 3. Collect the truth variants from different individuals
 ```bash
 for s in "${!SOURCE_SAMPLE_NAMES[@]}"
 do
@@ -321,7 +345,7 @@ do
 done
 ```
 
-#### 4. Create symbolic links for tensor pair from different samples
+#### 4. Collect the tensors from different individuals
 ```bash
 for s in "${!SOURCE_SAMPLE_NAMES[@]}"
 do
@@ -348,7 +372,7 @@ do
 done
 ```
 
-#### 5. Create variant information with prefix
+#### 5. Add a random prefix to the truth variants of each individual
 ```bash
 for s in "${!SOURCE_SAMPLE_NAMES[@]}"
 do
@@ -368,7 +392,7 @@ cd ${TARGET_DATASET_FOLDER_PATH}
 cat var/*/all_var_prefixed > var/all_var_prefixed
 ```
 
-#### 6. Create tensor_pair with prefix
+#### 6. Add a random prefix to the tensors of each individual
 ```bash
 for s in "${!SOURCE_SAMPLE_NAMES[@]}"
 do
@@ -396,21 +420,11 @@ do
 done
 ```
 
-#### 7. Shuffle, split and compress shuffled tensors
+#### 7. Shuffle, split and compress the prefixed tensors
 ```bash
 cd ${TARGET_DATASET_FOLDER_PATH}
 
-# first round shuffle
 ls tensor_pair/*/*/tensor_pair*prefixed | \
-parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS} \
---line-buffer --shuf --verbose --compress gzip -dc ::: | \
-parallel --joblog ./round_robin_cat_round_1.log -j${THREADS} \
---line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
-split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
---filter='shuf | pigz > $FILE.gz' -d - ${SHUFFLED_TENSORS_FILE_PATH}/round1_
-
-# second round shuffle
-ls ${SHUFFLED_TENSORS_FILE_PATH}/round1_* | \
 parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} \
 --line-buffer --shuf --verbose --compress gzip -dc ::: | \
 parallel --joblog ./round_robin_cat.log -j${THREADS} \
@@ -418,10 +432,8 @@ parallel --joblog ./round_robin_cat.log -j${THREADS} \
 split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
 --filter='shuf | pigz > $FILE.gz' -d - ${SHUFFLED_TENSORS_FILE_PATH}/split_
 ```
-> - If shuffle is not very important to you, you may consider not shuffle or shuffle one round only
-> - If have enough memory resources, welcome to increase # of threads for faster shuffling process.
 
-#### 8. Create small bins for each shuffled tensors using `Tensor2Bin` submodule
+#### 8. Create splited binaries using the `Tensor2Bin` submodule
 ```bash
 ls ${SHUFFLED_TENSORS_FOLDER_PATH}/split_* | \
 parallel --joblog ./tensor2Bin.log -j${THREADS_LOW} "python ${CLAIR} tensor2Bin \
@@ -431,38 +443,38 @@ parallel --joblog ./tensor2Bin.log -j${THREADS_LOW} "python ${CLAIR} tensor2Bin 
 --allow_duplicate_chr_pos"
 ```
 
-#### 9. Combine small bins into a training dataset using `CombineBins` submodule
+#### 9. Merge the splited binaries using the `CombineBins` submodule
 ```bash
+cd ${BINS_FOLDER_PATH}
 python ${CLAIR} CombineBins
 ```
 
 ---
 
-## Train a new model
+## III. Model training
 
-### Setup variables for training commands afterwards
+### Setup variables for the commands afterwards
 ```bash
 CLAIR="[PATH_TO_CLAIR]/clair.py"
 MODEL_NAME=[YOUR_MODEL_NAME]                                 # e.g. "001"
-MODEL_FOLDER_PATH="[YOUR_MODEL_FOLDER_PATH]/${MODEL_NAME}"   # will create this folder later
-TENSOR_FILE_PATH=[YOUR_BIN_FILE_PATH]                        # e.g. ./tensor.bin
+MODEL_FOLDER_PATH="[YOUR_MODEL_FOLDER_PATH]/${MODEL_NAME}" TENSOR_FILE_PATH=[YOUR_BIN_FILE_PATH]                        # e.g. ./tensor.bin
 
 mkdir ${MODEL_FOLDER_PATH}
 
-# set which gpu to run
+# set which gpu to use
 export CUDA_VISIBLE_DEVICES="0"
 ```
 
-### Train using `train` submodule
+### Start training using the `train` submodule (default: three times of learning rate decay)
 ```bash
 python $CLAIR train \
 --bin_fn "$TENSOR_FILE_PATH" \
 --ochk_prefix "${MODEL_FOLDER_PATH}/model"
 ```
 
-### Train using `train_clr` submodule (using Cyclical Learning Rate (CLR))
+### Start training using `train_clr` submodule (use the Cyclical Learning Rate (CLR))
 ```bash
-# CLR modes: "tri"/"tri2"/"exp"
+# CLR modes: "tri", "tri2" or "exp" (we suggest using "tri2")
 CLR_MODE=[CLR_MODE_OPTION]
 
 python $CLAIR train_clr \
@@ -471,10 +483,13 @@ python $CLAIR train_clr \
 --clr_mode "$CLR_MODE" \
 --SGDM
 ```
-> For both `train` and `train_clr`:
-> * Available Optimizers:
->   * `--Adam` (default)
->   * `--SGDM` (Stochastic Gradient Descent with momentum)
-> * Available loss function:
->    * `--focal_loss` (default)
->    * `--cross_entropy`
+
+### Other options
+Applicable to both `train` and `train_clr`:
+
+- Optimizer
+ - `--Adam` (default)
+ - `--SGDM` (Stochastic Gradient Descent with momentum)
+- Loss function
+ - `--focal_loss` (default)
+ - `--cross_entropy`
