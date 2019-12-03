@@ -4,7 +4,7 @@ Contact: Ruibang Luo <br>
 Email: rbluo@cs.hku.hk
 
 ## Introduction
-Single Molecule Sequencing technologies have emerged in recent years and revolutionized structural variant calling and complex genome assembly. However, the lack of a performant small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor of [Clairvoyante](https://github.com/aquaskyline/clairvoyante), for fast and accurate germline small variant calling using Single Molecule Sequencing data. On ONT data, Clair has achieved the best precision, recall, and speed compare to not only Clairvoyante, but also Longshot and Medaka. Through studying the failed variants and benchmarking on intentionally overfitted models, we found Clair is approaching the limit of using pileup data and deep neural network for germline small variant calling. Clair requires only CPU for variant calling.
+Single Molecule Sequencing technologies have emerged in recent years and revolutionized structural variant calling and complex genome assembly. However, the lack of a performant small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor of [Clairvoyante](https://github.com/aquaskyline/clairvoyante), for fast and accurate germline small variant calling using Single Molecule Sequencing data. On ONT data, Clair has achieved the best precision, recall, and speed compare to not only Clairvoyante, but also Longshot and Medaka. Through studying the failed variants and benchmarking on intentionally overfitted models, we found Clair is approaching the limit of using pileup data and deep neural network for germline small variant calling.
 
 ---
 
@@ -307,8 +307,13 @@ Illumina | 0.1 |
 PacBio | 0.2 |
 ONT | 0.2 |
 
+### Variant quality cutoff selection
 
-### Speed up with PyPy
+The variant quality distribution of Clair on ONT data is usually bimodal. The best quality cutoff is usually at the valley between two peaks. The image below shows the quality distribution of the variants in HG002 called using ~50-fold coverage ONT data. The best quality cutoff is 748.
+
+![](docs/QualDist-ONT.png)
+
+### Clair is using PyPy for speedup
 Without a change to the code, using PyPy python interpreter on some tensorflow independent modules such as `ExtractVariantCandidates` and `CreateTensor` gives a 5-10 times speed up. Pypy python interpreter can be installed by apt-get, yum, Homebrew, MacPorts, etc. If you have no root access to your system, the official website of Pypy provides a portable binary distribution for Linux. Beside following the conda installation method in [Installation](#installation), the following is a rundown extracted from Pypy's website (PyPy3.6 v7.2.0 in this case) on how to install the binaries.
 
 ```bash
