@@ -239,7 +239,7 @@ export CUDA_VISIBLE_DEVICES=""
 cat command.sh | parallel -j4
 
 # concatenate vcf files and sort the variants called
-`vcfcat ${OUTPUT_PREFIX}*.vcf | vcfstreamsort | bgziptabix snp_and_indel.vcf.gz`
+`vcfcat ${OUTPUT_PREFIX}*.vcf | vcfsort | bgziptabix snp_and_indel.vcf.gz`
 ```
 
 #### Note
@@ -249,7 +249,7 @@ cat command.sh | parallel -j4
 * callVarBamParallel will generate commonds for chr{1..22},X,Y, to call variants on all chromosomes, please use option `--includingAllContigs`.
 * If you are going to call on non-human BAM file (e.g. bacteria), please use `--includingAllContigs` option to include all contigs
 * `CUDA_VISIBLE_DEVICES=""` makes GPUs invisible to Clair so it will use CPU for variant calling. Please notice that unless you want to run `commands.sh` in serial, you cannot use GPU because one running copy of Clair will occupy all available memory of a GPU. While the bottleneck of `callVarBam` is at the `CreateTensor` script, which runs on CPU, the effect of GPU accelerate is insignificant (roughly about 15% faster). But if you have multiple GPU cards in your system, and you want to utilize them in variant calling, you may want split the `commands.sh` in to parts, and run the parts by firstly `export CUDA_VISIBLE_DEVICES="$i"`, where `$i` is an integer from 0 identifying the ID of the GPU to be used.
-* `vcfcat`, `vcfstreamsort` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default using option 2 (conda).
+* `vcfcat`, `vcfsort` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default using option 2 (conda).
 * Please also check the notes in the above sections for other considerations.
 
 ---
