@@ -304,16 +304,27 @@ The option `--threshold` controls the cutoff in these submodules `callVarBam`, `
 Sequencing Technology | Alt. AF Cutoff |
 :---: |:---:|
 Illumina | 0.1 |
-PacBio | 0.2 |
+PacBio CCS | 0.2 |
 ONT | 0.2 |
 
 ### Variant quality cutoff selection
 
-The variant quality distribution of Clair on ONT data is usually bimodal. The best quality cutoff is usually at the valley between two peaks. The image below shows the quality distribution of the variants in HG002 called using ~50-fold coverage ONT data. The best quality cutoff is 748.
+#### ONT data
+The variant quality distribution of Clair on ONT data is usually bimodal. The best quality cutoff is usually the valley between two peaks plus 50. The image below shows the quality distribution of the variants in HG002 called using ~50-fold coverage ONT data. The best quality cutoff is 748.
 
 ![](docs/QualDist-ONT.png)
 
-### Clair is using PyPy for speedup
+#### PacBio CCS data
+The image below shows the quality distribution of the variants in HG005 called using ~30-fold coverage PacBio CCS data. The best quality cutoff is 143.
+
+![](docs/QualDist-PBCCS.png)
+
+#### Illumina data
+The image below shows the quality distribution of the variants in HG002 called using ~60-fold coverage Illumina data. The best quality cutoff is 113.
+
+![](docs/QualDist-ILMN.png)
+
+### Clair uses PyPy for speedup
 Without a change to the code, using PyPy python interpreter on some tensorflow independent modules such as `ExtractVariantCandidates` and `CreateTensor` gives a 5-10 times speed up. Pypy python interpreter can be installed by apt-get, yum, Homebrew, MacPorts, etc. If you have no root access to your system, the official website of Pypy provides a portable binary distribution for Linux. Beside following the conda installation method in [Installation](#installation), the following is a rundown extracted from Pypy's website (PyPy3.6 v7.2.0 in this case) on how to install the binaries.
 
 ```bash
