@@ -73,8 +73,11 @@ conda config --add channels conda-forge
 conda create -n clair-env -c bioconda clair
 conda activate clair-env
 
-# use `clair.py` instead of `python clair.py`, the same afterwards
-clair.py --help
+# store clair.py PATH into $CLAIR variable
+CLAIR=`which clair.py`
+
+# run clair like this afterwards
+python $CLAIR --help
 ```
 
 The conda environment has the Pypy intepreter installed, but two Pypy libraries `intervaltree` and `blosc` are still missing. The reason why the two packages are not installed by default is because they are not yet available in any conda repositories. To install the two libraries for Pypy, after activating the conda environment, please run the follow commands:
@@ -88,7 +91,42 @@ Download the models to a folder and continue the process
 (Please refer to `# download pretrained model` in  [Installation Option 1](#option-1-conda-for-virtual-environment))
 
 
-### [TODO] Option 3. Docker
+### Option 3. Docker
+```bash
+# clone Clair
+git clone --depth=1 https://github.com/HKU-BAL/Clair.git
+cd Clair
+
+# download pretrained model (for ONT)
+mkdir ont && cd ont
+wget http://www.bio8.cs.hku.hk/clair_models/ont/12.tar
+tar -xf 12.tar
+cd ../
+
+# download pretrained model (for PacBio CCS)
+mkdir pacbio && cd pacbio
+wget http://www.bio8.cs.hku.hk/clair_models/pacbio/ccs/15.tar
+tar -xf 15.tar
+cd ../
+
+# download pretrained model (for Illumina)
+mkdir illumina && cd illumina
+wget http://www.bio8.cs.hku.hk/clair_models/illumina/12345.tar
+tar -xf 12345.tar
+cd ../
+
+# build a docker image named clair_docker_image
+docker build -f ./Dockerfile -t clair_docker_image .
+
+# run docker image
+docker run -it clair_docker_image
+
+# store clair.py PATH into $CLAIR variable
+CLAIR=`which clair.py`
+
+# run clair like this afterwards
+python $CLAIR --help
+```
 
 ### After Installation
 
