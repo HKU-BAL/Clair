@@ -62,8 +62,8 @@ def OutputVariant(args):
         if int(genotype_1) > int(genotype_2):
             genotype_1, genotype_2 = genotype_2, genotype_1
 
-        var_fp.stdin.write(" ".join((chromosome, position, reference, alternate, genotype_1, genotype_2)).encode())
-        var_fp.stdin.write(b"\n")
+        var_fp.stdin.write(" ".join((chromosome, position, reference, alternate, genotype_1, genotype_2)))
+        var_fp.stdin.write("\n")
 
     vcf_fp.stdout.close()
     vcf_fp.wait()
