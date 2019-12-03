@@ -4,18 +4,18 @@ This document shows how to train a deep learning model for Clair.
 
 ## Prerequisitions
 - A powerful GPU
- - RTX Titan (tested)
- - GTX 2080 Ti (tested)
- - GTX 1080 Ti (tested)
- - Any Nvidia card with 11GB memory or above will suffice, but speeds differ
+    - RTX Titan (tested)
+    - GTX 2080 Ti (tested)
+    - GTX 1080 Ti (tested)
+    - Any Nvidia card with 11GB memory or above will suffice, but speeds differ
 - Clair installed
 - GNU Parallel installed
 
 ## Catalogue
 - [I. Preprocessing: Downsampling a sample](#i-preprocessing-downsampling-a-sample)
 - [II. Build a compressed binary for training](#ii-build-a-compressed-binary-for-training)
- - [Single individual](#single-individual)
- - [Multiple individuals](#multiple-individuals)
+    - [Single individual](#single-individual)
+    - [Multiple individuals](#multiple-individuals)
 - [III. Model training](#iii-model-training)
 
 ---
