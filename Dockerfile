@@ -9,7 +9,8 @@ RUN apt-get update --fix-missing && \
         wget \
         bzip2 \
         make \
-        gcc && \
+        gcc \
+        vcftools && \
     rm -rf /bar/lib/apt/lists/*
 
 WORKDIR /opt/clair
