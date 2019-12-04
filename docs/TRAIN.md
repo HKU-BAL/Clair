@@ -197,33 +197,30 @@ parallel --joblog ./create_tensor_pair.log -j${THREADS} \
 ##### One round shuffling (recommended)
 ```bash
 ls tensor_pair/*/tensor_pair* | \
-parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} \
---line-buffer --shuf --verbose --compress gzip -dc ::: | \
+parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} -N2 \
+--line-buffer --shuf --verbose --compress stdbuf -i0 -o0 -e0 pigz -p4 -dc ::: | \
 parallel --joblog ./round_robin_cat.log -j${THREADS} \
---line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
-split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
---filter='shuf | pigz > $FILE.gz' -d - ${SHUFFLED_TENSORS_FILE_PATH}/split_
+--line-buffer --pipe -N1000 --no-keep-order --round-robin --compress \
+"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FILE_PATH}/split_{#}_"
 ```
 
 ##### Two rounds shuffling (paranoid, but used in paper)
 ```bash
 # the first round
 ls tensor_pair/*/tensor_pair* | \
-parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS_LOW} \
---line-buffer --shuf --verbose --compress gzip -dc ::: | \
+parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS_LOW} -N2 \
+--line-buffer --shuf --verbose --compress stdbuf -i0 -o0 -e0 pigz -p4 -dc ::: | \
 parallel --joblog ./round_robin_cat_round_1.log -j${THREADS} \
---line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
-split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
---filter='shuf | pigz > $FILE.gz' -d - ${SHUFFLED_TENSORS_FILE_PATH}/round1_
+--line-buffer --pipe -N1000 --no-keep-order --round-robin --compress \
+"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FILE_PATH}/round1_{#}_"
 
 # the second round
 ls ${SHUFFLED_TENSORS_FILE_PATH}/round1_* | \
-parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} \
---line-buffer --shuf --verbose --compress gzip -dc ::: | \
+parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS_LOW} -N2 \
+--line-buffer --shuf --verbose --compress stdbuf -i0 -o0 -e0 pigz -p4 -dc ::: | \
 parallel --joblog ./round_robin_cat.log -j${THREADS} \
---line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
-split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
---filter='shuf | pigz > $FILE.gz' -d - ${SHUFFLED_TENSORS_FILE_PATH}/split_
+--line-buffer --pipe -N1000 --no-keep-order --round-robin --compress \
+"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FILE_PATH}/split_{#}_"
 ```
 
 #### 9. Create splited binaries using the `Tensor2Bin` submodule
@@ -425,12 +422,11 @@ done
 cd ${TARGET_DATASET_FOLDER_PATH}
 
 ls tensor_pair/*/*/tensor_pair*prefixed | \
-parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} \
---line-buffer --shuf --verbose --compress gzip -dc ::: | \
+parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} -N2 \
+--line-buffer --shuf --verbose --compress stdbuf -i0 -o0 -e0 pigz -p4 -dc ::: | \
 parallel --joblog ./round_robin_cat.log -j${THREADS} \
---line-buffer --pipe -N1000 --no-keep-order --round-robin --compress cat | \
-split -l ${ESTIMATED_SPLIT_NO_OF_LINES} \
---filter='shuf | pigz > $FILE.gz' -d - ${SHUFFLED_TENSORS_FILE_PATH}/split_
+--line-buffer --pipe -N1000 --no-keep-order --round-robin --compress \
+"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FILE_PATH}/split_{#}_"
 ```
 
 #### 8. Create splited binaries using the `Tensor2Bin` submodule
