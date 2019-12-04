@@ -20,7 +20,7 @@ from clair.task.gt21 import (
 )
 from clair.task.genotype import Genotype, genotype_string_from, genotype_enum_from, genotype_enum_for_task
 from clair.task.variant_length import VariantLength
-from shared.utils import IUPAC_base_to_num_dict as BASE2NUM, IUPAC_base_to_ACGT_base_dict as BASE2ACGT
+from shared.utils import IUPAC_base_to_num_dict as BASE2NUM, IUPAC_base_to_ACGT_base_dict as BASE2ACGT, BASIC_BASES
 import shared.param as param
 
 
@@ -942,6 +942,9 @@ def batch_output(mini_batch, batch_Y, output_config, output_utilities):
     ):
         chromosome, position, reference_sequence = chr_pos_seq
         position = int(position)
+
+        if reference_sequence[tensor_position_center] not in BASIC_BASES:
+            continue
 
         # read depth
         read_depth = sum(

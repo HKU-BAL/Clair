@@ -26,6 +26,7 @@ IUPAC_base_to_num_dict = dict(zip(
     (0, 1, 2, 3, 3, 0, 1, 1, 0, 2, 0, 1, 0, 0, 0)
 ))
 
+BASIC_BASES = set("ACGTU")
 
 def is_file_exists(file_name, suffix=""):
     if not isinstance(file_name, str) or not isinstance(suffix, str):
