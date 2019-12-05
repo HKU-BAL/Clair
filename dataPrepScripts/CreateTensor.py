@@ -174,7 +174,7 @@ def samtools_view_process_from(
 
 
 def OutputAlnTensor(args):
-    available_slots = 10000000
+    available_slots = 5000000
     samtools = args.samtools
     tensor_file_path = args.tensor_fn
     bam_file_path = args.bam_fn
