@@ -244,16 +244,20 @@ export CUDA_VISIBLE_DEVICES=""
 # run Clair with 4 concurrencies
 cat command.sh | parallel -j4
 
+# Find incomplete VCF files and rerun them
+for i in OUTPUT_PREFIX.*.vcf; do if ! [ -z "$(tail -c 1 "$i")" ]; then echo "$i"; fi ; done | grep -f - command.sh | sh
+
 # concatenate vcf files and sort the variants called
-vcfcat ${OUTPUT_PREFIX}*.vcf | vcf-sort -c | bgziptabix snp_and_indel.vcf.gz
+vcfcat ${OUTPUT_PREFIX}.*.vcf | vcf-sort -c | bgziptabix snp_and_indel.vcf.gz
 ```
 
 #### Note
 * `callVarBamParallel` submodule generates `callVarBam` commands that can be run in parallel
 * `parallel -j4` will run four concurrencies in parallel using GNU parallel. We suggest using half the number of available CPU cores (not threads).
 * If [GNU parallel](https://www.gnu.org/software/parallel/) is not installed, please try ```awk '{print "\""$0"\""}' commands.sh | xargs -P4 -L1 sh -c```
+* Incomplete VCF files happens when 'out of memory' or other errors occur. The command in the example finds for a newline at the end of the VCF files, and regenerate the files without a newline at the end.
 * callVarBamParallel will generate commonds for chr{1..22},X,Y, to call variants on all chromosomes, please use option `--includingAllContigs`.
-* If you are going to call on non-human BAM file (e.g. bacteria), please use `--includingAllContigs` option to include all contigs
+* If you are working on non-human BAM file (e.g. bacteria), please use `--includingAllContigs` option to include all contigs
 * `CUDA_VISIBLE_DEVICES=""` makes GPUs invisible to Clair so it will use CPU for variant calling. Please notice that unless you want to run `commands.sh` in serial, you cannot use GPU because one running copy of Clair will occupy all available memory of a GPU. While the bottleneck of `callVarBam` is at the `CreateTensor` script, which runs on CPU, the effect of GPU accelerate is insignificant (roughly about 15% faster). But if you have multiple GPU cards in your system, and you want to utilize them in variant calling, you may want split the `commands.sh` in to parts, and run the parts by firstly `export CUDA_VISIBLE_DEVICES="$i"`, where `$i` is an integer from 0 identifying the ID of the GPU to be used.
 * `vcfcat` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default using option 2 (conda) or option 3 (docker).
 * `vcf-sort` command is from [vcftools](https://github.com/vcftools/vcftools)
