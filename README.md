@@ -1,12 +1,12 @@
 # Clair - Yet another deep neural network based variant caller
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0) [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/clair/README.html) <br>
-Contact: Ruibang Luo <br>
-Email: rbluo@cs.hku.hk
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0) [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/clair/README.html)  
+Contact: Ruibang Luo  
+Email: rbluo@cs.hku.hk  
 
 ## Introduction
-Single Molecule Sequencing technologies have emerged in recent years and revolutionized structural variant calling and complex genome assembly. However, the lack of a performant small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor of [Clairvoyante](https://github.com/aquaskyline/clairvoyante), for fast and accurate germline small variant calling using Single Molecule Sequencing data. On ONT data, Clair has achieved the best precision, recall, and speed compare to not only Clairvoyante, but also Longshot and Medaka. Through studying the failed variants and benchmarking on intentionally overfitted models, we found Clair is approaching the limit of using pileup data and deep neural network for germline small variant calling.
+Single-molecule sequencing technologies have emerged in recent years and revolutionized structural variant calling, complex genome assembly, and epigenetic mark detection. However, the lack of a highly accurate small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor to Clairvoyante, a program for fast and accurate germline small variant calling, using single molecule sequencing data. For ONT data, Clair achieves the best precision, recall and speed as compared to several competing programs, including Clairvoyante, Longshot and Medaka. Through studying the missed variants and benchmarking intentionally overfitted models, we found that Clair may be approaching the limit of possible accuracy for germline small variant calling using pileup data and deep neural networks.
 
-This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Feb 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair).
+This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Jan 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair). The preprint of Clair v2 is available in [bioAxiv](https://biorxiv.org/cgi/content/short/865782v1).
 
 ---
 
