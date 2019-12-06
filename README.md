@@ -6,6 +6,8 @@ Email: rbluo@cs.hku.hk
 ## Introduction
 Single Molecule Sequencing technologies have emerged in recent years and revolutionized structural variant calling and complex genome assembly. However, the lack of a performant small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor of [Clairvoyante](https://github.com/aquaskyline/clairvoyante), for fast and accurate germline small variant calling using Single Molecule Sequencing data. On ONT data, Clair has achieved the best precision, recall, and speed compare to not only Clairvoyante, but also Longshot and Medaka. Through studying the failed variants and benchmarking on intentionally overfitted models, we found Clair is approaching the limit of using pileup data and deep neural network for germline small variant calling.
 
+This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Feb 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair).
+
 ---
 
 ## Contents
