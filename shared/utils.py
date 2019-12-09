@@ -17,13 +17,13 @@ from subprocess import check_output, PIPE, Popen
 # H->A or C or T
 # V->A or C or G
 IUPAC_base_to_ACGT_base_dict = dict(zip(
-    "ACGTURYSWKMBDHV",
-    ("A", "C", "G", "T", "T", "A", "C", "C", "A", "G", "A", "C", "A", "A", "A")
+    "ACGTURYSWKMBDHVN",
+    ("A", "C", "G", "T", "T", "A", "C", "C", "A", "G", "A", "C", "A", "A", "A", "A")
 ))
 
 IUPAC_base_to_num_dict = dict(zip(
-    "ACGTURYSWKMBDHV",
-    (0, 1, 2, 3, 3, 0, 1, 1, 0, 2, 0, 1, 0, 0, 0)
+    "ACGTURYSWKMBDHVN",
+    (0, 1, 2, 3, 3, 0, 1, 1, 0, 2, 0, 1, 0, 0, 0, 0)
 ))
 
 BASIC_BASES = set("ACGTU")
