@@ -287,7 +287,8 @@ def make_candidates(args):
 
                 elif c == "M" or c == "=" or c == "X":
                     for _ in range(advance):
-                        base = BASE2ACGT[SEQ[query_position]]
+                        query_base = SEQ[query_position]
+                        base = BASE2ACGT[query_base] if query_base != "N" else query_base
                         pileup[reference_position][base] += 1
 
                         # those CIGAR operations consumes query and reference
