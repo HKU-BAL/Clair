@@ -23,6 +23,10 @@ def PypyGCCollect(signum, frame):
     signal.alarm(60)
 
 
+def evc_base_from(base):
+    return base if base == "N" else BASE2ACGT[base]
+
+
 def variants_map_from(variant_file_path):
     """
     variants map with 1-based position as key
@@ -287,8 +291,7 @@ def make_candidates(args):
 
                 elif c == "M" or c == "=" or c == "X":
                     for _ in range(advance):
-                        query_base = SEQ[query_position]
-                        base = BASE2ACGT[query_base] if query_base != "N" else query_base
+                        base = evc_base_from(SEQ[query_position])
                         pileup[reference_position][base] += 1
 
                         # those CIGAR operations consumes query and reference
@@ -342,9 +345,9 @@ def make_candidates(args):
             # af checking
             pass_af = False
             if pass_ctg and pass_bed and pass_output_probability and pass_depth:
-                reference_base = reference_sequence[
+                reference_base = evc_base_from(reference_sequence[
                     zero_based_position - (0 if reference_start is None else (reference_start - 1))
-                ]
+                ])
                 denominator = depth if depth > 0 else 1
                 baseCount.sort(key=lambda x: -x[1])  # sort baseCount descendingly
                 p0, p1 = float(baseCount[0][1]) / denominator, float(baseCount[1][1]) / denominator
