@@ -236,7 +236,7 @@ parallel --joblog ./tensor2Bin.log -j${THREADS_LOW} \
 
 #### 10. Merge splited binaries into a single binary using the `CombineBins` submodule
 ```bash
-cd ${BINS_FOLDER_PATH}
+cd ${DATASET_FOLDER_PATH}
 python ${CLAIR} CombineBins
 ```
 
@@ -441,7 +441,7 @@ parallel --joblog ./tensor2Bin.log -j${THREADS_LOW} "python ${CLAIR} Tensor2Bin 
 
 #### 9. Merge the splited binaries using the `CombineBins` submodule
 ```bash
-cd ${BINS_FOLDER_PATH}
+cd ${DATASET_FOLDER_PATH}
 python ${CLAIR} CombineBins
 ```
 
