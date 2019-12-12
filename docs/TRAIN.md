@@ -432,7 +432,7 @@ parallel --joblog ./round_robin_cat.log -j${THREADS} \
 #### 8. Create splited binaries using the `Tensor2Bin` submodule
 ```bash
 ls ${SHUFFLED_TENSORS_FOLDER_PATH}/split_* | \
-parallel --joblog ./tensor2Bin.log -j${THREADS_LOW} "python ${CLAIR} tensor2Bin \
+parallel --joblog ./tensor2Bin.log -j${THREADS_LOW} "python ${CLAIR} Tensor2Bin \
 --tensor_fn {} \
 --var_fn ${VARIANT_FOLDER_PATH}/all_var_prefixed \
 --bin_fn ${BINS_FOLDER_PATH}/{/.}.bin \
