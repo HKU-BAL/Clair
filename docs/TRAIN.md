@@ -201,7 +201,7 @@ parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} -N2 \
 --line-buffer --shuf --verbose --compress stdbuf -i0 -o0 -e0 pigz -p4 -dc ::: | \
 parallel --joblog ./round_robin_cat.log -j${THREADS} \
 --line-buffer --pipe -N1000 --no-keep-order --round-robin --compress \
-"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FILE_PATH}/split_{#}_"
+"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FOLDER_PATH}/split_{#}_"
 ```
 
 ##### Two rounds shuffling (paranoid, but used in paper)
@@ -212,15 +212,15 @@ parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS_LOW} -N2 \
 --line-buffer --shuf --verbose --compress stdbuf -i0 -o0 -e0 pigz -p4 -dc ::: | \
 parallel --joblog ./round_robin_cat_round_1.log -j${THREADS} \
 --line-buffer --pipe -N1000 --no-keep-order --round-robin --compress \
-"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FILE_PATH}/round1_{#}_"
+"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FOLDER_PATH}/round1_{#}_"
 
 # the second round
-ls ${SHUFFLED_TENSORS_FILE_PATH}/round1_* | \
+ls ${SHUFFLED_TENSORS_FOLDER_PATH}/round1_* | \
 parallel --joblog ./uncompress_tensors_round_1.log -j${THREADS_LOW} -N2 \
 --line-buffer --shuf --verbose --compress stdbuf -i0 -o0 -e0 pigz -p4 -dc ::: | \
 parallel --joblog ./round_robin_cat.log -j${THREADS} \
 --line-buffer --pipe -N1000 --no-keep-order --round-robin --compress \
-"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FILE_PATH}/split_{#}_"
+"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FOLDER_PATH}/split_{#}_"
 ```
 
 #### 9. Create splited binaries using the `Tensor2Bin` submodule
@@ -426,7 +426,7 @@ parallel --joblog ./uncompress_tensors.log -j${THREADS_LOW} -N2 \
 --line-buffer --shuf --verbose --compress stdbuf -i0 -o0 -e0 pigz -p4 -dc ::: | \
 parallel --joblog ./round_robin_cat.log -j${THREADS} \
 --line-buffer --pipe -N1000 --no-keep-order --round-robin --compress \
-"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FILE_PATH}/split_{#}_"
+"split - -l ${ESTIMATED_SPLIT_NO_OF_LINES} --filter='shuf | pigz -p4 > \$FILE.gz' -d ${SHUFFLED_TENSORS_FOLDER_PATH}/split_{#}_"
 ```
 
 #### 8. Create splited binaries using the `Tensor2Bin` submodule
