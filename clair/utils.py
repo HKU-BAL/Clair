@@ -14,7 +14,7 @@ from collections import namedtuple
 from clair.task.main import output_labels_from_reference, output_labels_from_vcf_columns
 import shared.param as param
 from shared.interval_tree import bed_tree_from, is_region_in
-from shared.utils import subprocess_popen, IUPAC_base_to_num_dict as BASE2NUM
+from shared.utils import subprocess_popen, IUPAC_base_to_num_dict as BASE2NUM, IUPAC_base_to_ACGT_base_dict as BASE2ACGT, BASIC_BASES
 
 PREFIX_CHAR_STR = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -145,7 +145,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
         if not (is_tree_empty or is_region_in(tree, chrom, int(coord))):
             continue
         seq = seq.upper()
-        if seq[param.flankingBaseNum] not in BASE2NUM:
+        if seq[param.flankingBaseNum] not in BASIC_BASES:
             continue
         key = chrom + ":" + coord
 
@@ -167,7 +167,7 @@ def get_training_array(tensor_fn, var_fn, bed_fn, shuffle=True, is_allow_duplica
 
         is_reference = key not in Y
         if is_reference:
-            Y[key] = output_labels_from_reference(seq[param.flankingBaseNum])
+            Y[key] = output_labels_from_reference(BASE2ACGT[seq[param.flankingBaseNum]])
 
         total += 1
         if total % 100000 == 0:
