@@ -453,7 +453,8 @@ python ${CLAIR} CombineBins
 ```bash
 CLAIR="[PATH_TO_CLAIR]/clair.py"
 MODEL_NAME=[YOUR_MODEL_NAME]                                 # e.g. "001"
-MODEL_FOLDER_PATH="[YOUR_MODEL_FOLDER_PATH]/${MODEL_NAME}" TENSOR_FILE_PATH=[YOUR_BIN_FILE_PATH]                        # e.g. ./tensor.bin
+MODEL_FOLDER_PATH="[YOUR_MODEL_FOLDER_PATH]/${MODEL_NAME}"
+TENSOR_FILE_PATH=[YOUR_BIN_FILE_PATH]                        # e.g. ./tensor.bin
 
 mkdir ${MODEL_FOLDER_PATH}
 
