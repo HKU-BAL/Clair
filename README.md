@@ -1,7 +1,7 @@
 # Clair - Yet another deep neural network based variant caller
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/clair/README.html)  
-Contact: Ruibang Luo  
-Email: rbluo@cs.hku.hk  
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/clair/README.html) \
+Contact: Ruibang Luo \
+Email: rbluo@cs.hku.hk
 
 ## Introduction
 Single-molecule sequencing technologies have emerged in recent years and revolutionized structural variant calling, complex genome assembly, and epigenetic mark detection. However, the lack of a highly accurate small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor to Clairvoyante, a program for fast and accurate germline small variant calling, using single molecule sequencing data. For ONT data, Clair achieves the best precision, recall and speed as compared to several competing programs, including Clairvoyante, Longshot and Medaka. Through studying the missed variants and benchmarking intentionally overfitted models, we found that Clair may be approaching the limit of possible accuracy for germline small variant calling using pileup data and deep neural networks.
@@ -38,8 +38,7 @@ pypy3 -m pip install blosc intervaltree
 pip install numpy blosc intervaltree tensorflow==1.13.2 pysam matplotlib
 conda install -c anaconda pigz
 conda install -c conda-forge parallel zstd
-conda install -c bioconda samtools vcflib
-conda install -c bioconda vcftools
+conda install -c bioconda samtools vcflib bcftools
 
 # clone Clair
 git clone --depth=1 https://github.com/HKU-BAL/Clair.git
@@ -245,7 +244,7 @@ cat command.sh | parallel -j4
 for i in OUTPUT_PREFIX.*.vcf; do if ! [ -z "$(tail -c 1 "$i")" ]; then echo "$i"; fi ; done | grep -f - command.sh | sh
 
 # concatenate vcf files and sort the variants called
-vcfcat ${OUTPUT_PREFIX}.*.vcf | vcf-sort -c | bgziptabix snp_and_indel.vcf.gz
+vcfcat ${OUTPUT_PREFIX}.*.vcf | bcftools sort -m 2G | bgziptabix snp_and_indel.vcf.gz
 ```
 
 #### Note
@@ -257,7 +256,6 @@ vcfcat ${OUTPUT_PREFIX}.*.vcf | vcf-sort -c | bgziptabix snp_and_indel.vcf.gz
 * If you are working on non-human BAM file (e.g. bacteria), please use `--includingAllContigs` option to include all contigs
 * `CUDA_VISIBLE_DEVICES=""` makes GPUs invisible to Clair so it will use CPU for variant calling. Please notice that unless you want to run `commands.sh` in serial, you cannot use GPU because one running copy of Clair will occupy all available memory of a GPU. While the bottleneck of `callVarBam` is at the `CreateTensor` script, which runs on CPU, the effect of GPU accelerate is insignificant (roughly about 15% faster). But if you have multiple GPU cards in your system, and you want to utilize them in variant calling, you may want split the `commands.sh` in to parts, and run the parts by firstly `export CUDA_VISIBLE_DEVICES="$i"`, where `$i` is an integer from 0 identifying the ID of the GPU to be used.
 * `vcfcat` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default using option 2 (conda) or option 3 (docker).
-* `vcf-sort` command is from [vcftools](https://github.com/vcftools/vcftools)
 * Please also check the notes in the above sections for other considerations.
 
 ---
