@@ -78,7 +78,7 @@ def Run(args):
     dcov = args.dcov
     call_fn = args.call_fn
     af_threshold = args.threshold
-    minCoverage = args.minCoverage
+    minCoverage = int(args.minCoverage)
     sampleName = args.sampleName
     ctgName = args.ctgName
     if ctgName is None:
