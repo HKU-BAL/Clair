@@ -39,9 +39,7 @@ pip install numpy blosc intervaltree tensorflow==1.13.2 pysam matplotlib
 conda install -c anaconda pigz
 conda install -c conda-forge parallel zstd
 conda install -c bioconda samtools vcflib
-
-# install vcftools
-sudo apt-get install vcftools
+conda install -c bioconda vcftools
 
 # clone Clair
 git clone --depth=1 https://github.com/HKU-BAL/Clair.git
@@ -77,9 +75,6 @@ conda config --add channels conda-forge
 # create conda environment named "clair-env"
 conda create -n clair-env -c bioconda clair
 conda activate clair-env
-
-# install vcftools
-sudo apt-get install vcftools
 
 # store clair.py PATH into $CLAIR variable
 CLAIR=`which clair.py`
