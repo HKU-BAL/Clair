@@ -6,7 +6,7 @@ Email: rbluo@cs.hku.hk
 ## Introduction
 Single-molecule sequencing technologies have emerged in recent years and revolutionized structural variant calling, complex genome assembly, and epigenetic mark detection. However, the lack of a highly accurate small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor to Clairvoyante, a program for fast and accurate germline small variant calling, using single molecule sequencing data. For ONT data, Clair achieves the best precision, recall and speed as compared to several competing programs, including Clairvoyante, Longshot and Medaka. Through studying the missed variants and benchmarking intentionally overfitted models, we found that Clair may be approaching the limit of possible accuracy for germline small variant calling using pileup data and deep neural networks.
 
-This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Jan 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair). The preprint of Clair v2 is available in [bioAxiv](https://biorxiv.org/cgi/content/short/865782v1).
+This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Jan 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair). The preprint of Clair v2 is available in [bioRxiv](https://www.biorxiv.org/content/10.1101/865782v2).
 
 ---
 
@@ -39,9 +39,7 @@ pip install numpy blosc intervaltree tensorflow==1.13.2 pysam matplotlib
 conda install -c anaconda pigz
 conda install -c conda-forge parallel zstd
 conda install -c bioconda samtools vcflib
-
-# install vcftools
-sudo apt-get install vcftools
+conda install -c bioconda vcftools
 
 # clone Clair
 git clone --depth=1 https://github.com/HKU-BAL/Clair.git
@@ -77,9 +75,6 @@ conda config --add channels conda-forge
 # create conda environment named "clair-env"
 conda create -n clair-env -c bioconda clair
 conda activate clair-env
-
-# install vcftools
-sudo apt-get install vcftools
 
 # store clair.py PATH into $CLAIR variable
 CLAIR=`which clair.py`
