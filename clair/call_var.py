@@ -34,6 +34,7 @@ flanking_base_number = param.flankingBaseNum
 OutputConfig = namedtuple('OutputConfig', [
     'is_show_reference',
     'is_debug',
+    'is_haploid_mode_enabled',
     'quality_score_for_pass',
 ])
 OutputUtilities = namedtuple('OutputUtilities', [
@@ -663,6 +664,7 @@ def output_from(
     genotype_probabilities,
     variant_length_probabilities_1,
     variant_length_probabilities_2,
+    output_config,
     output_utilities,
 ):
     insertion_bases_using, deletion_bases_using, insertion_bases_using_pysam_using = (
@@ -722,6 +724,18 @@ def output_from(
         is_hetero_ACGT_Del = maximum_probability in hetero_ACGT_Del_probabilities
         is_hetero_DelDel = maximum_probability in hetero_DelDel_probabilities
         is_insertion_and_deletion = maximum_probability in hetero_InsDel_probabilities
+
+
+        if output_config.is_haploid_mode_enabled:
+            if (
+                is_hetero_SNP or is_hetero_ACGT_Ins or is_hetero_InsIns or
+                is_hetero_ACGT_Del or is_hetero_DelDel or is_insertion_and_deletion
+            ):
+                return (
+                    (True, False, False, False, False, False, False, False, False, False),
+                    (reference_base_ACGT, reference_base_ACGT)
+                )
+
 
         if is_homo_SNP:
             base1, base2 = homo_SNP_bases_from(gt21_probabilities)
@@ -977,6 +991,7 @@ def batch_output(mini_batch, batch_Y, output_config, output_utilities):
             genotype_probabilities,
             variant_length_probabilities_1,
             variant_length_probabilities_2,
+            output_config,
             output_utilities,
         )
 
@@ -1150,6 +1165,7 @@ def call_variants(args, m):
     output_config = OutputConfig(
         is_show_reference=args.showRef,
         is_debug=args.debug,
+        is_haploid_mode_enabled=args.haploid_mode,
         quality_score_for_pass=args.qual,
     )
     output_utilities = output_utilties_from(
@@ -1265,6 +1281,9 @@ def main():
 
     parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
+
+    parser.add_argument('--haploid_mode', action='store_true',
+                        help="call haploid instead of diploid")
 
     args = parser.parse_args()
 
