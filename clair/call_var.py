@@ -1165,7 +1165,7 @@ def call_variants(args, m):
     output_config = OutputConfig(
         is_show_reference=args.showRef,
         is_debug=args.debug,
-        is_haploid_mode_enabled=args.haploid_mode,
+        is_haploid_mode_enabled=args.haploid,
         quality_score_for_pass=args.qual,
     )
     output_utilities = output_utilties_from(
@@ -1282,7 +1282,7 @@ def main():
     parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
 
-    parser.add_argument('--haploid_mode', action='store_true',
+    parser.add_argument('--haploid', action='store_true',
                         help="call haploid instead of diploid")
 
     args = parser.parse_args()

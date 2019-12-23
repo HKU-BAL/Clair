@@ -87,7 +87,7 @@ def Run(args):
     stop_consider_left_edge = command_option_from(args.stop_consider_left_edge, 'stop_consider_left_edge')
     log_path = command_option_from(args.log_path, 'log_path', option_value=args.log_path)
     pysam_for_all_indel_bases = command_option_from(args.pysam_for_all_indel_bases, 'pysam_for_all_indel_bases')
-    haploid_mode = command_option_from(args.haploid_mode, 'haploid_mode')
+    haploid_mode = command_option_from(args.haploid, 'haploid')
     debug = command_option_from(args.debug, 'debug')
     qual = command_option_from(args.qual, 'qual', option_value=args.qual)
     fast_plotting = command_option_from(args.fast_plotting, 'fast_plotting')
@@ -295,7 +295,7 @@ def main():
     parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
 
-    parser.add_argument('--haploid_mode', action='store_true',
+    parser.add_argument('--haploid', action='store_true',
                         help="call haploid instead of diploid")
 
     parser.add_argument('--activation_only', action='store_true',
