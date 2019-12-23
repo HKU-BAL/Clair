@@ -141,6 +141,9 @@ def reference_sequence_from(samtools_execute_command, fasta_file_path, regions):
     # first line is reference name ">xxxx", need to be ignored
     reference_sequence = "".join(refernce_sequences[1:])
 
+    # uppercase for masked sequences
+    reference_sequence = reference_sequence.upper()
+
     samtools_faidx_process.stdout.close()
     samtools_faidx_process.wait()
     if samtools_faidx_process.returncode != 0:
@@ -268,7 +271,7 @@ def make_candidates(args):
             POS = int(columns[3]) - 1  # switch from 1-base to 0-base to match sequence index
             MAPQ = int(columns[4])
             CIGAR = columns[5]
-            SEQ = columns[9]
+            SEQ = columns[9].upper()   # uppercase for SEQ (regexp is \*|[A-Za-z=.]+)
 
             reference_position = POS
             query_position = 0
