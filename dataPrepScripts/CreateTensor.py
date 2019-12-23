@@ -146,6 +146,9 @@ def reference_result_from(
             reference_sequences.append(row.rstrip())
     reference_sequence = "".join(reference_sequences)
 
+    # uppercase for masked sequences
+    reference_sequence = reference_sequence.upper()
+
     faidx_process.stdout.close()
     faidx_process.wait()
 
@@ -248,7 +251,7 @@ def OutputAlnTensor(args):
         POS = int(l[3]) - 1  # switch from 1-base to 0-base to match sequence index
         MQ = int(l[4])
         CIGAR = l[5]
-        SEQ = l[9]
+        SEQ = l[9].upper()   # uppercase for SEQ (regexp is \*|[A-Za-z=.]+)
         reference_position = POS
         query_position = 0
         STRAND = (16 == (FLAG & 16))
