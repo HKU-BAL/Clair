@@ -1,7 +1,7 @@
 # Clair - Yet another deep neural network based variant caller
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/clair/README.html) \
-Contact: Ruibang Luo \
-Email: rbluo@cs.hku.hk
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/clair/README.html)  
+Contact: Ruibang Luo  
+Email: rbluo@cs.hku.hk  
 
 ## Introduction
 Single-molecule sequencing technologies have emerged in recent years and revolutionized structural variant calling, complex genome assembly, and epigenetic mark detection. However, the lack of a highly accurate small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor to Clairvoyante, a program for fast and accurate germline small variant calling, using single molecule sequencing data. For ONT data, Clair achieves the best precision, recall and speed as compared to several competing programs, including Clairvoyante, Longshot and Medaka. Through studying the missed variants and benchmarking intentionally overfitted models, we found that Clair may be approaching the limit of possible accuracy for germline small variant calling using pileup data and deep neural networks.
@@ -171,10 +171,12 @@ REFERENCE_FASTA_FILE_PATH="[YOUR_REFERENCE_FASTA_FILE]"  # e.g. chr21.fa
 KNOWN_VARIANTS_VCF="[YOUR_VCF_FILE]"                     # e.g. chr21.vcf
 ```
 
-#### Note
-* Each model has three files `model.data-00000-of-00001`, `model.index`, `model.meta`. For the `MODEL` variable, please use the prefix `model`
+#### Notes
+* Each model has three files `model.data-00000-of-00001`, `model.index`, `model.meta`. Please give the `MODEL` variable, the prefix `model`.
 
 ### Call variants at known variant sites or in a chromosome  (using `callVarBam`)
+
+**For whole genome variant calling, please use `callVarBamParallel` to generate multiple commands that invokes `callVarBam` on smaller chromosome chucks.**
 
 #### Call variants in a chromosome
 ```bash
@@ -214,11 +216,6 @@ python $CLAIR callVarBam \
 cd "$VARIANT_CALLING_OUTPUT_PATH"
 ```
 
-#### Notes
-* Use `callVarBam` to either call variant in a single chromosome. For whole genome variant calling, please use `callVarBamParallel` to generate multiple commands that invokes `callVarBam` on smaller chromosome chucks.
-* You may consider using the `--pysam_for_all_indel_bases` option for more accurate results. On Illumina data and PacBio CCS data, the option requires 20% to 50% much running time. On ONT data, Clair can run two times slower, while the improvement in accuracy is not significant.
-* About seting an appropriate allele frequency cutoff, please refer to [About Setting the Alternative Allele Frequency Cutoff](#about-setting-the-alternative-allele-frequency-cutoff)
-
 ### Call whole-genome variants in parallel (using `callVarBamParallel`)
 ```bash
 # variables
@@ -247,16 +244,20 @@ for i in OUTPUT_PREFIX.*.vcf; do if ! [ -z "$(tail -c 1 "$i")" ]; then echo "$i"
 vcfcat ${OUTPUT_PREFIX}.*.vcf | bcftools sort -m 2G | bgziptabix snp_and_indel.vcf.gz
 ```
 
-#### Note
-* `callVarBamParallel` submodule generates `callVarBam` commands that can be run in parallel
-* `parallel -j4` will run four concurrencies in parallel using GNU parallel. We suggest using half the number of available CPU cores (not threads).
-* If [GNU parallel](https://www.gnu.org/software/parallel/) is not installed, please try ```awk '{print "\""$0"\""}' commands.sh | xargs -P4 -L1 sh -c```
-* Incomplete VCF files happens when 'out of memory' or other errors occur. The command in the example finds for a newline at the end of the VCF files, and regenerate the files without a newline at the end.
-* callVarBamParallel will generate commonds for chr{1..22},X,Y, to call variants on all chromosomes, please use option `--includingAllContigs`.
-* If you are working on non-human BAM file (e.g. bacteria), please use `--includingAllContigs` option to include all contigs
-* `CUDA_VISIBLE_DEVICES=""` makes GPUs invisible to Clair so it will use CPU for variant calling. Please notice that unless you want to run `commands.sh` in serial, you cannot use GPU because one running copy of Clair will occupy all available memory of a GPU. While the bottleneck of `callVarBam` is at the `CreateTensor` script, which runs on CPU, the effect of GPU accelerate is insignificant (roughly about 15% faster). But if you have multiple GPU cards in your system, and you want to utilize them in variant calling, you may want split the `commands.sh` in to parts, and run the parts by firstly `export CUDA_VISIBLE_DEVICES="$i"`, where `$i` is an integer from 0 identifying the ID of the GPU to be used.
-* `vcfcat` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default using option 2 (conda) or option 3 (docker).
-* Please also check the notes in the above sections for other considerations.
+#### Notes
+##### Parallelization
+* `callVarBamParallel` generates a file of `callVarBam` commands that can be run in parallel.
+* **Use GNU parallel to run commands in parallel** - `parallel -j4` will run four concurrencies in parallel using GNU parallel. We suggest using half the number of available CPU cores.
+* **An alternative to GNU parallel** - If [GNU parallel](https://www.gnu.org/software/parallel/) is not installed, please try ```awk '{print "\""$0"\""}' commands.sh | xargs -P4 -L1 sh -c```
+##### Options
+* **Haploid Mode** - For haploid samples, please use the `--haploid` option.
+* **Choosing genome sequences and positions for variant calling** - callVarBamParallel by default will generate commonds for chromosome {1..22},X,Y (insensible to the "chr" prefix). To call variants in other sequences, you can either input via option "--ben_fn" your own BED file with three columns including the target sequence names, starting positions and ending positions, or use the option `--includingAllContigs` to include all sequences in the input FASTA file. If you work on a non-human sample, please always use a BED file or the `--includingAllContigs` option to define the sequences you want Clair to work on.
+* **For more accurate Indel calling** - You may consider using the `--pysam_for_all_indel_bases` option for more accurate Indel results. On Illumina data and PacBio CCS data, the option requires 20% to 50% longer running time. On ONT data, Clair can run up to ten times slower, while the improvement in accuracy is not significant.
+##### Other considerations
+* **Setting an appropriate allele frequency cutoff** - Please refer to [About Setting the Alternative Allele Frequency Cutoff](#about-setting-the-alternative-allele-frequency-cutoff)
+* **Check for incomplete (unfinished) VCF files** - Incomplete VCF files happens when 'out of memory' or other errors occur. The command in the example finds for a newline at the end of the VCF files, and regenerate the incomplete files.
+* **Disabling GPU: Clair uses CPU for varaint calling** - To avoid the tensorflow library from using GPU, `CUDA_VISIBLE_DEVICES=""` makes GPUs invisible to Clair so it will only use CPU for variant calling. Please notice that unless you want to run `commands.sh` in serial, you cannot use GPU because one running copy of Clair will occupy all available memory of a GPU. While the bottleneck of `callVarBam` is at the `CreateTensor` script, which only runs on CPU, the effect of GPU accelerate is insignificant (roughly just about 15% faster). But if you have multiple GPU cards in your system, and you want to utilize them in variant calling, you may want split the `commands.sh` in to parts, and run the parts by firstly `export CUDA_VISIBLE_DEVICES="$i"`, where `$i` is an integer from 0 identifying the ID of the GPU to be used.
+* **Concatenating results** - `vcfcat` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default using option 2 (conda) or option 3 (docker).
 
 ---
 
