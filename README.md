@@ -32,7 +32,7 @@ conda activate clair
 # install pypy and packages on clair environemnt
 conda install -c conda-forge pypy3.6
 pypy3 -m ensurepip
-pypy3 -m pip install blosc intervaltree
+pypy3 -m pip install intervaltree
 
 # install python packages on clair environment
 pip install numpy blosc intervaltree tensorflow==1.13.2 pysam matplotlib
@@ -82,11 +82,11 @@ CLAIR=`which clair.py`
 python $CLAIR --help
 ```
 
-The conda environment has the Pypy intepreter installed, but two Pypy libraries `intervaltree` and `blosc` are still missing. The reason why the two packages are not installed by default is because they are not yet available in any conda repositories. To install the two libraries for Pypy, after activating the conda environment, please run the follow commands:
+The conda environment has the Pypy intepreter installed, but one Pypy package `intervaltree` is still missing. The reason why this is not installed by default is because this is not yet available in any conda repositories. To install the package for Pypy, after activating the conda environment, please run the follow commands:
 
 ```bash
 pypy3 -m ensurepip
-pypy3 -m pip install --no-cache-dir intervaltree blosc
+pypy3 -m pip install --no-cache-dir intervaltree
 ```
 
 Download the models to a folder and continue the process

@@ -30,4 +30,4 @@ RUN echo "source activate clair-env" > ~/.bashrc
 ENV PATH /opt/conda/envs/clair-env/bin:$PATH
 RUN /bin/bash -c ". activate clair-env && \
     pypy3 -m ensurepip && \
-    pypy3 -m pip install --no-cache-dir intervaltree blosc"
+    pypy3 -m pip install --no-cache-dir intervaltree"
