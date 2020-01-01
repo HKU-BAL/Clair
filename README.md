@@ -12,6 +12,7 @@ This is the formal release of Clair (Clair v2, Dec 2019). You can find the exper
 
 ## Contents
 - [Installation](#installation)
+- [Quick Demo](#quick-demo)
 - [Usage](#usage)
 - [Submodule Descriptions](#submodule-descriptions)
 - [Download Pretrained Models](#pretrained-models)
@@ -22,48 +23,7 @@ This is the formal release of Clair (Clair v2, Dec 2019). You can find the exper
 
 ## Installation
 
-### Option 1. conda for virtual environment
-#### If anaconda3 not installed, checkout https://docs.anaconda.com/anaconda/install/ for the installation guide
-```bash
-# create and activate the environment named clair
-conda create -n clair python=3.7
-conda activate clair
-
-# install pypy and packages on clair environemnt
-conda install -c conda-forge pypy3.6
-pypy3 -m ensurepip
-pypy3 -m pip install intervaltree
-
-# install python packages on clair environment
-pip install numpy blosc intervaltree tensorflow==1.13.2 pysam matplotlib
-conda install -c anaconda pigz
-conda install -c conda-forge parallel zstd
-conda install -c bioconda samtools vcflib bcftools
-
-# clone Clair
-git clone --depth=1 https://github.com/HKU-BAL/Clair.git
-cd Clair
-
-# download pretrained model (for ONT)
-mkdir ont && cd ont
-wget http://www.bio8.cs.hku.hk/clair_models/ont/12.tar
-tar -xf 12.tar
-cd ../
-
-# download pretrained model (for PacBio CCS)
-mkdir pacbio && cd pacbio
-wget http://www.bio8.cs.hku.hk/clair_models/pacbio/ccs/15.tar
-tar -xf 15.tar
-cd ../
-
-# download pretrained model (for Illumina)
-mkdir illumina && cd illumina
-wget http://www.bio8.cs.hku.hk/clair_models/illumina/12345.tar
-tar -xf 12345.tar
-cd ../
-```
-
-### Option 2. Bioconda
+### Option 1. Bioconda
 
 ```bash
 # make sure channels are added in conda
@@ -82,53 +42,83 @@ CLAIR=`which clair.py`
 python $CLAIR --help
 ```
 
-The conda environment has the Pypy intepreter installed, but one Pypy package `intervaltree` is still missing. The reason why this is not installed by default is because this is not yet available in any conda repositories. To install the package for Pypy, after activating the conda environment, please run the follow commands:
+The conda environment has the Pypy3 intepreter installed, but one Pypy3 package `intervaltree` is still missing. The reason why this is not installed by default is because this is not yet available in any conda repositories. To install the package for Pypy3, after activating the conda environment, please run the follow commands:
 
 ```bash
 pypy3 -m ensurepip
-pypy3 -m pip install --no-cache-dir intervaltree
+pypy3 -m pip install --no-cache-dir intervaltree==3.0.2
 ```
 
-Download the models to a folder and continue the process
-(Please refer to `# download pretrained model` in  [Installation Option 1](#option-1-conda-for-virtual-environment))
+Then download the trained models:
 
-
-### Option 3. Docker
 ```bash
-# clone Clair
-git clone --depth=1 https://github.com/HKU-BAL/Clair.git
-cd Clair
-
-# download pretrained model (for ONT)
+# download the trained model for ONT
 mkdir ont && cd ont
 wget http://www.bio8.cs.hku.hk/clair_models/ont/12.tar
 tar -xf 12.tar
 cd ../
 
-# download pretrained model (for PacBio CCS)
+# download the trained model for PacBio CCS
 mkdir pacbio && cd pacbio
 wget http://www.bio8.cs.hku.hk/clair_models/pacbio/ccs/15.tar
 tar -xf 15.tar
 cd ../
 
-# download pretrained model (for Illumina)
+# download the trained model for Illumina
 mkdir illumina && cd illumina
 wget http://www.bio8.cs.hku.hk/clair_models/illumina/12345.tar
 tar -xf 12345.tar
 cd ../
+```
+
+### Option 2. Build an anaconda virtual environment step by step
+#### Please install anaconda using the installation guide at https://docs.anaconda.com/anaconda/install/
+```bash
+# create and activate the environment named clair
+conda create -n clair python=3.7
+conda activate clair
+
+# install pypy and packages on clair environemnt
+conda install -c conda-forge pypy3.6
+pypy3 -m ensurepip
+pypy3 -m pip install blosc==1.8.3 intervaltree==3.0.2
+
+# install python packages on clair environment
+pip install numpy==1.18.0 blosc==1.8.3 intervaltree==3.0.2 tensorflow==1.13.2 pysam==0.15.3 matplotlib==3.1.2
+conda install -c anaconda pigz==2.4
+conda install -c conda-forge parallel=20191122 zstd=1.4.4
+conda install -c bioconda samtools=1.10 vcflib=1.0.0 bcftools=1.10.2
+
+# clone Clair
+git clone https://github.com/HKU-BAL/Clair.git
+cd Clair
+chmod +x clair.py
+export PATH=`pwd`":$PATH"
+```
+
+Then download the trained models referring to `download the trained model` in [Installation - Option 1](#option-1-bioconda)
+
+### Option 3. Docker
+```bash
+# clone Clair
+git clone https://github.com/HKU-BAL/Clair.git
+cd Clair
 
 # build a docker image named clair_docker_image
-docker build -f ./Dockerfile -t clair_docker_image .
+docker build -f ./Dockerfile -t clair_docker_image . # You might need root privilege
 
 # run docker image
-docker run -it clair_docker_image
+docker run -it clair_docker_image # You might need root privilege
 
 # store clair.py PATH into $CLAIR variable
 CLAIR=`which clair.py`
 
-# run clair like this afterwards
+# run clair like this
 python $CLAIR --help
 ```
+
+Then download the trained models referring to `download the trained model` in [Installation - Option 1](#option-1-bioconda)
+
 
 ### After Installation
 
@@ -145,6 +135,22 @@ pip install tensorflow-gpu==1.13.2
 ```
 
 The installation of the `blosc` library might fail if your CPU doesn't support the AVX2 instruction set. Alternatively, you can compile and install from the latest source code available in [GitHub](https://github.com/Blosc/python-blosc) with the `DISABLE_BLOSC_AVX2` environment variable set.
+
+---
+
+## Quick demo
+* Step 1. Install Clair, preferably using [Installation - Option 1](#option-1-bioconda)
+* Step 2. Run
+
+```bash
+conda activate clair-env
+mkdir clairDemo
+cd clairDemo
+wget 'http://www.bio8.cs.hku.hk/clair_models/demo/clairDemo.sh'
+bash clairDemo.sh
+```
+
+* Step 3. Check the results using `less -S ./training/chr21.vcf`
 
 ---
 
