@@ -42,11 +42,11 @@ CLAIR=`which clair.py`
 python $CLAIR --help
 ```
 
-The conda environment has the Pypy3 intepreter installed, but two Pypy3 libraries `intervaltree` and `blosc` are still missing. The reason why the two packages are not installed by default is because they are not yet available in any conda repositories. To install the two libraries for Pypy3, after activating the conda environment, please run the follow commands:
+The conda environment has the Pypy3 intepreter installed, but one Pypy3 package `intervaltree` is still missing. The reason why this is not installed by default is because this is not yet available in any conda repositories. To install the package for Pypy3, after activating the conda environment, please run the follow commands:
 
 ```bash
 pypy3 -m ensurepip
-pypy3 -m pip install --no-cache-dir intervaltree blosc
+pypy3 -m pip install --no-cache-dir intervaltree==3.0.2
 ```
 
 Then download the trained models:
