@@ -81,7 +81,7 @@ conda activate clair
 # install pypy and packages on clair environemnt
 conda install -c conda-forge pypy3.6
 pypy3 -m ensurepip
-pypy3 -m pip install blosc==1.8.3 intervaltree==3.0.2
+pypy3 -m pip install intervaltree==3.0.2
 
 # install python packages on clair environment
 pip install numpy==1.18.0 blosc==1.8.3 intervaltree==3.0.2 tensorflow==1.13.2 pysam==0.15.3 matplotlib==3.1.2
