@@ -54,8 +54,8 @@ Then download the trained models:
 ```bash
 # download the trained model for ONT
 mkdir ont && cd ont
-wget http://www.bio8.cs.hku.hk/clair_models/ont/12.tar
-tar -xf 12.tar
+wget http://www.bio8.cs.hku.hk/clair_models/ont/1234.tar
+tar -xf 1234.tar
 cd ../
 
 # download the trained model for PacBio CCS
@@ -257,13 +257,13 @@ vcfcat ${OUTPUT_PREFIX}.*.vcf | bcftools sort -m 2G | bgziptabix snp_and_indel.v
 * **An alternative to GNU parallel** - If [GNU parallel](https://www.gnu.org/software/parallel/) is not installed, please try ```awk '{print "\""$0"\""}' commands.sh | xargs -P4 -L1 sh -c```
 ##### Options
 * **Haploid Mode** - For haploid samples, please use the `--haploid` option.
-* **Choosing genome sequences and positions for variant calling** - callVarBamParallel by default will generate commonds for chromosome {1..22},X,Y (insensible to the "chr" prefix). To call variants in other sequences, you can either input via option "--ben_fn" your own BED file with three columns including the target sequence names, starting positions and ending positions, or use the option `--includingAllContigs` to include all sequences in the input FASTA file. If you work on a non-human sample, please always use a BED file or the `--includingAllContigs` option to define the sequences you want Clair to work on.
+* **Choosing genome sequences and positions for variant calling** - callVarBamParallel by default will generate commonds for chromosome {1..22},X,Y (insensible to the "chr" prefix). To call variants in other sequences, you can either input via option `--bed_fn` your own BED file with three columns including the target sequence names, starting positions and ending positions, or use the option `--includingAllContigs` to include all sequences in the input FASTA file. If you work on a non-human sample, please always use a BED file or the `--includingAllContigs` option to define the sequences you want Clair to work on.
 * **For more accurate Indel calling** - You may consider using the `--pysam_for_all_indel_bases` option for more accurate Indel results. On Illumina data and PacBio CCS data, the option requires 20% to 50% longer running time. On ONT data, Clair can run up to ten times slower, while the improvement in accuracy is not significant.
 ##### Other considerations
 * **Setting an appropriate allele frequency cutoff** - Please refer to [About Setting the Alternative Allele Frequency Cutoff](#about-setting-the-alternative-allele-frequency-cutoff)
 * **Check for incomplete (unfinished) VCF files** - Incomplete VCF files happens when 'out of memory' or other errors occur. The command in the example finds for a newline at the end of the VCF files, and regenerate the incomplete files.
 * **Disabling GPU: Clair uses CPU for varaint calling** - To avoid the tensorflow library from using GPU, `CUDA_VISIBLE_DEVICES=""` makes GPUs invisible to Clair so it will only use CPU for variant calling. Please notice that unless you want to run `commands.sh` in serial, you cannot use GPU because one running copy of Clair will occupy all available memory of a GPU. While the bottleneck of `callVarBam` is at the `CreateTensor` script, which only runs on CPU, the effect of GPU accelerate is insignificant (roughly just about 15% faster). But if you have multiple GPU cards in your system, and you want to utilize them in variant calling, you may want split the `commands.sh` in to parts, and run the parts by firstly `export CUDA_VISIBLE_DEVICES="$i"`, where `$i` is an integer from 0 identifying the ID of the GPU to be used.
-* **Concatenating results** - `vcfcat` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default using option 2 (conda) or option 3 (docker).
+* **Concatenating results** - `vcfcat` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default.
 
 ---
 
@@ -304,6 +304,7 @@ Folder | Tech | Sample used | Aligner | Download |
 illumina | Illumina | HG001,2,3,4,5 | Novoalign | [Download](http://www.bio8.cs.hku.hk/clair_models/illumina/12345.tar)
 pacbio/ccs | PacBio CCS | HG001,5 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/pacbio/ccs/15.tar)
 ont | ONT R9.4.1 | HG001,2 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/ont/12.tar)
+ont | ONT R9.4.1 | HG001,2,3,4 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/ont/1234.tar)
 
 ---
 

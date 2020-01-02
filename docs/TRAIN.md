@@ -59,7 +59,7 @@ ln -s ${BAM_FILE_PATH}.bai ${SUBSAMPLED_BAMS_FOLDER_PATH}/1.000.bam.bai
 > - For each `parallel` command ran with the `--joblog` option, we can check the `Exitval` column from the job log output. If the column contains a non-zero value, it means error occured, please try to rerun the block again.
 > - We suggest to use absolute path everywhere.
 
-### Single indivdiual
+### Single individual
 
 This section shows how to build a compressed binary for one individual with or without multiple coverages.
 
