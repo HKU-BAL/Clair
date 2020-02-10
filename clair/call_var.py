@@ -1,9 +1,9 @@
 import sys
 import os
-import time
 import logging
 import numpy as np
 import pysam
+from time import time
 from argparse import ArgumentParser
 from threading import Thread
 from math import log, e
@@ -1272,7 +1272,7 @@ def log_activation(args, m):
 def call_variants_with_probabilities_input(args, output_config, output_utilities):
     output_utilities.output_header()
     logging.info("Output variants ...")
-    variant_call_start_time = time.time()
+    variant_call_start_time = time()
 
     tensor_dimensions = (2*param.flankingBaseNum+1, param.matrixRow, param.matrixNum)
     no_of_tensor_values = tensor_dimensions[0] * tensor_dimensions[1] * tensor_dimensions[2]
@@ -1301,7 +1301,7 @@ def call_variants_with_probabilities_input(args, output_config, output_utilities
             output_utilities,
         )
 
-    logging.info("Total time elapsed: %.2f s" % (time.time() - variant_call_start_time))
+    logging.info("Total time elapsed: %.2f s" % (time() - variant_call_start_time))
     output_utilities.close_opened_files()
 
 
@@ -1310,7 +1310,7 @@ def call_variants(args, m, output_config, output_utilities):
 
     tensor_generator = utils.tensor_generator_from(args.tensor_fn, param.predictBatchSize)
     logging.info("Calling variants ...")
-    variant_call_start_time = time.time()
+    variant_call_start_time = time()
 
     is_finish_loaded_all_mini_batches = False
     batch_output_method = batch_output_for_ensemble if output_config.is_output_for_ensemble else batch_output
@@ -1358,7 +1358,7 @@ def call_variants(args, m, output_config, output_utilities):
         if is_finish_loaded_all_mini_batches and is_nothing_to_predict_and_output:
             break
 
-    logging.info("Total time elapsed: %.2f s" % (time.time() - variant_call_start_time))
+    logging.info("Total time elapsed: %.2f s" % (time() - variant_call_start_time))
 
     output_utilities.close_opened_files()
 

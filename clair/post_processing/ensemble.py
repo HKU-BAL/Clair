@@ -1,5 +1,4 @@
-import sys
-from sys import stdin, stderr
+from sys import stdin, stderr, argv, exit
 from collections import namedtuple, defaultdict
 from argparse import ArgumentParser
 
@@ -96,9 +95,9 @@ def main():
 
     args = parser.parse_args()
 
-    if len(sys.argv[1:]) == 0:
+    if len(argv[1:]) == 0:
         parser.print_help()
-        sys.exit(1)
+        exit(1)
 
     ensemble_config = EnsembleConfig(
         minimum_count_to_output=args.minimum_count_to_output

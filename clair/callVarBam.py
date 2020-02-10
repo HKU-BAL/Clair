@@ -15,7 +15,7 @@ from shared.command_options import (
     command_string_from,
     command_option_from
 )
-from shared.utils import file_path_from, executable_command_string_from
+from shared.utils import file_path_from, executable_command_string_from, subprocess_popen
 
 
 class InstancesClass(object):
@@ -179,23 +179,22 @@ def Run(args):
 
     is_true_variant_call = vcf_fn is not None
     try:
-        c.extract_variant_candidate = subprocess.Popen(
+        c.extract_variant_candidate = subprocess_popen(
             shlex.split(command_string_from(
                 get_truth_command_options if is_true_variant_call else extract_variant_candidate_command_options
-            )),
-            stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608
+            ))
         )
 
-        c.create_tensor = subprocess.Popen(
+        c.create_tensor = subprocess_popen(
             shlex.split(command_string_from(create_tensor_command_options)),
-            stdin=c.extract_variant_candidate.stdout, stdout=subprocess.PIPE, stderr=sys.stderr, bufsize=8388608
+            stdin=c.extract_variant_candidate.stdout
         )
 
-        c.call_variant = subprocess.Popen(
+        c.call_variant = subprocess_popen(
             shlex.split(command_string_from(
                 call_variant_command_options + call_variant_with_activation_command_options
             )),
-            stdin=c.create_tensor.stdout, stdout=sys.stderr, stderr=sys.stderr, bufsize=8388608
+            stdin=c.create_tensor.stdout, stdout=sys.stderr
         )
     except Exception as e:
         print(e, file=sys.stderr)
