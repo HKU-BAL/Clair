@@ -319,15 +319,17 @@ def make_candidates(args):
         positions = [x for x in pileup.keys() if x < POS] if not is_finish_reading_output else list(pileup.keys())
         positions.sort()
         for zero_based_position in positions:
-            baseCount = depth = reference_base = temp_key = None
+            base_count = depth = reference_base = temp_key = None
 
             # ctg and bed checking (region [ctg_start, ctg_end] is 1-based, inclusive start and end positions)
             pass_ctg = not is_ctg_range_given or ctg_start <= zero_based_position+1 <= ctg_end
             pass_bed = not is_bed_file_given or is_region_in(tree, ctg_name, zero_based_position)
+            if not pass_bed or not pass_ctg:
+                continue
 
             # output probability checking
             pass_output_probability = True
-            if pass_ctg and pass_bed and is_building_training_dataset and is_variant_file_given:
+            if is_building_training_dataset and is_variant_file_given:
                 temp_key = ctg_name + ":" + str(zero_based_position+1)
                 pass_output_probability = (
                     temp_key not in variants_map and (
@@ -335,43 +337,47 @@ def make_candidates(args):
                         (temp_key not in non_variants_map and random.uniform(0, 1) <= output_probability_outside_variant)
                     )
                 )
-            elif pass_ctg and pass_bed and is_building_training_dataset:
+            elif is_building_training_dataset:
                 pass_output_probability = random.uniform(0, 1) <= output_probability
+            if not pass_output_probability:
+                continue
 
-            # depth checking
-            pass_depth = False
-            if pass_ctg and pass_bed and pass_output_probability:
-                baseCount = list(pileup[zero_based_position].items())
-                depth = sum(x[1] for x in baseCount)
-                pass_depth = depth >= minimum_depth_for_candidate
-
-            # af checking
-            pass_af = False
-            if pass_ctg and pass_bed and pass_output_probability and pass_depth:
+            # for depth checking and af checking
+            try:
                 reference_base = evc_base_from(reference_sequence[
                     zero_based_position - (0 if reference_start is None else (reference_start - 1))
                 ])
-                denominator = depth if depth > 0 else 1
-                baseCount.sort(key=lambda x: -x[1])  # sort baseCount descendingly
-                p0, p1 = float(baseCount[0][1]) / denominator, float(baseCount[1][1]) / denominator
-                pass_af = (
-                    (p0 <= 1.0 - minimum_af_for_candidate and p1 >= minimum_af_for_candidate) or
-                    baseCount[0][0] != reference_base
-                )
+                position_dict = pileup[zero_based_position]
+            except:
+                continue
+
+            # depth checking
+            base_count = list(position_dict.items())
+            depth = sum(x[1] for x in base_count) - position_dict["I"] - position_dict["D"]
+            if depth < minimum_depth_for_candidate:
+                continue
+
+            # af checking
+            denominator = depth if depth > 0 else 1
+            base_count.sort(key=lambda x: -x[1])  # sort base_count descendingly
+            pass_af = (
+                base_count[0][0] != reference_base or
+                (float(base_count[1][1]) / denominator) >= minimum_af_for_candidate
+            )
+            if not pass_af:
+                continue
 
             # output 1-based candidate
-            need_output_candidate = pass_ctg and pass_bed and pass_output_probability and pass_depth and pass_af
-            if need_output_candidate:
-                if temp_key is not None and temp_key in non_variants_map:
-                    no_of_candidates_near_variant += 1
-                elif temp_key is not None and temp_key not in non_variants_map:
-                    no_of_candidates_outside_variant += 1
+            if temp_key is not None and temp_key in non_variants_map:
+                no_of_candidates_near_variant += 1
+            elif temp_key is not None and temp_key not in non_variants_map:
+                no_of_candidates_outside_variant += 1
 
-                output = [ctg_name, zero_based_position+1, reference_base, depth]
-                output.extend(["%s %d" % x for x in baseCount])
-                output = " ".join([str(x) for x in output]) + "\n"
+            output = [ctg_name, zero_based_position+1, reference_base, depth]
+            output.extend(["%s %d" % x for x in base_count])
+            output = " ".join([str(x) for x in output]) + "\n"
 
-                can_fp.stdin.write(output)
+            can_fp.stdin.write(output)
 
         for zero_based_position in positions:
             del pileup[zero_based_position]

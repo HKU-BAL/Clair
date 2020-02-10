@@ -8,6 +8,11 @@ Single-molecule sequencing technologies have emerged in recent years and revolut
 
 This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Jan 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair). The preprint of Clair v2 is available in [bioRxiv](https://www.biorxiv.org/content/10.1101/865782v2).
 
+## What are we working on right now?
+* Testing small technics to resolve complex variants, e.g. a deletion that spans a SNP closely followed.
+* An ONT model that supports coverage up to 600x using the HG002 datasets by "The Human Pangenome Reference Consortium".
+* A full alignment representation for higher performance in the low complexity genomics regions.
+
 ---
 
 ## Contents

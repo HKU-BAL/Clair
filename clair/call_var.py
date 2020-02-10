@@ -405,6 +405,10 @@ def inferred_insertion_bases_from(tensor_input):
         for base_index in range(0, 4):
             insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
             insertion_tensor[base_index + 4] = 0
+            insertion_tensor[base_index] -= (
+                tensor_input[position, base_index, Channel.SNP] + tensor_input[position, base_index + 4, Channel.SNP]
+            )
+
         if (
             position < (flanking_base_number + minimum_variant_length_that_need_infer) or
             sum(insertion_tensor) >= inferred_indel_length_minimum_allele_frequency * sum(reference_tensor)
@@ -437,6 +441,10 @@ def insertion_bases_using_tensor(tensor_input, variant_length):
         for base_index in range(0, 4):
             insertion_tensor[base_index] = insertion_tensor[base_index] + insertion_tensor[base_index + 4]
             insertion_tensor[base_index + 4] = 0
+            insertion_tensor[base_index] -= (
+                tensor_input[position, base_index, Channel.SNP] + tensor_input[position, base_index + 4, Channel.SNP]
+            )
+
         insertion_bases += num2base[np.argmax(insertion_tensor) % 4]
     return insertion_bases
 
