@@ -46,6 +46,7 @@ def Run(args):
     log_path = command_option_from(args.log_path, 'log_path', option_value=args.log_path)
     pysam_for_all_indel_bases = command_option_from(args.pysam_for_all_indel_bases, 'pysam_for_all_indel_bases')
     haploid_mode = command_option_from(args.haploid, 'haploid')
+    output_for_ensemble = command_option_from(args.output_for_ensemble, 'output_for_ensemble')
     debug = command_option_from(args.debug, 'debug')
     qual = command_option_from(args.qual, 'qual', option_value=args.qual)
     fast_plotting = command_option_from(args.fast_plotting, 'fast_plotting')
@@ -69,6 +70,7 @@ def Run(args):
         debug,
         pysam_for_all_indel_bases,
         haploid_mode,
+        output_for_ensemble,
     ]
 
     activation_only_command_options = [
@@ -191,6 +193,9 @@ def main():
                         help="The number of workers in plotting, default: %(default)s")
     parser.add_argument('--fast_plotting', action='store_true',
                         help="Enable fast plotting.")
+
+    parser.add_argument('--output_for_ensemble', action='store_true',
+                        help="Output for ensemble")
 
     args = parser.parse_args()
 

@@ -8,6 +8,7 @@ from shared.param import REPO_NAME
 
 DATA_PREP_SCRIPTS_FOLDER="dataPrepScripts"
 DEEP_LEARNING_FOLDER="clair"
+POST_PROCESS_SCRIPTS_FOLDER="clair.post_processing"
 
 deep_learning_folder = [
     "callVarBamParallel",
@@ -27,6 +28,10 @@ data_prep_scripts_folder = [
     "CombineBins",
     "Bin2To3",
 ]
+post_process_scripts_folder = [
+    'ensemble',
+    'overlap_variant',
+]
 
 
 def directory_for(submodule_name):
@@ -34,6 +39,8 @@ def directory_for(submodule_name):
         return DEEP_LEARNING_FOLDER
     if submodule_name in data_prep_scripts_folder:
         return DATA_PREP_SCRIPTS_FOLDER
+    if submodule_name in post_process_scripts_folder:
+        return POST_PROCESS_SCRIPTS_FOLDER
     return ""
 
 
@@ -45,21 +52,14 @@ def print_help_messages():
 
         Available data preparation submodules:\n{1}
 
-        Available {2} submodules:\n{3}
+        Available clair submodules:\n{2}
 
-        Data preparation scripts:
-        {4}
-
-        {5} scripts:
-        {6}
+        Available post processing submodules:\n{3}
         """.format(
             REPO_NAME,
             "\n".join("          - %s" % submodule_name for submodule_name in data_prep_scripts_folder),
-            REPO_NAME,
             "\n".join("          - %s" % submodule_name for submodule_name in deep_learning_folder),
-            "%s/%s" % (dirname(abspath(sys.argv[0])), DATA_PREP_SCRIPTS_FOLDER),
-            REPO_NAME,
-            "%s/%s" % (dirname(abspath(sys.argv[0])), DEEP_LEARNING_FOLDER)
+            "\n".join("          - %s" % submodule_name for submodule_name in post_process_scripts_folder),
         )
     ))
 
@@ -72,7 +72,8 @@ def main():
     submodule_name = sys.argv[1]
     if (
         submodule_name not in deep_learning_folder and
-        submodule_name not in data_prep_scripts_folder
+        submodule_name not in data_prep_scripts_folder and
+        submodule_name not in post_process_scripts_folder
     ):
         sys.exit("[ERROR] Submodule %s not found." % (submodule_name))
 

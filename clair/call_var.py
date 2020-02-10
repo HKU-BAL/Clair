@@ -35,6 +35,7 @@ OutputConfig = namedtuple('OutputConfig', [
     'is_show_reference',
     'is_debug',
     'is_haploid_mode_enabled',
+    'is_output_for_ensemble',
     'quality_score_for_pass',
 ])
 OutputUtilities = namedtuple('OutputUtilities', [
@@ -186,6 +187,27 @@ def Run(args):
         if param.NUM_THREADS < 1:
             param.NUM_THREADS = 1
 
+    output_config = OutputConfig(
+        is_show_reference=args.showRef,
+        is_debug=args.debug,
+        is_haploid_mode_enabled=args.haploid,
+        is_output_for_ensemble=args.output_for_ensemble,
+        quality_score_for_pass=args.qual,
+    )
+    output_utilities = output_utilties_from(
+        sample_name=args.sampleName,
+        is_debug=args.debug,
+        is_output_for_ensemble=args.output_for_ensemble,
+        is_using_pysam_for_all_indel_bases_output=args.pysam_for_all_indel_bases,
+        reference_file_path=args.ref_fn,
+        bam_file_path=args.bam_fn,
+        output_file_path=args.call_fn,
+    )
+
+    if args.input_probabilities:
+        call_variants_with_probabilities_input(args, output_config, output_utilities)
+        return
+
     m = Clair()
     m.init()
     m.restore_parameters(os.path.abspath(args.chkpnt_fn))
@@ -193,12 +215,13 @@ def Run(args):
     if args.activation_only:
         log_activation(args, m)
     else:
-        call_variants(args, m)
+        call_variants(args, m, output_config, output_utilities)
 
 
 def output_utilties_from(
     sample_name,
     is_debug,
+    is_output_for_ensemble,
     is_using_pysam_for_all_indel_bases_output,
     bam_file_path,
     reference_file_path,
@@ -277,6 +300,9 @@ def output_utilties_from(
         output_file.close()
 
     def output_header():
+        if is_output_for_ensemble:
+            return
+
         from textwrap import dedent
         output(dedent("""\
             ##fileformat=VCFv4.1
@@ -931,7 +957,7 @@ def output_from(
     )
 
 
-def batch_output(mini_batch, batch_Y, output_config, output_utilities):
+def batch_output_for_ensemble(mini_batch, batch_Y, output_config, output_utilities):
     X, batch_chr_pos_seq = mini_batch
     batch_size = len(batch_chr_pos_seq)
 
@@ -945,7 +971,6 @@ def batch_output(mini_batch, batch_Y, output_config, output_utilities):
         )
 
     tensor_position_center = flanking_base_number
-    information_string = "."
 
     for (
         x,
@@ -963,38 +988,241 @@ def batch_output(mini_batch, batch_Y, output_config, output_utilities):
         batch_variant_length_probabilities_2
     ):
         chromosome, position, reference_sequence = chr_pos_seq
-        position = int(position)
 
         if reference_sequence[tensor_position_center] not in BASIC_BASES:
             continue
 
-        # read depth
-        read_depth = sum(
-            x[tensor_position_center, :, Channel.delete] + x[tensor_position_center, :, Channel.reference]
-        )
-        if read_depth == 0:
-            output_utilities.print_debug_message(
-                chromosome,
-                position,
-                gt21_probabilities,
-                genotype_probabilities,
-                variant_length_probabilities_1,
-                variant_length_probabilities_2,
-                "Read Depth is zero"
-            )
-            continue
+        tensor = x.flatten().astype(int).astype(str)
 
-        (
-            is_reference, is_homo_SNP, is_hetero_SNP,
-            is_homo_insertion, is_hetero_ACGT_Ins, is_hetero_InsIns,
-            is_homo_deletion, is_hetero_ACGT_Del, is_hetero_DelDel,
-            is_insertion_and_deletion
-        ), (reference_base, alternate_base) = output_from(
-            x,
-            reference_sequence,
+        output_utilities.output(
+            "\t".join(
+                [
+                    chromosome,
+                    position,
+                    reference_sequence,
+                ] +
+                list(tensor) +
+                ["{:0.6f}".format(p) for p in list(gt21_probabilities)] +
+                ["{:0.6f}".format(p) for p in list(genotype_probabilities)] +
+                ["{:0.6f}".format(p) for p in list(variant_length_probabilities_1)] +
+                ["{:0.6f}".format(p) for p in list(variant_length_probabilities_2)]
+            )
+        )
+
+def output_with(
+    x,
+    chr_pos_seq,
+    gt21_probabilities,
+    genotype_probabilities,
+    variant_length_probabilities_1,
+    variant_length_probabilities_2,
+    output_config,
+    output_utilities
+):
+    chromosome, position, reference_sequence = chr_pos_seq
+    position = int(position)
+
+    tensor_position_center = flanking_base_number
+    information_string = "."
+
+    if reference_sequence[tensor_position_center] not in BASIC_BASES:
+        return
+
+    # read depth
+    read_depth = sum(
+        x[tensor_position_center, :, Channel.delete] + x[tensor_position_center, :, Channel.reference]
+    )
+    if read_depth == 0:
+        output_utilities.print_debug_message(
             chromosome,
             position,
-            tensor_position_center,
+            gt21_probabilities,
+            genotype_probabilities,
+            variant_length_probabilities_1,
+            variant_length_probabilities_2,
+            "Read Depth is zero"
+        )
+        return
+
+    (
+        is_reference, is_homo_SNP, is_hetero_SNP,
+        is_homo_insertion, is_hetero_ACGT_Ins, is_hetero_InsIns,
+        is_homo_deletion, is_hetero_ACGT_Del, is_hetero_DelDel,
+        is_insertion_and_deletion
+    ), (reference_base, alternate_base) = output_from(
+        x,
+        reference_sequence,
+        chromosome,
+        position,
+        tensor_position_center,
+        gt21_probabilities,
+        genotype_probabilities,
+        variant_length_probabilities_1,
+        variant_length_probabilities_2,
+        output_config,
+        output_utilities,
+    )
+
+    if not output_config.is_debug and (
+        (not output_config.is_show_reference and is_reference) or
+        (not is_reference and reference_base == alternate_base)
+    ):
+        return
+
+    if reference_base is None or alternate_base is None:
+        output_utilities.print_debug_message(
+            chromosome,
+            position,
+            gt21_probabilities,
+            genotype_probabilities,
+            variant_length_probabilities_1,
+            variant_length_probabilities_2,
+            "no reference base / alternate base prediction"
+        )
+        return
+
+    is_multi = "," in str(alternate_base)
+
+    # geno type string
+    if is_reference:
+        genotype_string = genotype_string_from(Genotype.homo_reference)
+    elif is_homo_SNP or is_homo_insertion or is_homo_deletion:
+        genotype_string = genotype_string_from(Genotype.homo_variant)
+    elif is_hetero_SNP or is_hetero_ACGT_Ins or is_hetero_InsIns or is_hetero_ACGT_Del or is_hetero_DelDel:
+        genotype_string = genotype_string_from(Genotype.hetero_variant)
+    if is_multi:
+        genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
+
+    # allele frequency / supported reads
+    supported_reads_count = 0
+    if is_reference:
+        supported_reads_count = (
+            x[tensor_position_center, BASE2NUM[reference_base], Channel.reference] +
+            x[tensor_position_center, BASE2NUM[reference_base]+4, Channel.reference]
+        )
+    elif is_homo_SNP or is_hetero_SNP:
+        for base in str(alternate_base):
+            if base == ',':
+                continue
+            supported_reads_count += (
+                x[tensor_position_center, BASE2NUM[base], Channel.SNP] +
+                x[tensor_position_center, BASE2NUM[base]+4, Channel.SNP] +
+                x[tensor_position_center, BASE2NUM[base], Channel.reference] +
+                x[tensor_position_center, BASE2NUM[base]+4, Channel.reference]
+            )
+    elif is_homo_insertion or is_hetero_InsIns:
+        supported_reads_count = (
+            sum(x[tensor_position_center+1, :, Channel.insert]) -
+            sum(x[tensor_position_center+1, :, Channel.SNP])
+        )
+    elif is_hetero_ACGT_Ins:
+        is_SNP_Ins_multi = is_multi
+        SNP_base = alternate_base.split(",")[0][0] if is_SNP_Ins_multi else None
+        supported_reads_for_SNP = (
+            x[tensor_position_center, BASE2NUM[SNP_base], Channel.SNP] +
+            x[tensor_position_center, BASE2NUM[SNP_base]+4, Channel.SNP] +
+            x[tensor_position_center, BASE2NUM[SNP_base], Channel.reference] +
+            x[tensor_position_center, BASE2NUM[SNP_base]+4, Channel.reference]
+        ) if is_SNP_Ins_multi else 0
+
+        supported_reads_count = (
+            sum(x[tensor_position_center+1, :, Channel.insert]) -
+            sum(x[tensor_position_center+1, :, Channel.SNP])
+        ) + supported_reads_for_SNP
+    elif is_homo_deletion or is_hetero_DelDel:
+        supported_reads_count = sum(x[tensor_position_center+1, :, Channel.delete])
+    elif is_hetero_ACGT_Del:
+        is_SNP_Del_multi = is_multi
+        SNP_base = alternate_base.split(",")[1][0] if is_SNP_Del_multi else None
+        supported_reads_for_SNP = (
+            x[tensor_position_center, BASE2NUM[SNP_base], Channel.SNP] +
+            x[tensor_position_center, BASE2NUM[SNP_base]+4, Channel.SNP] +
+            x[tensor_position_center, BASE2NUM[SNP_base], Channel.reference] +
+            x[tensor_position_center, BASE2NUM[SNP_base]+4, Channel.reference]
+        ) if is_SNP_Del_multi else 0
+
+        supported_reads_count = sum(x[tensor_position_center+1, :, Channel.delete]) + supported_reads_for_SNP
+    elif is_insertion_and_deletion:
+        supported_reads_count = (
+            sum(x[tensor_position_center+1, :, Channel.insert]) +
+            sum(x[tensor_position_center+1, :, Channel.delete]) -
+            sum(x[tensor_position_center+1, :, Channel.SNP])
+        )
+    allele_frequency = ((supported_reads_count + 0.0) / read_depth) if read_depth != 0 else 0.0
+    if allele_frequency > 1:
+        allele_frequency = 1
+
+    # quality score
+    quality_score = quality_score_from(
+        reference_base,
+        alternate_base,
+        genotype_string,
+        gt21_probabilities,
+        genotype_probabilities,
+    )
+
+    # filtration value
+    filtration_value = filtration_value_from(
+        quality_score_for_pass=output_config.quality_score_for_pass, quality_score=quality_score
+    )
+
+    if output_config.is_debug:
+        output_utilities.print_debug_message(
+            chromosome,
+            position,
+            gt21_probabilities,
+            genotype_probabilities,
+            variant_length_probabilities_1,
+            variant_length_probabilities_2,
+            "Normal output" if not is_reference else "Reference"
+        )
+    else:
+        output_utilities.output("%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
+            chromosome,
+            position,
+            reference_base,
+            alternate_base,
+            quality_score,
+            filtration_value,
+            information_string,
+            genotype_string,
+            quality_score,
+            read_depth,
+            allele_frequency
+        ))
+
+
+def batch_output(mini_batch, batch_Y, output_config, output_utilities):
+    X, batch_chr_pos_seq = mini_batch
+    batch_size = len(batch_chr_pos_seq)
+
+    batch_gt21_probabilities, batch_genotype_probabilities, \
+        batch_variant_length_probabilities_1, batch_variant_length_probabilities_2 = batch_Y
+
+    if len(batch_gt21_probabilities) != batch_size:
+        sys.exit(
+            "Inconsistent shape between input tensor and output predictions %d/%d" %
+            (batch_size, len(batch_gt21_probabilities))
+        )
+
+    for (
+        x,
+        chr_pos_seq,
+        gt21_probabilities,
+        genotype_probabilities,
+        variant_length_probabilities_1,
+        variant_length_probabilities_2
+    ) in zip(
+        X,
+        batch_chr_pos_seq,
+        batch_gt21_probabilities,
+        batch_genotype_probabilities,
+        batch_variant_length_probabilities_1,
+        batch_variant_length_probabilities_2
+    ):
+        output_with(
+            x,
+            chr_pos_seq,
             gt21_probabilities,
             genotype_probabilities,
             variant_length_probabilities_1,
@@ -1002,134 +1230,6 @@ def batch_output(mini_batch, batch_Y, output_config, output_utilities):
             output_config,
             output_utilities,
         )
-
-        if not output_config.is_debug and (
-            (not output_config.is_show_reference and is_reference) or
-            (not is_reference and reference_base == alternate_base)
-        ):
-            continue
-
-        if reference_base is None or alternate_base is None:
-            output_utilities.print_debug_message(
-                chromosome,
-                position,
-                gt21_probabilities,
-                genotype_probabilities,
-                variant_length_probabilities_1,
-                variant_length_probabilities_2,
-                "no reference base / alternate base prediction"
-            )
-            continue
-
-        is_multi = "," in str(alternate_base)
-
-        # geno type string
-        if is_reference:
-            genotype_string = genotype_string_from(Genotype.homo_reference)
-        elif is_homo_SNP or is_homo_insertion or is_homo_deletion:
-            genotype_string = genotype_string_from(Genotype.homo_variant)
-        elif is_hetero_SNP or is_hetero_ACGT_Ins or is_hetero_InsIns or is_hetero_ACGT_Del or is_hetero_DelDel:
-            genotype_string = genotype_string_from(Genotype.hetero_variant)
-        if is_multi:
-            genotype_string = genotype_string_from(Genotype.hetero_variant_multi)
-
-        # allele frequency / supported reads
-        supported_reads_count = 0
-        if is_reference:
-            supported_reads_count = (
-                x[tensor_position_center, BASE2NUM[reference_base], Channel.reference] +
-                x[tensor_position_center, BASE2NUM[reference_base]+4, Channel.reference]
-            )
-        elif is_homo_SNP or is_hetero_SNP:
-            for base in str(alternate_base):
-                if base == ',':
-                    continue
-                supported_reads_count += (
-                    x[tensor_position_center, BASE2NUM[base], Channel.SNP] +
-                    x[tensor_position_center, BASE2NUM[base]+4, Channel.SNP] +
-                    x[tensor_position_center, BASE2NUM[base], Channel.reference] +
-                    x[tensor_position_center, BASE2NUM[base]+4, Channel.reference]
-                )
-        elif is_homo_insertion or is_hetero_InsIns:
-            supported_reads_count = (
-                sum(x[tensor_position_center+1, :, Channel.insert]) -
-                sum(x[tensor_position_center+1, :, Channel.SNP])
-            )
-        elif is_hetero_ACGT_Ins:
-            is_SNP_Ins_multi = is_multi
-            SNP_base = alternate_base.split(",")[0][0] if is_SNP_Ins_multi else None
-            supported_reads_for_SNP = (
-                x[tensor_position_center, BASE2NUM[SNP_base], Channel.SNP] +
-                x[tensor_position_center, BASE2NUM[SNP_base]+4, Channel.SNP] +
-                x[tensor_position_center, BASE2NUM[SNP_base], Channel.reference] +
-                x[tensor_position_center, BASE2NUM[SNP_base]+4, Channel.reference]
-            ) if is_SNP_Ins_multi else 0
-
-            supported_reads_count = (
-                sum(x[tensor_position_center+1, :, Channel.insert]) -
-                sum(x[tensor_position_center+1, :, Channel.SNP])
-            ) + supported_reads_for_SNP
-        elif is_homo_deletion or is_hetero_DelDel:
-            supported_reads_count = sum(x[tensor_position_center+1, :, Channel.delete])
-        elif is_hetero_ACGT_Del:
-            is_SNP_Del_multi = is_multi
-            SNP_base = alternate_base.split(",")[1][0] if is_SNP_Del_multi else None
-            supported_reads_for_SNP = (
-                x[tensor_position_center, BASE2NUM[SNP_base], Channel.SNP] +
-                x[tensor_position_center, BASE2NUM[SNP_base]+4, Channel.SNP] +
-                x[tensor_position_center, BASE2NUM[SNP_base], Channel.reference] +
-                x[tensor_position_center, BASE2NUM[SNP_base]+4, Channel.reference]
-            ) if is_SNP_Del_multi else 0
-
-            supported_reads_count = sum(x[tensor_position_center+1, :, Channel.delete]) + supported_reads_for_SNP
-        elif is_insertion_and_deletion:
-            supported_reads_count = (
-                sum(x[tensor_position_center+1, :, Channel.insert]) +
-                sum(x[tensor_position_center+1, :, Channel.delete]) -
-                sum(x[tensor_position_center+1, :, Channel.SNP])
-            )
-        allele_frequency = ((supported_reads_count + 0.0) / read_depth) if read_depth != 0 else 0.0
-        if allele_frequency > 1:
-            allele_frequency = 1
-
-        # quality score
-        quality_score = quality_score_from(
-            reference_base,
-            alternate_base,
-            genotype_string,
-            gt21_probabilities,
-            genotype_probabilities,
-        )
-
-        # filtration value
-        filtration_value = filtration_value_from(
-            quality_score_for_pass=output_config.quality_score_for_pass, quality_score=quality_score
-        )
-
-        if output_config.is_debug:
-            output_utilities.print_debug_message(
-                chromosome,
-                position,
-                gt21_probabilities,
-                genotype_probabilities,
-                variant_length_probabilities_1,
-                variant_length_probabilities_2,
-                "Normal output" if not is_reference else "Reference"
-            )
-        else:
-            output_utilities.output("%s\t%d\t.\t%s\t%s\t%d\t%s\t%s\tGT:GQ:DP:AF\t%s:%d:%d:%.4f" % (
-                chromosome,
-                position,
-                reference_base,
-                alternate_base,
-                quality_score,
-                filtration_value,
-                information_string,
-                genotype_string,
-                quality_score,
-                read_depth,
-                allele_frequency
-            ))
 
 
 def log_activation(args, m):
@@ -1169,22 +1269,43 @@ def log_activation(args, m):
     print("Finished plotting %d" % num_plotted)
 
 
-def call_variants(args, m):
-    output_config = OutputConfig(
-        is_show_reference=args.showRef,
-        is_debug=args.debug,
-        is_haploid_mode_enabled=args.haploid,
-        quality_score_for_pass=args.qual,
-    )
-    output_utilities = output_utilties_from(
-        sample_name=args.sampleName,
-        is_debug=args.debug,
-        is_using_pysam_for_all_indel_bases_output=args.pysam_for_all_indel_bases,
-        reference_file_path=args.ref_fn,
-        bam_file_path=args.bam_fn,
-        output_file_path=args.call_fn,
-    )
+def call_variants_with_probabilities_input(args, output_config, output_utilities):
+    output_utilities.output_header()
+    logging.info("Output variants ...")
+    variant_call_start_time = time.time()
 
+    tensor_dimensions = (2*param.flankingBaseNum+1, param.matrixRow, param.matrixNum)
+    no_of_tensor_values = tensor_dimensions[0] * tensor_dimensions[1] * tensor_dimensions[2]
+
+    for row in sys.stdin:
+        columns = row.split("\t")
+
+        chromosome = columns[0]
+        position = columns[1]
+        sequence = columns[2]
+        x = np.reshape(np.array(columns[3:3 + no_of_tensor_values], dtype=np.float32), tensor_dimensions)
+        probabilities = np.array(columns[3+no_of_tensor_values:], dtype=np.float32)
+        gt21_probabilities = probabilities[0:21]
+        genotype_probabilities = probabilities[21:21+3]
+        variant_length_1_probabilities = probabilities[21+3:21+3+tensor_dimensions[0]]
+        variant_length_2_probabilities = probabilities[21+3+tensor_dimensions[0]:]
+
+        output_with(
+            x,
+            (chromosome, position, sequence),
+            gt21_probabilities,
+            genotype_probabilities,
+            variant_length_1_probabilities,
+            variant_length_2_probabilities,
+            output_config,
+            output_utilities,
+        )
+
+    logging.info("Total time elapsed: %.2f s" % (time.time() - variant_call_start_time))
+    output_utilities.close_opened_files()
+
+
+def call_variants(args, m, output_config, output_utilities):
     output_utilities.output_header()
 
     tensor_generator = utils.tensor_generator_from(args.tensor_fn, param.predictBatchSize)
@@ -1192,6 +1313,7 @@ def call_variants(args, m):
     variant_call_start_time = time.time()
 
     is_finish_loaded_all_mini_batches = False
+    batch_output_method = batch_output_for_ensemble if output_config.is_output_for_ensemble else batch_output
     mini_batches_loaded = []
     mini_batches_to_predict = []
     mini_batches_to_output = []
@@ -1208,7 +1330,7 @@ def call_variants(args, m):
         if len(mini_batches_to_output) > 0:
             mini_batch = mini_batches_to_output.pop(0)
             thread_pool.append(Thread(
-                target=batch_output, args=(mini_batch, m.prediction, output_config, output_utilities)
+                target=batch_output_method, args=(mini_batch, m.prediction, output_config, output_utilities)
             ))
 
         if len(mini_batches_to_predict) > 0:
@@ -1292,6 +1414,11 @@ def main():
 
     parser.add_argument('--haploid', action='store_true',
                         help="call haploid instead of diploid")
+
+    parser.add_argument('--input_probabilities', action='store_true',
+                        help="Accept probabilities as input, using those probabilities to call variant")
+    parser.add_argument('--output_for_ensemble', action='store_true',
+                        help="Output for ensemble")
 
     args = parser.parse_args()
 
