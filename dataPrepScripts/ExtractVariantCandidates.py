@@ -44,7 +44,7 @@ def variants_map_from(variant_file_path):
             break
 
         if row:
-            columns = row.split()
+            columns = row.split(maxsplit=2)
             ctg_name, position_str = columns[0], columns[1]
             key = ctg_name + ":" + position_str
 

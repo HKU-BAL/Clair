@@ -83,7 +83,7 @@ def candidate_position_generator_from(
     is_ctg_region_provided = ctg_start is not None and ctg_end is not None
 
     for row in candidate_file_path_output:
-        row = row.split()
+        row = row.split(maxsplit=2)
         position = int(row[1])  # 1-based position
 
         if is_ctg_region_provided and not (ctg_start <= position <= ctg_end):
