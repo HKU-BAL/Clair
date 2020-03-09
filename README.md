@@ -1,19 +1,33 @@
 <p align="center"><a href="https://en.wiktionary.org/wiki/%E7%9C%BC"><img src="docs/clair-logo.png" alt="Clair"></a></p>
 
 # Clair - deep neural network based variant caller
+
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/clair/README.html)  
 Contact: Ruibang Luo  
 Email: rbluo@cs.hku.hk  
 
+---
+
 ## Introduction
+
 Single-molecule sequencing technologies have emerged in recent years and revolutionized structural variant calling, complex genome assembly, and epigenetic mark detection. However, the lack of a highly accurate small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor to Clairvoyante, a program for fast and accurate germline small variant calling, using single molecule sequencing data. For ONT data, Clair achieves the best precision, recall and speed as compared to several competing programs, including Clairvoyante, Longshot and Medaka. Through studying the missed variants and benchmarking intentionally overfitted models, we found that Clair may be approaching the limit of possible accuracy for germline small variant calling using pileup data and deep neural networks.
 
 This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Jan 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair). The preprint of Clair v2 is available in [bioRxiv](https://www.biorxiv.org/content/10.1101/865782v2).
 
+---
+
 ## What are we working on right now?
-* Testing small technics to resolve complex variants, e.g. a deletion that spans a SNP closely followed.
-* An ONT model that supports coverage up to 600x using the HG002 datasets by "The Human Pangenome Reference Consortium".
+
 * A full alignment representation for higher performance in the low complexity genomics regions.
+* Testing small technics to resolve some complex variants, e.g. a deletion that spans a SNP closely followed.
+
+---
+
+## What's new
+
+* 20200309 - An ONT model trained with up to 578-fold coverage HG002 data from [The Human Pangenome Reference Consortium](https://humanpangenome.org/data/) is now available in [Pretrained Models](#pretrained-models). The below table shows the biased test results, i.e. testing samples included in training, thus not for benchmarking but indicate the performance cap of each model at different coverages. The new model shows significantly improved performance at high coverages.
+
+![](docs/benchmark-modelWith2HD.png)
 
 ---
 
@@ -61,8 +75,8 @@ Then download the trained models:
 ```bash
 # download the trained model for ONT
 mkdir ont && cd ont
-wget http://www.bio8.cs.hku.hk/clair_models/ont/1234.tar
-tar -xf 1234.tar
+wget http://www.bio8.cs.hku.hk/clair_models/ont/122HD34.tar
+tar -xf 122HD34.tar
 cd ../
 
 # download the trained model for PacBio CCS
@@ -80,6 +94,7 @@ cd ../
 
 ### Option 2. Build an anaconda virtual environment step by step
 #### Please install anaconda using the installation guide at https://docs.anaconda.com/anaconda/install/
+
 ```bash
 # create and activate the environment named clair
 conda create -n clair python=3.7
@@ -106,6 +121,7 @@ export PATH=`pwd`":$PATH"
 Then download the trained models referring to `download the trained model` in [Installation - Option 1](#option-1-bioconda)
 
 ### Option 3. Docker
+
 ```bash
 # clone Clair
 git clone https://github.com/HKU-BAL/Clair.git
@@ -146,6 +162,7 @@ The installation of the `blosc` library might fail if your CPU doesn't support t
 ---
 
 ## Quick demo
+
 * Step 1. Install Clair, preferably using [Installation - Option 1](#option-1-bioconda)
 * Step 2. Run
 
@@ -164,6 +181,7 @@ bash clairDemo.sh
 ## Usage
 
 ### General usage
+
 ```bash
 CLAIR="[PATH_TO_CLAIR]/clair.py"
 
@@ -185,6 +203,7 @@ KNOWN_VARIANTS_VCF="[YOUR_VCF_FILE]"                     # e.g. chr21.vcf
 ```
 
 #### Notes
+
 * Each model has three files `model.data-00000-of-00001`, `model.index`, `model.meta`. Please give the `MODEL` variable, the prefix `model`.
 
 ### Call variants at known variant sites or in a chromosome  (using `callVarBam`)
@@ -192,6 +211,7 @@ KNOWN_VARIANTS_VCF="[YOUR_VCF_FILE]"                     # e.g. chr21.vcf
 **For whole genome variant calling, please use `callVarBamParallel` to generate multiple commands that invokes `callVarBam` on smaller chromosome chucks.**
 
 #### Call variants in a chromosome
+
 ```bash
 # variables
 VARIANT_CALLING_OUTPUT_PATH="[YOUR_OUTPUT_PATH]"         # e.g. calls/chr21.vcf (please make sure the directory exists)
@@ -210,6 +230,7 @@ cd "$VARIANT_CALLING_OUTPUT_PATH"
 ```
 
 #### Call variants at known variant sites in a chromosome
+
 ```bash
 # variables
 VARIANT_CALLING_OUTPUT_PATH="[YOUR_OUTPUT_PATH]"         # e.g. calls/chr21.vcf (please make sure the directory exists)
@@ -230,6 +251,7 @@ cd "$VARIANT_CALLING_OUTPUT_PATH"
 ```
 
 ### Call whole-genome variants in parallel (using `callVarBamParallel`)
+
 ```bash
 # variables
 SAMPLE_NAME="NA12878"
@@ -259,6 +281,7 @@ vcfcat ${OUTPUT_PREFIX}.*.vcf | bcftools sort -m 2G | bgziptabix snp_and_indel.v
 
 #### Notes
 ##### Parallelization
+
 * `callVarBamParallel` generates a file of `callVarBam` commands that can be run in parallel.
 * **Use GNU parallel to run commands in parallel** - `parallel -j4` will run four concurrencies in parallel using GNU parallel. We suggest using half the number of available CPU cores.
 * **An alternative to GNU parallel** - If [GNU parallel](https://www.gnu.org/software/parallel/) is not installed, please try ```awk '{print "\""$0"\""}' commands.sh | xargs -P4 -L1 sh -c```
@@ -306,12 +329,13 @@ Submodules in __`clair/`__ are for variant calling and model training. Submodule
 
 Please download models from [here](http://www.bio8.cs.hku.hk/clair_models/) or click on the links below.
 
-Folder | Tech | Sample used | Aligner | Download |
---- | :---: | :---: | :---: | :---: |
-illumina | Illumina | HG001,2,3,4,5 | Novoalign | [Download](http://www.bio8.cs.hku.hk/clair_models/illumina/12345.tar)
-pacbio/ccs | PacBio CCS | HG001,5 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/pacbio/ccs/15.tar)
-ont | ONT R9.4.1 | HG001,2 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/ont/12.tar)
-ont | ONT R9.4.1 | HG001,2,3,4 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/ont/1234.tar)
+Folder | Tech | Suggested | Sample used | Aligner | Download |
+--- | :---: | :---: | :---: | :---: | :---: |
+illumina | Illumina | * | HG001,2,3,4,5 | Novoalign | [Download](http://www.bio8.cs.hku.hk/clair_models/illumina/12345.tar)
+pacbio/ccs | PacBio CCS | * |HG001,5 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/pacbio/ccs/15.tar)
+ont | ONT R9.4.1 | | HG001,2 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/ont/12.tar)
+ont | ONT R9.4.1 | | HG001,2,3,4 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/ont/1234.tar)
+ont | ONT R9.4.1 | * | HG001,2,2HD,3,4 | Minimap2 | [Download](http://www.bio8.cs.hku.hk/clair_models/ont/122HD34.tar)
 
 ---
 
@@ -319,6 +343,7 @@ ont | ONT R9.4.1 | HG001,2,3,4 | Minimap2 | [Download](http://www.bio8.cs.hku.hk
 
 
 ### About Setting the Alternative Allele Frequency Cutoff
+
 Different from model training, in which all genome positions are candidates but randomly subsampled for training, variant calling using a trained model will require the user to define a minimal alternative allele frequency cutoff for a genome position to be considered as a candidate for variant calling. For all sequencing technologies, the lower the cutoff, the lower the speed. Setting a cutoff too low will increase the false positive rate significantly, while too high will increase the false negative rate significantly. \
 The option `--threshold` controls the cutoff in these submodules `callVarBam`, `callVarBamParallel` and `ExtractVariantCandidates`. The suggested cutoff is listed below for different sequencing technologies. A higher cutoff will increase the accuracy of datasets with poor sequencing quality, while a lower cutoff will increase the sensitivity in applications like clinical research. Setting a lower cutoff and further filter the variants by their quality is also a good practice.
 
@@ -331,21 +356,25 @@ ONT | 0.2 |
 ### Variant quality cutoff selection
 
 #### ONT data
+
 The variant quality distribution of Clair on ONT data is usually bimodal. The best quality cutoff is usually the valley between two peaks plus 50. The image below shows the quality distribution of the variants in HG002 called using ~50-fold coverage ONT data. The best quality cutoff is 748.
 
 ![](docs/QualDist-ONT.png)
 
 #### PacBio CCS data
+
 The image below shows the quality distribution of the variants in HG005 called using ~30-fold coverage PacBio CCS data. The best quality cutoff is 143.
 
 ![](docs/QualDist-PBCCS.png)
 
 #### Illumina data
+
 The image below shows the quality distribution of the variants in HG002 called using ~60-fold coverage Illumina data. The best quality cutoff is 113.
 
 ![](docs/QualDist-ILMN.png)
 
 ### Clair uses PyPy for speedup
+
 Without a change to the code, using PyPy python interpreter on some tensorflow independent modules such as `ExtractVariantCandidates` and `CreateTensor` gives a 5-10 times speed up. Pypy python interpreter can be installed by apt-get, yum, Homebrew, MacPorts, etc. If you have no root access to your system, the official website of Pypy provides a portable binary distribution for Linux. Beside following the conda installation method in [Installation](#installation), the following is a rundown extracted from Pypy's website (PyPy3.6 v7.2.0 in this case) on how to install the binaries.
 
 ```bash
