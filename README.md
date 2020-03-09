@@ -23,9 +23,9 @@ This is the formal release of Clair (Clair v2, Dec 2019). You can find the exper
 
 ---
 
-## What's new
+## What's new?
 
-* 20200309 - An ONT model trained with up to 578-fold coverage HG002 data from [The Human Pangenome Reference Consortium](https://humanpangenome.org/data/) is now available in [Pretrained Models](#pretrained-models). The below table shows the biased test results, i.e. testing samples included in training, thus not for benchmarking but indicate the performance cap of each model at different coverages. The new model shows significantly improved performance at high coverages.
+* 20200309 - An ONT model trained with up to 578-fold coverage HG002 data from [The Human Pangenome Reference Consortium](https://humanpangenome.org/data/) is now available in [Pretrained Models](#pretrained-models). The below table shows the biased test results, i.e. testing samples were included in training, thus are not for benchmarking but suggest the performance cap of each model at different coverages. The new model shows significantly improved performance at high coverages.
 
 ![](docs/benchmark-modelWith2HD.png)
 
