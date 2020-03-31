@@ -165,7 +165,7 @@ def variant_from(variant_row):
     alternate_base = alternates[0]
     alternate_base_multi = None if len(alternates) == 1 else alternates[1]
 
-    quality_score = int(columns[5])
+    quality_score = int(float(columns[5]))
 
     last_column = columns[-1]
     last_columns = last_column.split(":")
