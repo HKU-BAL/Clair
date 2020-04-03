@@ -116,7 +116,7 @@ def variant_map_from(var_fn, tree, is_tree_empty):
 
     f = subprocess_popen(shlex.split("gzip -fdc %s" % (var_fn)))
     for row in f.stdout:
-        columns = row.split(maxsplit=2)
+        columns = row.split()
         ctg_name, position_str = columns[0], columns[1]
 
         if not (is_tree_empty or is_region_in(tree, ctg_name, int(position_str))):
