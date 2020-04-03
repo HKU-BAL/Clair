@@ -34,7 +34,8 @@ flanking_base_number = param.flankingBaseNum
 OutputConfig = namedtuple('OutputConfig', [
     'is_show_reference',
     'is_debug',
-    'is_haploid_mode_enabled',
+    'is_haploid_precision_mode_enabled',
+    'is_haploid_sensitive_mode_enabled',
     'is_output_for_ensemble',
     'quality_score_for_pass',
 ])
@@ -190,7 +191,8 @@ def Run(args):
     output_config = OutputConfig(
         is_show_reference=args.showRef,
         is_debug=args.debug,
-        is_haploid_mode_enabled=args.haploid,
+        is_haploid_precision_mode_enabled=args.haploid_precision,
+        is_haploid_sensitive_mode_enabled=args.haploid_sensitive,
         is_output_for_ensemble=args.output_for_ensemble,
         quality_score_for_pass=args.qual,
     )
@@ -759,18 +761,6 @@ def output_from(
         is_hetero_DelDel = maximum_probability in hetero_DelDel_probabilities
         is_insertion_and_deletion = maximum_probability in hetero_InsDel_probabilities
 
-
-        if output_config.is_haploid_mode_enabled:
-            if (
-                is_hetero_SNP or is_hetero_ACGT_Ins or is_hetero_InsIns or
-                is_hetero_ACGT_Del or is_hetero_DelDel or is_insertion_and_deletion
-            ):
-                return (
-                    (True, False, False, False, False, False, False, False, False, False),
-                    (reference_base_ACGT, reference_base_ACGT)
-                )
-
-
         if is_homo_SNP:
             base1, base2 = homo_SNP_bases_from(gt21_probabilities)
             reference_base = reference_sequence[tensor_position_center]
@@ -1083,6 +1073,16 @@ def output_with(
 
     is_multi = "," in str(alternate_base)
 
+    # haploid (precision mode)
+    if output_config.is_haploid_precision_mode_enabled and (
+        is_hetero_SNP or is_hetero_ACGT_Ins or is_hetero_InsIns or
+        is_hetero_ACGT_Del or is_hetero_DelDel or is_insertion_and_deletion
+    ):
+        return
+    # haploid (sensitive mode)
+    elif output_config.is_haploid_sensitive_mode_enabled and is_multi:
+        return
+
     # geno type string
     if is_reference:
         genotype_string = genotype_string_from(Genotype.homo_reference)
@@ -1160,6 +1160,10 @@ def output_with(
         gt21_probabilities,
         genotype_probabilities,
     )
+
+    # replace genotype string if any haploid mode enabled
+    if output_config.is_haploid_precision_mode_enabled or output_config.is_haploid_sensitive_mode_enabled:
+        genotype_string = "1" if "1" in genotype_string else "0"
 
     # filtration value
     filtration_value = filtration_value_from(
@@ -1412,8 +1416,10 @@ def main():
     parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
 
-    parser.add_argument('--haploid', action='store_true',
-                        help="call haploid instead of diploid")
+    parser.add_argument('--haploid_precision', action='store_true',
+                        help="call haploid instead of diploid (output homo-variant only)")
+    parser.add_argument('--haploid_sensitive', action='store_true',
+                        help="call haploid instead of diploid (output non-multi-variant only)")
 
     parser.add_argument('--input_probabilities', action='store_true',
                         help="Accept probabilities as input, using those probabilities to call variant")
