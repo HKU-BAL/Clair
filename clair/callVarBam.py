@@ -87,7 +87,8 @@ def Run(args):
     stop_consider_left_edge = command_option_from(args.stop_consider_left_edge, 'stop_consider_left_edge')
     log_path = command_option_from(args.log_path, 'log_path', option_value=args.log_path)
     pysam_for_all_indel_bases = command_option_from(args.pysam_for_all_indel_bases, 'pysam_for_all_indel_bases')
-    haploid_mode = command_option_from(args.haploid, 'haploid')
+    haploid_precision_mode = command_option_from(args.haploid_precision, 'haploid_precision')
+    haploid_sensitive_mode = command_option_from(args.haploid_sensitive, 'haploid_sensitive')
     output_for_ensemble = command_option_from(args.output_for_ensemble, 'output_for_ensemble')
     debug = command_option_from(args.debug, 'debug')
     qual = command_option_from(args.qual, 'qual', option_value=args.qual)
@@ -163,7 +164,8 @@ def Run(args):
         CommandOption('threads', numCpus),
         CommandOption('ref_fn', ref_fn),
         pysam_for_all_indel_bases,
-        haploid_mode,
+        haploid_precision_mode,
+        haploid_sensitive_mode,
         output_for_ensemble,
         qual,
         debug
@@ -296,8 +298,10 @@ def main():
     parser.add_argument('--pysam_for_all_indel_bases', action='store_true',
                         help="Always using pysam for outputting indel bases, optional")
 
-    parser.add_argument('--haploid', action='store_true',
-                        help="call haploid instead of diploid")
+    parser.add_argument('--haploid_precision', action='store_true',
+                        help="call haploid instead of diploid (output homo-variant only)")
+    parser.add_argument('--haploid_sensitive', action='store_true',
+                        help="call haploid instead of diploid (output non-multi-variant only)")
 
     parser.add_argument('--activation_only', action='store_true',
                         help="Output activation only, no prediction")
