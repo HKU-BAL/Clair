@@ -1,10 +1,14 @@
-<p align="center"><a href="https://en.wiktionary.org/wiki/%E7%9C%BC"><img src="docs/clair-logo.png" alt="Clair"></a></p>
+<div align="center">
+  <a href="https://en.wiktionary.org/wiki/%E7%9C%BC" target="_blank">
+    <img src="docs/images/clair-logo.png" alt="Clair">
+  </a>
+</div>
 
 # Clair - deep neural network based variant caller
 
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/clair/README.html)  
-Contact: Ruibang Luo  
-Email: rbluo@cs.hku.hk  
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause) [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/clair/README.html)
+Contact: Ruibang Luo
+Email: rbluo@cs.hku.hk
 
 ---
 
@@ -13,6 +17,21 @@ Email: rbluo@cs.hku.hk
 Single-molecule sequencing technologies have emerged in recent years and revolutionized structural variant calling, complex genome assembly, and epigenetic mark detection. However, the lack of a highly accurate small variant caller has limited the new technologies from being more widely used. In this study, we present Clair, the successor to Clairvoyante, a program for fast and accurate germline small variant calling, using single molecule sequencing data. For ONT data, Clair achieves the best precision, recall and speed as compared to several competing programs, including Clairvoyante, Longshot and Medaka. Through studying the missed variants and benchmarking intentionally overfitted models, we found that Clair may be approaching the limit of possible accuracy for germline small variant calling using pileup data and deep neural networks.
 
 This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Jan 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair). The preprint of Clair v2 is available in [bioRxiv](https://www.biorxiv.org/content/10.1101/865782v2).
+
+---
+
+## Contents
+
+- [What are we working on right now](#what-are-we-working-on-right-now)
+- [What's new](#whats-new)
+- [Installation](#installation)
+- [Quick Demo](#quick-demo)
+- [Usage](#usage)
+- [What's new](#what's_new)
+- [Submodule Descriptions](#submodule-descriptions)
+- [Download Pretrained Models](#pretrained-models)
+- [Advanced Guides](#advanced-guides)
+- [Model Training](docs/TRAIN.md)
 
 ---
 
@@ -27,18 +46,7 @@ This is the formal release of Clair (Clair v2, Dec 2019). You can find the exper
 
 * 20200309 - An ONT model trained with up to 578-fold coverage HG002 data from [The Human Pangenome Reference Consortium](https://humanpangenome.org/data/) is now available in [Pretrained Models](#pretrained-models). The below table shows the biased test results, i.e. testing samples were included in training, thus are not for benchmarking but suggest the performance cap of each model at different coverages. The new model shows significantly improved performance at high coverages.
 
-![](docs/benchmark-modelWith2HD.png)
-
----
-
-## Contents
-- [Installation](#installation)
-- [Quick Demo](#quick-demo)
-- [Usage](#usage)
-- [Submodule Descriptions](#submodule-descriptions)
-- [Download Pretrained Models](#pretrained-models)
-- [Advanced Guides](#advanced-guides)
-- [Model Training](docs/TRAIN.md)
+![](docs/images/benchmark-modelWith2HD.png)
 
 ---
 
@@ -116,6 +124,12 @@ git clone https://github.com/HKU-BAL/Clair.git
 cd Clair
 chmod +x clair.py
 export PATH=`pwd`":$PATH"
+
+# store clair.py PATH into $CLAIR variable
+CLAIR=`which clair.py`
+
+# run clair like this afterwards
+python $CLAIR --help
 ```
 
 Then download the trained models referring to `download the trained model` in [Installation - Option 1](#option-1-bioconda)
@@ -286,7 +300,10 @@ vcfcat ${OUTPUT_PREFIX}.*.vcf | bcftools sort -m 2G | bgziptabix snp_and_indel.v
 * **Use GNU parallel to run commands in parallel** - `parallel -j4` will run four concurrencies in parallel using GNU parallel. We suggest using half the number of available CPU cores.
 * **An alternative to GNU parallel** - If [GNU parallel](https://www.gnu.org/software/parallel/) is not installed, please try ```awk '{print "\""$0"\""}' commands.sh | xargs -P4 -L1 sh -c```
 ##### Options
-* **Haploid Mode** - For haploid samples, please use the `--haploid` option.
+* **Haploid Precision Mode** - Use `--haploid_precision` option for haploid samples \
+(output homozygous variants only).
+* **Haploid Sensitive Mode** - Use `--haploid_sensitive` option for haploid samples \
+(output all variants except variants with genotype 1/2).
 * **Choosing genome sequences and positions for variant calling** - callVarBamParallel by default will generate commonds for chromosome {1..22},X,Y (insensible to the "chr" prefix). To call variants in other sequences, you can either input via option `--bed_fn` your own BED file with three columns including the target sequence names, starting positions and ending positions, or use the option `--includingAllContigs` to include all sequences in the input FASTA file. If you work on a non-human sample, please always use a BED file or the `--includingAllContigs` option to define the sequences you want Clair to work on.
 * **For more accurate Indel calling** - You may consider using the `--pysam_for_all_indel_bases` option for more accurate Indel results. On Illumina data and PacBio CCS data, the option requires 20% to 50% longer running time. On ONT data, Clair can run up to ten times slower, while the improvement in accuracy is not significant.
 ##### Other considerations
@@ -359,19 +376,19 @@ ONT | 0.2 |
 
 The variant quality distribution of Clair on ONT data is usually bimodal. The best quality cutoff is usually the valley between two peaks plus 50. The image below shows the quality distribution of the variants in HG002 called using ~50-fold coverage ONT data. The best quality cutoff is 748.
 
-![](docs/QualDist-ONT.png)
+![](docs/images/QualDist-ONT.png)
 
 #### PacBio CCS data
 
 The image below shows the quality distribution of the variants in HG005 called using ~30-fold coverage PacBio CCS data. The best quality cutoff is 143.
 
-![](docs/QualDist-PBCCS.png)
+![](docs/images/QualDist-PBCCS.png)
 
 #### Illumina data
 
 The image below shows the quality distribution of the variants in HG002 called using ~60-fold coverage Illumina data. The best quality cutoff is 113.
 
-![](docs/QualDist-ILMN.png)
+![](docs/images/QualDist-ILMN.png)
 
 ### Clair uses PyPy for speedup
 
