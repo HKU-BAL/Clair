@@ -59,6 +59,9 @@ BAM_FILE_PATHS=(
   "[YOUR_BAM_FILE_PATH_1]"
   "[YOUR_BAM_FILE_PATH_2]"
 )
+
+REFERENCE_FASTA_FILE_PATH="[YOUR_REFERENCE_FASTA_FILE]"  # e.g. chr21.fa
+BED_FILE_PATH="[YOUR_BED_FILE]"                          # e.g. chr21.bed
 ```
 
 #### 2. Output probabilities for each model-bam combination
