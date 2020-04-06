@@ -71,7 +71,7 @@ CLAIR=`which clair.py`
 python $CLAIR --help
 ```
 
-The conda environment has the Pypy3 intepreter installed, but one Pypy3 package `intervaltree` is still missing. The reason why this is not installed by default is because this is not yet available in any conda repositories. To install the package for Pypy3, after activating the conda environment, please run the follow commands:
+The conda environment has the Pypy3 interpreter installed, but one Pypy3 package `intervaltree` is still missing. The reason why this is not installed by default is because this is not yet available in any conda repositories. To install the package for Pypy3, after activating the conda environment, please run the following commands:
 
 ```bash
 pypy3 -m ensurepip
@@ -150,7 +150,7 @@ docker run -it clair_docker_image # You might need root privilege
 # store clair.py PATH into $CLAIR variable
 CLAIR=`which clair.py`
 
-# run clair like this
+# run clair like this afterwards
 python $CLAIR --help
 ```
 
@@ -222,7 +222,7 @@ KNOWN_VARIANTS_VCF="[YOUR_VCF_FILE]"                     # e.g. chr21.vcf
 
 ### Call variants at known variant sites or in a chromosome  (using `callVarBam`)
 
-**For whole genome variant calling, please use `callVarBamParallel` to generate multiple commands that invokes `callVarBam` on smaller chromosome chucks.**
+**For whole genome variant calling, please use `callVarBamParallel` to generate multiple commands that invoke `callVarBam` on smaller chromosome chucks.**
 
 #### Call variants in a chromosome
 
@@ -304,12 +304,12 @@ vcfcat ${OUTPUT_PREFIX}.*.vcf | bcftools sort -m 2G | bgziptabix snp_and_indel.v
 (output homozygous variants only).
 * **Haploid Sensitive Mode** - Use `--haploid_sensitive` option for haploid samples \
 (output all variants except variants with genotype 1/2).
-* **Choosing genome sequences and positions for variant calling** - callVarBamParallel by default will generate commonds for chromosome {1..22},X,Y (insensible to the "chr" prefix). To call variants in other sequences, you can either input via option `--bed_fn` your own BED file with three columns including the target sequence names, starting positions and ending positions, or use the option `--includingAllContigs` to include all sequences in the input FASTA file. If you work on a non-human sample, please always use a BED file or the `--includingAllContigs` option to define the sequences you want Clair to work on.
+* **Choosing genome sequences and positions for variant calling** - callVarBamParallel by default will generate commands for chromosome {1..22},X,Y (insensible to the "chr" prefix). To call variants in other sequences, you can either input via the option `--bed_fn` your own BED file with three columns including the target sequence names, starting positions and ending positions, or use the option `--includingAllContigs` to include all sequences in the input FASTA file. If you work on a non-human sample, please always use a BED file or the `--includingAllContigs` option to define the sequences you want Clair to work on.
 * **For more accurate Indel calling** - You may consider using the `--pysam_for_all_indel_bases` option for more accurate Indel results. On Illumina data and PacBio CCS data, the option requires 20% to 50% longer running time. On ONT data, Clair can run up to ten times slower, while the improvement in accuracy is not significant.
 ##### Other considerations
 * **Setting an appropriate allele frequency cutoff** - Please refer to [About Setting the Alternative Allele Frequency Cutoff](#about-setting-the-alternative-allele-frequency-cutoff)
 * **Check for incomplete (unfinished) VCF files** - Incomplete VCF files happens when 'out of memory' or other errors occur. The command in the example finds for a newline at the end of the VCF files, and regenerate the incomplete files.
-* **Disabling GPU: Clair uses CPU for varaint calling** - To avoid the tensorflow library from using GPU, `CUDA_VISIBLE_DEVICES=""` makes GPUs invisible to Clair so it will only use CPU for variant calling. Please notice that unless you want to run `commands.sh` in serial, you cannot use GPU because one running copy of Clair will occupy all available memory of a GPU. While the bottleneck of `callVarBam` is at the `CreateTensor` script, which only runs on CPU, the effect of GPU accelerate is insignificant (roughly just about 15% faster). But if you have multiple GPU cards in your system, and you want to utilize them in variant calling, you may want split the `commands.sh` in to parts, and run the parts by firstly `export CUDA_VISIBLE_DEVICES="$i"`, where `$i` is an integer from 0 identifying the ID of the GPU to be used.
+* **Disabling GPU: Clair uses CPU for variant calling** - To avoid the tensorflow library from using GPU, `CUDA_VISIBLE_DEVICES=""` makes GPUs invisible to Clair so it will only use CPU for variant calling. Please notice that unless you want to run `commands.sh` in serial, you cannot use GPU because one running copy of Clair will occupy all available memory of a GPU. While the bottleneck of `callVarBam` is at the `CreateTensor` script, which only runs on CPU, the effect of GPU accelerate is insignificant (roughly just about 15% faster). But if you have multiple GPU cards in your system, and you want to utilize them in variant calling, you may want to split the `commands.sh` into parts, and run the parts by firstly `export CUDA_VISIBLE_DEVICES="$i"`, where `$i` is an integer from 0 identifying the ID of the GPU to be used.
 * **Concatenating results** - `vcfcat` and `bgziptabix` commands are from [vcflib](https://github.com/vcflib/vcflib), and are installed by default.
 
 ---
@@ -320,7 +320,7 @@ Submodules in __`clair/`__ are for variant calling and model training. Submodule
 
 *For the submodules listed below, you use the `-h` or `--help` option for available options.*
 
-`clair/` | Note: submodules under this folder is Pypy incompatiable, please run using Python
+`clair/` | Note: submodules under this folder are Pypy incompatible, please run using Python
 ---: | ---
 `call_var` | Call variants using candidate variant tensors.
 `callVarBam` | Call variants directly from a BAM file.
@@ -392,7 +392,7 @@ The image below shows the quality distribution of the variants in HG002 called u
 
 ### Clair uses PyPy for speedup
 
-Without a change to the code, using PyPy python interpreter on some tensorflow independent modules such as `ExtractVariantCandidates` and `CreateTensor` gives a 5-10 times speed up. Pypy python interpreter can be installed by apt-get, yum, Homebrew, MacPorts, etc. If you have no root access to your system, the official website of Pypy provides a portable binary distribution for Linux. Beside following the conda installation method in [Installation](#installation), the following is a rundown extracted from Pypy's website (PyPy3.6 v7.2.0 in this case) on how to install the binaries.
+Without a change to the code, using PyPy python interpreter on some tensorflow independent modules such as `ExtractVariantCandidates` and `CreateTensor` gives a 5-10 times speed up. Pypy python interpreter can be installed by apt-get, yum, Homebrew, MacPorts, etc. If you have no root access to your system, the official website of Pypy provides a portable binary distribution for Linux. Besides following the conda installation method in [Installation](#installation), the following is a rundown extracted from Pypy's website (PyPy3.6 v7.2.0 in this case) on how to install the binaries.
 
 ```bash
 wget https://github.com/squeaky-pl/portable-pypy/releases/download/pypy3.6-7.2.0/pypy3.6-7.2.0-linux_x86_64-portable.tar.bz2
@@ -405,4 +405,4 @@ cd pypy3.6-7.2.0-linux_x86_64-portable/bin
 To guarantee a good user experience (good speed), pypy must be installed to run `callVarBam` (call variants from BAM), and `callVarBamParallel` that generate parallelizable commands to run `callVarBam`.
 Tensorflow is optimized using Cython thus not compatible with `pypy3`. For the list of scripts compatible to `pypy3`, please refer to the [Submodule Descriptions](#submodule-descriptions).
 
-*Pypy is an awesome Python JIT intepreter, you can donate to [the project](https://pypy.org).*
+*Pypy is an awesome Python JIT interpreter, you can donate to [the project](https://pypy.org).*

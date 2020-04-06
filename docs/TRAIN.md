@@ -2,7 +2,7 @@
 
 This document shows how to train a deep learning model for Clair.
 
-## Prerequisitions
+## Prerequisites
 - A powerful GPU
     - RTX Titan (tested)
     - GTX 2080 Ti (tested)
@@ -56,8 +56,8 @@ ln -s ${BAM_FILE_PATH}.bai ${SUBSAMPLED_BAMS_FOLDER_PATH}/1.000.bam.bai
 
 ### Caveats
 > - The whole procedure was break into blocks for better readability and error-tracing.
-> - For each `parallel` command ran with the `--joblog` option, we can check the `Exitval` column from the job log output. If the column contains a non-zero value, it means error occured, please try to rerun the block again.
-> - We suggest to use absolute path everywhere.
+> - For each `parallel` command ran with the `--joblog` option, we can check the `Exitval` column from the job log output. If the column contains a non-zero value, it means an error occurred, please try to rerun the block.
+> - We suggest using absolute path everywhere.
 
 ### Single individual
 
@@ -234,7 +234,7 @@ parallel --joblog ./tensor2Bin.log -j${THREADS_LOW} \
 --allow_duplicate_chr_pos"
 ```
 
-#### 10. Merge splited binaries into a single binary using the `CombineBins` submodule
+#### 10. Merge binaries into a single binary using the `CombineBins` submodule
 ```bash
 cd ${DATASET_FOLDER_PATH}
 python ${CLAIR} CombineBins
@@ -452,9 +452,9 @@ python ${CLAIR} CombineBins
 ### Setup variables for the commands afterwards
 ```bash
 CLAIR="[PATH_TO_CLAIR]/clair.py"
-MODEL_NAME=[YOUR_MODEL_NAME]                                 # e.g. "001"
+MODEL_NAME="[YOUR_MODEL_NAME]"                               # e.g. "001"
 MODEL_FOLDER_PATH="[YOUR_MODEL_FOLDER_PATH]/${MODEL_NAME}"
-TENSOR_FILE_PATH=[YOUR_BIN_FILE_PATH]                        # e.g. ./tensor.bin
+TENSOR_FILE_PATH="[YOUR_BIN_FILE_PATH]"                      # e.g. ./tensor.bin
 
 mkdir ${MODEL_FOLDER_PATH}
 
