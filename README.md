@@ -32,6 +32,7 @@ This is the formal release of Clair (Clair v2, Dec 2019). You can find the exper
 - [Download Pretrained Models](#pretrained-models)
 - [Advanced Guides](#advanced-guides)
 - [Model Training](docs/TRAIN.md)
+- [Post Processing](docs/POST_PROCESSING)
 
 ---
 
