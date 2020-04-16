@@ -46,9 +46,9 @@ This is the formal release of Clair (Clair v2, Dec 2019). You can find the exper
 ## What's new?
 
 * 20200416
-    - added `--haploid_precision` and `--haploid_sensitive` options (in #24)
-    - added simple way to deal with overlapped variants (in #15)
-    - fix haploid report issue (in #17)
+    - added `--haploid_precision` and `--haploid_sensitive` options (in [#24](https://github.com/hku-bal/clair/issues/24))
+    - added simple way to deal with overlapped variants (in [#15](https://github.com/hku-bal/clair/issues/15))
+    - fix haploid report issue (in [#17](https://github.com/hku-bal/clair/issues/17))
 * 20200309
     - an ONT model trained with up to 578-fold coverage HG002 data from [The Human Pangenome Reference Consortium](https://humanpangenome.org/data/) is now available in [Pretrained Models](#pretrained-models). The below table shows the biased test results, i.e. testing samples were included in training, thus are not for benchmarking but suggest the performance cap of each model at different coverages. The new model shows significantly improved performance at high coverages.
 
