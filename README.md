@@ -340,7 +340,7 @@ Submodules in __`clair/`__ are for variant calling and model training. Submodule
 `dataPrepScripts/` | Note: submodules under this folder is Pypy compatiable unless specified.
 ---: | ---
 `ExtractVariantCandidates`| Extract the position of variant candidates.<br>Input: BAM; Reference FASTA.<br>_Important option(s):<br>`--threshold` "Minimum alternative allele frequency to report a candidate"<br>`--minCoverage` "Minimum coverage to report a candidate"_
-`GetTruth`| Extract the variants from a truth VCF. Input: VCF.
+`GetTruth`| Extract the variants from a truth VCF. Input: VCF; Reference FASTA if the vcf contains asterisks in ALT field.
 `CreateTensor`| Create tensors for candidates or truth variants.<br>Input: A candidate list; BAM; Reference FASTA.
 `PairWithNonVariants`| Pair truth variant tensors with non-variant tensors.<br>Input: Truth variants tensors; Candidate variant tensors.<br>_Important option(s):<br>`--amp x` "1-time truth variants + x-time non-variants"._
 `Tensor2Bin` | Create a compressed binary tensors file to facilitate and speed up future usage.<br>Input: Mixed tensors by `PairWithNonVariants`; Truth variants by `GetTruth` and a BED file marks the high confidence regions in the reference genome.<br>(Pypy incompatible)
