@@ -141,6 +141,7 @@ parallel --joblog ./get_truth.log -j${THREADS} \
 "${PYPY} ${CLAIR} GetTruth \
 --vcf_fn ${VCF_FILE_PATH} \
 --var_fn ${VARIANT_FOLDER_PATH}/var_{1} \
+--ref_fn ${REFERENCE_FILE_PATH} \
 --ctgName ${CHR_PREFIX}{1}" ::: ${CHR[@]}
 
 # merge all truth variants into a single file (named all_var)
