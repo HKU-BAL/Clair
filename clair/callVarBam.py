@@ -136,6 +136,7 @@ def Run(args):
         pypyBin,
         GTBin,
         CommandOption('vcf_fn', vcf_fn),
+        CommandOption('ref_fn', ref_fn),
         CommandOption('ctgName', ctgName),
         ctgStart,
         ctgEnd
