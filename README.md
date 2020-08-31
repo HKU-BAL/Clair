@@ -45,6 +45,8 @@ This is the formal release of Clair (Clair v2, Dec 2019). You can find the exper
 
 ## What's new?
 
+* 20200831
+    - added support for alternative allele "*". "GetTruth.py" now requires a reference genome as input. You don't need to change your usage if you use "callVarBam.py" for automatic scripts generation.
 * 20200416
     - added two new options for haploid calling, `--haploid_precision` and `--haploid_sensitive` (in [#24](https://github.com/hku-bal/clair/issues/24))
     - added a simple after calling solution to handle overlapped variants (in [#15](https://github.com/hku-bal/clair/issues/15))
