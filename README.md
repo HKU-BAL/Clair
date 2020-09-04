@@ -128,7 +128,7 @@ conda install -c conda-forge parallel=20191122 zstd=1.4.4
 conda install -c bioconda samtools=1.10 vcflib=1.0.0 bcftools=1.10.2
 
 # clone Clair
-git clone https://github.com/HKU-BAL/Clair.git
+git clone --depth 1 https://github.com/HKU-BAL/Clair.git
 cd Clair
 chmod +x clair.py
 export PATH=`pwd`":$PATH"
@@ -146,7 +146,7 @@ Then download the trained models referring to `download the trained model` in [I
 
 ```bash
 # clone Clair
-git clone https://github.com/HKU-BAL/Clair.git
+git clone --depth 1 https://github.com/HKU-BAL/Clair.git
 cd Clair
 
 # build a docker image named clair_docker_image
