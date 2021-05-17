@@ -20,7 +20,6 @@ Single-molecule sequencing technologies have emerged in recent years and revolut
 
 This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Jan 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair). The preprint of Clair v2 is available in [bioRxiv](https://www.biorxiv.org/content/10.1101/865782v2).
 
-
 ---
 
 ## Contents
@@ -48,6 +47,8 @@ This is the formal release of Clair (Clair v2, Dec 2019). You can find the exper
 
 ## What's new?
 
+* 20200831
+    - added support for alternative allele "*". "GetTruth.py" now requires a reference genome as input. You don't need to change your usage if you use "callVarBam.py" for automatic scripts generation.
 * 20200416
     - added two new options for haploid calling, `--haploid_precision` and `--haploid_sensitive` (in [#24](https://github.com/hku-bal/clair/issues/24))
     - added a simple after calling solution to handle overlapped variants (in [#15](https://github.com/hku-bal/clair/issues/15))
@@ -129,7 +130,7 @@ conda install -c conda-forge parallel=20191122 zstd=1.4.4
 conda install -c bioconda samtools=1.10 vcflib=1.0.0 bcftools=1.10.2
 
 # clone Clair
-git clone https://github.com/HKU-BAL/Clair.git
+git clone --depth 1 https://github.com/HKU-BAL/Clair.git
 cd Clair
 chmod +x clair.py
 export PATH=`pwd`":$PATH"
@@ -147,7 +148,7 @@ Then download the trained models referring to `download the trained model` in [I
 
 ```bash
 # clone Clair
-git clone https://github.com/HKU-BAL/Clair.git
+git clone --depth 1 https://github.com/HKU-BAL/Clair.git
 cd Clair
 
 # build a docker image named clair_docker_image
@@ -343,7 +344,7 @@ Submodules in __`clair/`__ are for variant calling and model training. Submodule
 `dataPrepScripts/` | Note: submodules under this folder is Pypy compatiable unless specified.
 ---: | ---
 `ExtractVariantCandidates`| Extract the position of variant candidates.<br>Input: BAM; Reference FASTA.<br>_Important option(s):<br>`--threshold` "Minimum alternative allele frequency to report a candidate"<br>`--minCoverage` "Minimum coverage to report a candidate"_
-`GetTruth`| Extract the variants from a truth VCF. Input: VCF.
+`GetTruth`| Extract the variants from a truth VCF. Input: VCF; Reference FASTA if the vcf contains asterisks in ALT field.
 `CreateTensor`| Create tensors for candidates or truth variants.<br>Input: A candidate list; BAM; Reference FASTA.
 `PairWithNonVariants`| Pair truth variant tensors with non-variant tensors.<br>Input: Truth variants tensors; Candidate variant tensors.<br>_Important option(s):<br>`--amp x` "1-time truth variants + x-time non-variants"._
 `Tensor2Bin` | Create a compressed binary tensors file to facilitate and speed up future usage.<br>Input: Mixed tensors by `PairWithNonVariants`; Truth variants by `GetTruth` and a BED file marks the high confidence regions in the reference genome.<br>(Pypy incompatible)
