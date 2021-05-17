@@ -18,6 +18,8 @@ Single-molecule sequencing technologies have emerged in recent years and revolut
 
 This is the formal release of Clair (Clair v2, Dec 2019). You can find the experimental Clair v1 (Jan 2019) at [https://github.com/aquaskyline/Clair](https://github.com/aquaskyline/Clair). The preprint of Clair v2 is available in [bioRxiv](https://www.biorxiv.org/content/10.1101/865782v2).
 
+**We have released [Clair3](https://github.com/HKU-BAL/Clair3), the successor of Clair, which supports new basecallers (Guppy >= 3.6.0) and performs better in both SNP and Indel.**
+
 ---
 
 ## Contents
